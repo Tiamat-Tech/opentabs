@@ -13,7 +13,7 @@
  * All tests use dynamic ports and are safe for parallel execution.
  */
 
-import { test, expect, fetchWsUrl } from './fixtures.js';
+import { test, expect, fetchWsUrl, createMcpClient } from './fixtures.js';
 import {
   waitForLog,
   waitForExtensionConnected,
@@ -861,5 +861,38 @@ test.describe('Malformed WebSocket messages', () => {
     expect(afterParsed.message).toBe('after-malformed');
 
     await page.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MCP session invalidation after close
+// ---------------------------------------------------------------------------
+
+test.describe('MCP session invalidation after close', () => {
+  test('closing MCP session and creating a new one works cleanly', async ({
+    mcpServer,
+    extensionContext: _extensionContext,
+  }) => {
+    await waitForExtensionConnected(mcpServer);
+
+    // Client A: create, initialize, call browser_list_tabs — verify success
+    const clientA = createMcpClient(mcpServer.port);
+    await clientA.initialize();
+
+    const resultA = await clientA.callTool('browser_list_tabs');
+    expect(resultA.isError).toBe(false);
+
+    // Close client A (sends DELETE to terminate the session)
+    await clientA.close();
+
+    // Client B: create on the same server port, initialize, verify tools work
+    const clientB = createMcpClient(mcpServer.port);
+    await clientB.initialize();
+
+    const resultB = await clientB.callTool('browser_list_tabs');
+    expect(resultB.isError).toBe(false);
+
+    // Close client B
+    await clientB.close();
   });
 });
