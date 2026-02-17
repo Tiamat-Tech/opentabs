@@ -13,7 +13,7 @@ export const sendToServer = (data: unknown): void => {
 
 /** Forward a message to the side panel (fire-and-forget) */
 export const forwardToSidePanel = (message: SidePanelMessage): void => {
-  const type = (message as { type?: string }).type ?? 'unknown';
+  const type = message.type;
   chrome.runtime.sendMessage(message).catch((err: unknown) => {
     console.warn(`[OpenTabs] forwardToSidePanel failed for "${type}":`, err);
   });
