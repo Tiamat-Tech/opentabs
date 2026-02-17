@@ -714,6 +714,73 @@ test.describe('Tool input validation', () => {
 // Malformed WebSocket messages
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Tab closing during active in-flight tool dispatch
+// ---------------------------------------------------------------------------
+
+test.describe('Tab closing during in-flight dispatch', () => {
+  test('tab closed mid-execution returns clean error, not 30s timeout', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // Verify the tool works normally before the test
+    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'pre-close' });
+    expect(okOutput.message).toBe('pre-close');
+
+    // Set test server delay to 10s — long enough to close the tab while the
+    // adapter is blocked in a fetch, short enough to be well under the 25s
+    // SCRIPT_TIMEOUT_MS.
+    await testServer.setSlow(10_000);
+
+    // Fire the tool call without awaiting — it will block in the adapter's
+    // fetch for 10s.
+    const start = Date.now();
+    const toolCallPromise = mcpClient.callTool('e2e-test_echo', { message: 'should-fail' });
+
+    // Wait ~2s for the script to start executing in the tab before closing it.
+    await new Promise(r => setTimeout(r, 2_000));
+
+    // Close the tab — this causes chrome.scripting.executeScript to reject
+    // with "No tab with id" or "Cannot access", triggering the catch block
+    // in tool-dispatch.ts that returns code -32001.
+    await page.close();
+
+    // Await the tool call result — should be a clean error, not a 30s timeout
+    const result = await toolCallPromise;
+    const elapsed = Date.now() - start;
+
+    expect(result.isError).toBe(true);
+
+    // The error should come back quickly (well under the 25s script timeout)
+    expect(elapsed).toBeLessThan(15_000);
+
+    // Reset slow mode for the recovery test
+    await testServer.setSlow(0);
+
+    // Open a new tab and verify a subsequent tool call succeeds
+    const newPage = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
+    const recoveredResult = await waitForToolResult(
+      mcpClient,
+      'e2e-test_echo',
+      { message: 'after-reopen' },
+      { isError: false },
+      15_000,
+    );
+    const recoveredOutput = parseToolResult(recoveredResult.content);
+    expect(recoveredOutput.message).toBe('after-reopen');
+
+    await newPage.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Malformed WebSocket messages
+// ---------------------------------------------------------------------------
+
 test.describe('Malformed WebSocket messages', () => {
   test('invalid JSON, non-object JSON, and missing method+id do not drop the connection', async ({
     mcpServer,
