@@ -21,6 +21,53 @@ import type { McpClient, McpServer, TestServer } from './fixtures.js';
 import type { BrowserContext, Page } from '@playwright/test';
 
 // ---------------------------------------------------------------------------
+// Extension introspection
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the extension ID from the background service worker URL.
+ * The service worker URL follows the pattern: chrome-extension://<id>/dist/background.js
+ */
+export const getExtensionId = async (context: BrowserContext): Promise<string> => {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    for (const sw of context.serviceWorkers()) {
+      const m = sw.url().match(/chrome-extension:\/\/([^/]+)/);
+      if (m?.[1]) return m[1];
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+  throw new Error('Could not find extension service worker within 10s');
+};
+
+/**
+ * Open the side panel as a regular extension page in the browser context.
+ */
+export const openSidePanel = async (context: BrowserContext): Promise<Page> => {
+  const extId = await getExtensionId(context);
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extId}/side-panel/side-panel.html`, {
+    waitUntil: 'load',
+    timeout: 10_000,
+  });
+  return page;
+};
+
+/**
+ * Set up the adapter symlink between the MCP server's config dir and the
+ * extension's adapters directory.
+ */
+export const setupAdapterSymlink = (configDir: string, extensionDir: string): void => {
+  const serverAdaptersParent = path.join(configDir, 'extension');
+  fs.mkdirSync(serverAdaptersParent, { recursive: true });
+  const serverAdaptersDir = path.join(serverAdaptersParent, 'adapters');
+  const extensionAdaptersDir = path.join(extensionDir, 'adapters');
+  fs.mkdirSync(extensionAdaptersDir, { recursive: true });
+  fs.rmSync(serverAdaptersDir, { recursive: true, force: true });
+  fs.symlinkSync(extensionAdaptersDir, serverAdaptersDir);
+};
+
+// ---------------------------------------------------------------------------
 // Log and health polling
 // ---------------------------------------------------------------------------
 
@@ -348,12 +395,7 @@ export const setupIsolatedIifeTest = async (configDirPrefix: string): Promise<Is
   const testSrv = await startTestServer();
 
   const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port);
-  const serverAdaptersParent = path.join(configDir, 'extension');
-  fs.mkdirSync(serverAdaptersParent, { recursive: true });
-  const serverAdaptersDir = path.join(serverAdaptersParent, 'adapters');
-  const extensionAdaptersDir = path.join(extensionDir, 'adapters');
-  fs.rmSync(serverAdaptersDir, { recursive: true, force: true });
-  fs.symlinkSync(extensionAdaptersDir, serverAdaptersDir);
+  setupAdapterSymlink(configDir, extensionDir);
 
   const client = createMcpClient(server.port);
 

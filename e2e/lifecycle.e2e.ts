@@ -41,6 +41,7 @@ import {
   waitForToolResult,
   callToolExpectSuccess,
   setupToolTest,
+  getExtensionId,
 } from './helpers.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -673,21 +674,6 @@ test.describe('extension_reload', () => {
 // This exercises the US-002 fix: the ws:setUrl handler's third branch where
 // ws is null and no reconnect timer is pending.
 // ---------------------------------------------------------------------------
-
-/**
- * Get the extension ID from the background service worker URL.
- */
-const getExtensionId = async (context: BrowserContext): Promise<string> => {
-  const deadline = Date.now() + 10_000;
-  while (Date.now() < deadline) {
-    for (const sw of context.serviceWorkers()) {
-      const m = sw.url().match(/chrome-extension:\/\/([^/]+)/);
-      if (m?.[1]) return m[1];
-    }
-    await new Promise(r => setTimeout(r, 300));
-  }
-  throw new Error('Could not find extension service worker within 10s');
-};
 
 /**
  * Set mcpServerUrl in chrome.storage.local via an extension page.

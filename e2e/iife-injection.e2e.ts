@@ -27,6 +27,7 @@ import {
   waitForToolList,
   setupToolTest,
   setupIsolatedIifeTest,
+  getExtensionId,
 } from './helpers.js';
 import { test } from '@playwright/test';
 import fs from 'node:fs';
@@ -236,22 +237,6 @@ fixtureTest.describe('IIFE injection — sync.full removal cleanup', () => {
 // directly by sending JSON-RPC messages through chrome.runtime.sendMessage
 // from an extension page, exercising the same code path as real WebSocket messages.
 // ---------------------------------------------------------------------------
-
-/**
- * Get the extension ID from the background service worker URL.
- * The service worker URL follows the pattern: chrome-extension://<id>/dist/background.js
- */
-const getExtensionId = async (context: BrowserContext): Promise<string> => {
-  const deadline = Date.now() + 10_000;
-  while (Date.now() < deadline) {
-    for (const sw of context.serviceWorkers()) {
-      const m = sw.url().match(/chrome-extension:\/\/([^/]+)/);
-      if (m?.[1]) return m[1];
-    }
-    await new Promise(r => setTimeout(r, 300));
-  }
-  throw new Error('Could not find extension service worker within 10s');
-};
 
 /**
  * Open an extension page that has access to chrome.runtime.sendMessage.
