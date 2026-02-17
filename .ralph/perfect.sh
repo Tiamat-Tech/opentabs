@@ -3,14 +3,18 @@
 #
 # Usage: .ralph/perfect.sh [--tool claude] [--max-rounds N] [--dry-run]
 #
-# Runs an infinite convergence loop:
+# Runs a convergence loop:
 #   1. Claude audits the entire codebase (PERFECT.md)
 #   2. If PERFECT → exit successfully (codebase is at the highest standard)
-#   3. If NEEDS_RALPH → run ralph.sh to execute fixes, then loop back to 1
+#   3. If NEEDS_RALPH → the audit wrote a timestamped PRD file to .ralph/;
+#      wait for the ralph.sh daemon to pick it up, execute it, and archive it,
+#      then loop back to step 1 for a fresh audit.
 #
-# The loop terminates when the auditor finds nothing left to improve.
-# All output (audit + ralph) goes to stdout. To log:
-#   nohup .ralph/perfect.sh > /tmp/opentabs-ralph.log 2>&1 &
+# Prerequisites: ralph.sh must be running as a daemon in another terminal.
+# Start it with: nohup .ralph/ralph.sh > /tmp/ralph.log 2>&1 &
+#
+# All output goes to stdout. To log:
+#   nohup .ralph/perfect.sh > /tmp/opentabs-perfect.log 2>&1 &
 
 set -e
 
@@ -60,7 +64,6 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
 PERFECT_PROMPT="$SCRIPT_DIR/PERFECT.md"
-PRD_FILE="$SCRIPT_DIR/prd.json"
 
 # Colors
 RED='\033[31m'
@@ -78,21 +81,11 @@ if [ ! -f "$PERFECT_PROMPT" ]; then
   exit 1
 fi
 
-if [ ! -f "$SCRIPT_DIR/ralph.sh" ]; then
-  echo -e "${RED}Error: No ralph.sh found at $SCRIPT_DIR/ralph.sh${RESET}"
-  exit 1
-fi
-
 # --- Stream Filter ---
 # Extracts concise progress lines from claude's stream-json output.
 
 stream_filter() {
   local result_file="$1"
-  local DIM='\033[2m'
-  local CYAN='\033[36m'
-  local GREEN='\033[32m'
-  local YELLOW='\033[33m'
-  local RESET='\033[0m'
 
   while IFS= read -r line; do
     [ -z "$line" ] && continue
@@ -156,6 +149,22 @@ stream_filter() {
   done
 }
 
+# Wait for all PRD files in .ralph/ to be processed (no ready, ~running, or ~done files).
+wait_for_ralph() {
+  echo -e "${DIM}  Waiting for ralph.sh daemon to process PRD...${RESET}"
+  while true; do
+    local pending
+    pending=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'prd-*.json' -type f \
+      ! -name '*~draft*' \
+      2>/dev/null | wc -l | tr -d ' ')
+    if [ "$pending" -eq 0 ]; then
+      echo -e "${GREEN}  Ralph finished processing.${RESET}"
+      return 0
+    fi
+    sleep 5
+  done
+}
+
 # --- Main Loop ---
 
 echo ""
@@ -169,10 +178,10 @@ if [ -n "$MAX_ROUNDS" ]; then
 else
   echo -e "  Max rounds:   ${CYAN}unlimited (until PERFECT)${RESET}"
 fi
+echo -e "  ${DIM}Requires ralph.sh daemon running in another terminal.${RESET}"
 echo ""
 
 ROUND=0
-TOTAL_STORIES_FIXED=0
 
 while true; do
   ROUND=$((ROUND + 1))
@@ -181,7 +190,6 @@ while true; do
   if [ -n "$MAX_ROUNDS" ] && [ "$ROUND" -gt "$MAX_ROUNDS" ]; then
     echo ""
     echo -e "${YELLOW}Reached max rounds ($MAX_ROUNDS) without achieving PERFECT.${RESET}"
-    echo -e "${YELLOW}Total stories fixed across all rounds: $TOTAL_STORIES_FIXED${RESET}"
     echo -e "${YELLOW}Run again to continue converging.${RESET}"
     exit 1
   fi
@@ -218,7 +226,6 @@ while true; do
     echo -e "${BOLD}${GREEN}║   PERFECT — Codebase is at the highest standard.          ║${RESET}"
     echo -e "${BOLD}${GREEN}║                                                           ║${RESET}"
     echo -e "${BOLD}${GREEN}║   Converged in $ROUND round(s).                                  ${RESET}"
-    echo -e "${BOLD}${GREEN}║   Total stories fixed: $TOTAL_STORIES_FIXED                                ${RESET}"
     echo -e "${BOLD}${GREEN}║                                                           ║${RESET}"
     echo -e "${BOLD}${GREEN}╚═══════════════════════════════════════════════════════════╝${RESET}"
     echo ""
@@ -229,51 +236,11 @@ while true; do
   if [ -f "$AUDIT_RESULT_FILE" ] && grep -q "<promise>NEEDS_RALPH</promise>" "$AUDIT_RESULT_FILE" 2>/dev/null; then
     rm -f "$AUDIT_RESULT_FILE"
 
-    # Verify prd.json was generated
-    if [ ! -f "$PRD_FILE" ]; then
-      echo -e "${RED}  Audit signaled NEEDS_RALPH but did not generate prd.json.${RESET}"
-      echo -e "${RED}  This is an auditor error. Retrying next round.${RESET}"
-      continue
-    fi
-
-    STORY_COUNT=$(jq '.userStories | length' "$PRD_FILE" 2>/dev/null || echo "0")
     echo ""
-    echo -e "${CYAN}  Audit found ${STORY_COUNT} issue(s) to fix.${RESET}"
+    echo -e "${CYAN}  Audit found issues. PRD file written to .ralph/ for ralph.sh daemon.${RESET}"
 
-    # --- Phase 2: Ralph execution ---
-    echo ""
-    echo -e "${BOLD}┌───────────────────────────────────────────────────────────┐${RESET}"
-    echo -e "${BOLD}│  Round $ROUND — Ralph Execution ($STORY_COUNT stories)                  ${RESET}"
-    echo -e "${BOLD}└───────────────────────────────────────────────────────────┘${RESET}"
-
-    "$SCRIPT_DIR/ralph.sh" --tool "$TOOL" || true
-
-    # Tally results: ralph archives prd.json on completion, so read from
-    # the archive if the file was moved, otherwise read in-place.
-    if [ -f "$PRD_FILE" ]; then
-      TALLY_FILE="$PRD_FILE"
-    else
-      # prd.json was archived — find the most recent archive
-      TALLY_FILE=$(find "$SCRIPT_DIR/archive" -name "prd.json" -type f 2>/dev/null | sort | tail -1)
-    fi
-
-    if [ -n "$TALLY_FILE" ] && [ -f "$TALLY_FILE" ]; then
-      STORIES_PASSED=$(jq '[.userStories[] | select(.passes == true)] | length' "$TALLY_FILE" 2>/dev/null || echo "0")
-      STORIES_TOTAL=$(jq '.userStories | length' "$TALLY_FILE" 2>/dev/null || echo "0")
-    else
-      STORIES_PASSED="$STORY_COUNT"
-      STORIES_TOTAL="$STORY_COUNT"
-    fi
-
-    TOTAL_STORIES_FIXED=$((TOTAL_STORIES_FIXED + STORIES_PASSED))
-
-    echo ""
-    echo -e "  Round $ROUND results: ${GREEN}${STORIES_PASSED}${RESET}/${STORIES_TOTAL} stories fixed"
-    echo -e "  Total fixed so far: ${GREEN}${TOTAL_STORIES_FIXED}${RESET}"
-
-    if [ "$STORIES_PASSED" -lt "$STORIES_TOTAL" ]; then
-      echo -e "${YELLOW}  Ralph did not complete all stories. Continuing to next audit round.${RESET}"
-    fi
+    # Wait for ralph.sh daemon to pick up, execute, and archive the PRD
+    wait_for_ralph
 
     # Loop back to audit phase
     sleep 2

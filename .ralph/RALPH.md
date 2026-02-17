@@ -4,16 +4,17 @@ You are an autonomous coding agent working on the OpenTabs Platform project.
 
 ## Your Task
 
-1. Read the PRD at `.ralph/prd.json`
-2. Read the progress log at `.ralph/progress.txt` (check Codebase Patterns section first)
-3. Work on the current branch (do NOT create or switch branches)
-4. Pick the **highest priority** user story where `passes: false`
-5. Implement that single user story
-6. Run quality checks: `bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e`
-7. Update CLAUDE.md files if you discover reusable patterns (see below)
-8. If checks pass, commit code changes (see Git Rules below)
-9. **After committing**, update the PRD to set `passes: true` for the completed story
-10. **After committing**, append your progress to `.ralph/progress.txt`
+1. Find the active PRD: look for the file in `.ralph/` whose name matches `prd-*~running.json` — there is exactly one at any time
+2. Find the matching progress file: replace the `prd-` prefix with `progress-`, strip `~running`, and change the extension to `.txt` (e.g., `prd-2026-02-17-143000-improve-sdk~running.json` → `progress-2026-02-17-143000-improve-sdk.txt`)
+3. Read the progress file's Codebase Patterns section first (if it exists)
+4. Work on the current branch (do NOT create or switch branches)
+5. Pick the **highest priority** user story where `passes: false`
+6. Implement that single user story
+7. Run quality checks: `bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e`
+8. Update CLAUDE.md files if you discover reusable patterns (see below)
+9. If checks pass, commit code changes (see Git Rules below)
+10. **After committing**, update the PRD to set `passes: true` for the completed story
+11. **After committing**, append your progress to the matching progress file
 
 ## Project Context
 
@@ -27,9 +28,20 @@ This is the OpenTabs Platform project — an open-source platform enabling AI ag
 
 All file paths are relative to the project root (where `.ralph/` lives).
 
+## Finding Your Files
+
+The PRD and progress files use a naming convention based on the file name state machine:
+
+```
+.ralph/prd-YYYY-MM-DD-HHMMSS-objective~running.json    ← your PRD (read/update this)
+.ralph/progress-YYYY-MM-DD-HHMMSS-objective.txt         ← your progress log (append to this)
+```
+
+Use a glob pattern to find the active PRD: `.ralph/prd-*~running.json`
+
 ## Progress Report Format
 
-APPEND to `.ralph/progress.txt` (never replace, always append):
+APPEND to the progress file (never replace, always append):
 
 ```
 ## [Date/Time] - [Story ID]
@@ -46,7 +58,7 @@ The learnings section is critical — it helps future iterations avoid repeating
 
 ## Consolidate Patterns
 
-If you discover a **reusable pattern** that future iterations should know, add it to the `## Codebase Patterns` section at the TOP of `.ralph/progress.txt` (create it if it doesn't exist). This section should consolidate the most important learnings:
+If you discover a **reusable pattern** that future iterations should know, add it to the `## Codebase Patterns` section at the TOP of the progress file (create it if it doesn't exist). This section should consolidate the most important learnings:
 
 ```
 ## Codebase Patterns
@@ -80,7 +92,7 @@ Before committing, check if any edited files have learnings worth preserving in 
 
 - Story-specific implementation details
 - Temporary debugging notes
-- Information already in progress.txt
+- Information already in the progress file
 
 Only update CLAUDE.md if you have **genuinely reusable knowledge** that would help future work in that directory.
 
@@ -105,7 +117,7 @@ If no browser tools are available, note in your progress report that manual brow
 
 ## Git Rules
 
-**`.ralph/prd.json` and `.ralph/progress.txt` must NEVER be committed.** They are ephemeral working files that are gitignored. The pre-commit hook will reject any commit that includes them.
+**PRD files and progress files in `.ralph/` must NEVER be committed.** They are ephemeral working files that are gitignored. The pre-commit hook will reject any commit that includes them.
 
 When committing, **never use `git add .` or `git add -A`** — these can accidentally stage gitignored files that were previously tracked. Instead, stage only the specific files you changed:
 
@@ -114,7 +126,7 @@ git add path/to/file1.ts path/to/file2.ts
 git commit -m "feat: [Story ID] - [Story Title]"
 ```
 
-Steps 9 and 10 (updating prd.json and progress.txt) must happen **after** the commit, so these files are never in the staging area during a commit.
+Steps 10 and 11 (updating the PRD and progress file) must happen **after** the commit, so these files are never in the staging area during a commit.
 
 ## Stop Condition
 
@@ -130,5 +142,5 @@ If there are still stories with `passes: false`, end your response normally (ano
 - Work on ONE story per iteration
 - Commit frequently
 - Keep builds green
-- Read the Codebase Patterns section in `.ralph/progress.txt` before starting
+- Read the Codebase Patterns section in the progress file before starting
 - All file paths are relative to the project root

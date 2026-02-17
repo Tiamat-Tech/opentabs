@@ -5,9 +5,23 @@ description: 'Plan work and generate ralph task files for autonomous execution. 
 
 # Ralph Task Planner
 
-Plan work and generate `.ralph/prd.json` task files for autonomous execution by the Ralph agent loop.
+Plan work and generate timestamped PRD files in `.ralph/` for autonomous execution by the Ralph daemon.
 
-Ralph is a bash script (`.ralph/ralph.sh`) that runs an AI coding agent in a loop. Each iteration picks the next incomplete user story from `.ralph/prd.json`, implements it, commits, and marks it done. This skill creates the task file that drives that loop.
+Ralph is a bash script (`.ralph/ralph.sh`) that runs as a long-lived daemon, polling `.ralph/` for ready PRD files and processing them in timestamp order. Each PRD file drives a loop of AI coding iterations — one per user story. This skill creates the PRD file that the daemon picks up automatically.
+
+---
+
+## PRD File Name State Machine
+
+```
+prd-YYYY-MM-DD-HHMMSS-objective~draft.json    — being written (this skill), ralph ignores
+prd-YYYY-MM-DD-HHMMSS-objective.json           — ready for pickup by ralph daemon
+prd-YYYY-MM-DD-HHMMSS-objective~running.json   — currently being executed by ralph
+prd-YYYY-MM-DD-HHMMSS-objective~done.json      — completed, pending archive
+archived to .ralph/archive/                     — final resting place
+```
+
+This skill writes with `~draft` and renames to ready. The daemon handles everything after that.
 
 ---
 
@@ -15,10 +29,10 @@ Ralph is a bash script (`.ralph/ralph.sh`) that runs an AI coding agent in a loo
 
 1. Receive a feature description or task from the user
 2. Ask 3-5 essential clarifying questions (with lettered options) if the request is ambiguous
-3. Generate `.ralph/prd.json` directly (no intermediate files)
-4. Determine the iteration count and offer to launch `ralph.sh`
+3. Generate the PRD file with `~draft` suffix (safe from premature pickup)
+4. Rename to ready state (drop `~draft`) — the ralph daemon picks it up automatically
 
-**Important:** Do NOT start implementing. Just create the task file and optionally launch ralph.
+**Important:** Do NOT start implementing. Do NOT launch ralph. Just create the PRD file. The ralph daemon (`ralph.sh`) must already be running and will pick up the file automatically.
 
 ---
 
@@ -48,21 +62,29 @@ This lets users respond with "1A, 2B" for quick iteration.
 
 ---
 
-## Step 2: Generate prd.json
+## Step 2: Generate PRD File
 
-Write directly to `.ralph/prd.json`. Do NOT create intermediate markdown PRD files.
+### File Naming
 
-### Archive Check
+Use a timestamped name with a short kebab-case objective slug:
 
-Before writing, check if `.ralph/prd.json` already exists:
+```
+.ralph/prd-YYYY-MM-DD-HHMMSS-objective-slug~draft.json
+```
 
-1. Read current `.ralph/prd.json`
-2. If it exists:
-   - Create archive folder: `.ralph/archive/YYYY-MM-DD-<feature-slug>/`
-   - Copy current `prd.json` and `progress.txt` to archive
-   - Reset `progress.txt`
+Example: `.ralph/prd-2026-02-17-143052-improve-sdk-error-handling~draft.json`
 
-### Output Format
+Use the current date/time for the timestamp. Keep the objective slug to 3-5 words max.
+
+### Writing Sequence
+
+1. **Write** the PRD to `.ralph/prd-YYYY-MM-DD-HHMMSS-objective~draft.json`
+2. **Verify** the JSON is valid and all fields are correct
+3. **Rename** to `.ralph/prd-YYYY-MM-DD-HHMMSS-objective.json` (drop `~draft`)
+
+The rename is the atomic "publish" step. Once `~draft` is removed, the ralph daemon will pick it up.
+
+### PRD Format
 
 ```json
 {
@@ -157,39 +179,36 @@ Good notes dramatically increase success rate per iteration.
 
 ---
 
-## Step 3: Determine Iterations and Launch
+## Step 3: Confirm and Monitor
 
-After writing `.ralph/prd.json`:
+After renaming the PRD file (dropping `~draft`), tell the user:
 
-1. **Count stories** in the prd.json
-2. **Calculate iterations**: `stories + ceil(stories * 0.33)` (33% retry buffer)
-3. **Tell the user** the story count and iteration count
-4. **Launch if requested**: `nohup .ralph/ralph.sh --tool claude <iterations> > /tmp/ralph-<feature>.log 2>&1 &`
-
-### Monitoring Commands
-
-After launching, tell the user:
-
-- **Watch progress:** `tail -f /tmp/ralph-<feature>.log`
-- **Check status:** `cat .ralph/progress.txt`
-- **Kill if needed:** `pkill -f ralph.sh`
+1. **PRD file created:** the full path and story count
+2. **Auto-pickup:** the ralph daemon will pick it up automatically (no manual launch needed)
+3. **Monitoring commands:**
+   - **Watch ralph daemon:** `tail -f /tmp/ralph.log`
+   - **Check PRD state:** `ls -la .ralph/prd-*.json` (look for `~running` suffix)
+   - **Check progress:** `cat .ralph/progress-*.txt`
+   - **Start ralph daemon** (if not running): `nohup .ralph/ralph.sh > /tmp/ralph.log 2>&1 &`
 
 ---
 
 ## Git Rules
 
-`.ralph/prd.json` and `.ralph/progress.txt` are gitignored and must NEVER be committed. They are ephemeral working files that change on every ralph run. If they are accidentally tracked, remove them from the index with `git rm --cached` without deleting from disk.
+PRD files and progress files in `.ralph/` are gitignored and must NEVER be committed. They are ephemeral working files that change on every ralph run. If they are accidentally tracked, remove them from the index with `git rm --cached` without deleting from disk.
 
 Ralph commits code changes only — never ralph's own state files.
 
 ---
 
-## Checklist Before Saving
+## Checklist Before Renaming (Publishing)
 
-- [ ] Previous run archived (if prd.json already exists)
 - [ ] Each story completable in one iteration
 - [ ] Stories ordered by dependency (no story depends on a later story)
 - [ ] Acceptance criteria are verifiable (not vague)
 - [ ] Notes field has implementation hints for non-trivial stories
 - [ ] Full verification suite in acceptance criteria (build, type-check, lint, knip, test)
-- [ ] Wrote directly to `.ralph/prd.json` (no intermediate files)
+- [ ] `passes` field is boolean `false` for every story
+- [ ] JSON is valid
+- [ ] File written with `~draft` suffix
+- [ ] Renamed to drop `~draft` (ready for ralph daemon pickup)

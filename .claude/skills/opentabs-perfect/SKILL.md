@@ -104,7 +104,7 @@ A session that finds nothing to improve and reports "this area is already at the
 
 ## The Job
 
-This skill has two phases: **Review** (audit and triage) and **Execution** (delegate to ralph).
+This skill has two phases: **Review** (audit and triage) and **Delegation** (hand off to ralph via the `opentabs-ralph` skill).
 
 ### Phase 1: Review
 
@@ -115,13 +115,13 @@ This skill has two phases: **Review** (audit and triage) and **Execution** (dele
 5. **Apply the convergence test to every proposed fix** -- only proceed with changes that pass
 6. **Report findings** -- present the audit results (see "Reporting Results" below)
 
-### Phase 2: Execution via Ralph
+### Phase 2: Delegate to Ralph
 
-7. **Load the `opentabs-ralph` skill** and use it to generate `.ralph/prd.json` from the triaged findings
-8. Each finding that passed triage becomes a user story in the prd.json
-9. **Launch ralph** to execute the fixes autonomously
+7. **Load the `opentabs-ralph` skill** and use it to generate a timestamped PRD file from the triaged findings
+8. Each finding that passed triage becomes a user story in the PRD
+9. The ralph daemon (`ralph.sh`) automatically picks up the ready PRD file — no manual launch needed
 
-**Critical:** Do NOT implement fixes directly. This skill is a review and planning skill. After completing the audit and triage (Phase 1), always hand off to `opentabs-ralph` (Phase 2) to create the task file and run ralph for execution. Even if the user does not explicitly ask for ralph, the correct workflow is: review → ralph → execution.
+**Critical:** Do NOT implement fixes directly. This skill is a review and planning skill. After completing the audit and triage (Phase 1), always hand off to `opentabs-ralph` (Phase 2) to create the PRD file. The ralph daemon handles execution autonomously.
 
 **Important:** Do NOT redesign or rearchitect what is already well-designed. Do identify everything that falls short of the highest standard -- whether that is a bug, poor code quality, a fragile pattern, or a missing abstraction. But every finding must represent a **genuine defect** -- the kind of issue that ends the conversation, not the kind that starts a new one.
 
@@ -283,7 +283,7 @@ If a finding involves a judgment call between two valid approaches and you canno
 - **No speculative additions**: do not create stories for code "in case" something might be needed later. Only create stories for things that genuinely fall short now.
 - **No half-measures**: if a fix is worth making, the story must cover it completely. Do not create stories for partial improvements that require follow-up stories.
 
-After generating the prd.json via the `opentabs-ralph` skill, offer to launch ralph.
+After generating the PRD via the `opentabs-ralph` skill, the ralph daemon picks it up automatically.
 
 ---
 
@@ -297,9 +297,9 @@ Verify the audit is thorough and the ralph task file is well-formed:
 
 - Every file in the target area was read (not skimmed)
 - Every finding is triaged against the convergence test
-- The prd.json stories are right-sized (one iteration each) and ordered by dependency
+- The PRD stories are right-sized (one iteration each) and ordered by dependency
 
-### During Execution (ralph)
+### During Execution (ralph daemon)
 
 Each ralph iteration runs the full verification suite as part of its acceptance criteria:
 
@@ -332,7 +332,7 @@ For each finding that passed triage:
 - **Proposed Fix**: what should be changed
 - **Impact**: what improves
 
-These findings become user stories in the ralph prd.json.
+These findings become user stories in the ralph PRD.
 
 ### Already at Standard (No Changes Needed)
 
@@ -344,7 +344,7 @@ Issues found but not suitable for ralph stories in this session (too large, need
 
 ### Next Step
 
-After presenting the report, load the `opentabs-ralph` skill and generate `.ralph/prd.json` from the findings. Offer to launch ralph.
+After presenting the report, load the `opentabs-ralph` skill and generate the timestamped PRD file from the findings. The ralph daemon picks it up automatically — no manual launch needed.
 
 ---
 
@@ -467,8 +467,8 @@ These are the specific behaviors this skill exists to prevent:
 - [ ] **Termination guarantee upheld**: if this skill runs again immediately after ralph completes, it will find zero issues in code that was changed
 - [ ] Results include both findings and confirmed-excellent areas
 - [ ] **"Already at Standard" list is comprehensive** — covers every sub-area reviewed, giving future sessions clear signal on what not to re-examine
-- [ ] **Did NOT implement fixes directly** — all fixes are delegated to ralph via prd.json
-- [ ] **Loaded `opentabs-ralph` skill** and generated `.ralph/prd.json` from findings
+- [ ] **Did NOT implement fixes directly** — all fixes are delegated to ralph via PRD file
+- [ ] **Loaded `opentabs-ralph` skill** and generated timestamped PRD file from findings
 - [ ] Each ralph story is right-sized (completable in one iteration)
 - [ ] Ralph stories are ordered by dependency (no story depends on a later story)
 - [ ] Each story has specific acceptance criteria and implementation hints in the notes field

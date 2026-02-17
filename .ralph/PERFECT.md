@@ -100,11 +100,20 @@ Output:
 
 #### Decision B: Genuine defects found
 
-If you found genuine defects that survived triage, generate `.ralph/prd.json`:
+If you found genuine defects that survived triage, generate a timestamped PRD file.
+
+**File naming:** Use the `~draft` suffix while writing, then rename to make it ready for pickup:
+
+1. Write to: `.ralph/prd-YYYY-MM-DD-HHMMSS-audit-fixes~draft.json`
+2. After writing is complete, rename to: `.ralph/prd-YYYY-MM-DD-HHMMSS-audit-fixes.json`
+
+Use the current date/time for the timestamp. The `ralph.sh` daemon will automatically pick up the ready file.
+
+**PRD format:**
 
 ```json
 {
-  "project": "OpenTabs Perfect",
+  "project": "OpenTabs Platform Audit Fixes",
   "description": "Quality improvements: [brief summary of what areas need fixing]",
   "userStories": [
     {
@@ -137,15 +146,16 @@ Then output:
 ## Rules
 
 1. **You MUST end with exactly one signal** — either `<promise>PERFECT</promise>` or `<promise>NEEDS_RALPH</promise>`. No exceptions.
-2. **Do NOT implement fixes** — only audit and generate prd.json. Ralph handles implementation.
-3. **Do NOT modify any source code files** — you are a read-only auditor. The only file you may write is `.ralph/prd.json`.
+2. **Do NOT implement fixes** — only audit and generate a PRD file. Ralph handles implementation.
+3. **Do NOT modify any source code files** — you are a read-only auditor. The only file you may write is the PRD file in `.ralph/`.
 4. **Do NOT create or switch git branches.**
-5. **Do NOT read or write `.ralph/progress.txt`** — you have no cross-session state.
+5. **Do NOT read or write progress files** — you have no cross-session state.
 6. **`passes` field MUST be boolean `false`** in every story. Ralph checks `passes != true`.
 7. **Every story must be completable in ONE iteration** — one fresh AI session with no memory. If it takes more than 2-3 sentences to describe, split it.
 8. **Stories ordered by dependency** — priority 1 executes first. No story may depend on a later story.
 9. **Notes are critical** — include file paths, line numbers, current code snippets, the exact fix, and which existing codebase pattern to follow. Good notes are the single biggest factor in fix success rate.
 10. **Err toward PERFECT** — false positives cause wasted work. When in doubt, leave the code alone. The code as it exists today is the baseline; changing it requires proof of a concrete, objective defect.
+11. **Use `~draft` suffix while writing** — write the PRD file with `~draft` in the name, then rename to remove it when done. This prevents `ralph.sh` from picking up a half-written file.
 
 ## Why This Works
 
