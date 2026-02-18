@@ -80,14 +80,18 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     // even when the adapter would pass isReady().
     injectPluginsIntoTab(tabId, tab.url)
       .then(() => checkTabStateChanges(tabId, changeInfo))
-      .catch(console.error);
+      .catch((err: unknown) => console.warn('[opentabs] tab injection failed:', err));
   } else if (changeInfo.url) {
-    checkTabStateChanges(tabId, changeInfo).catch(console.error);
+    checkTabStateChanges(tabId, changeInfo).catch((err: unknown) =>
+      console.warn('[opentabs] tab state check failed:', err),
+    );
   }
 });
 
 chrome.tabs.onRemoved.addListener(tabId => {
-  checkTabStateChanges(tabId, undefined, true).catch(console.error);
+  checkTabStateChanges(tabId, undefined, true).catch((err: unknown) =>
+    console.warn('[opentabs] tab state check failed:', err),
+  );
 });
 
 // --- Message routing (offscreen, side panel, content scripts) ---
@@ -129,7 +133,7 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, _sender, sendRes
       persistWsConnected(nowConnected);
       forwardToSidePanel({ type: 'sp:connectionState', data: { connected: nowConnected } });
       if (nowConnected && !wasConnected) {
-        sendTabSyncAll().catch(console.error);
+        sendTabSyncAll().catch((err: unknown) => console.warn('[opentabs] tab sync failed:', err));
       }
       if (!nowConnected && wasConnected) {
         clearTabStateCache();
@@ -172,7 +176,7 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, _sender, sendRes
 chrome.alarms.onAlarm.addListener(() => {
   // Keepalive tick: re-ensure the offscreen document exists so the WebSocket
   // connection recovers automatically if Chrome terminates it under memory pressure.
-  ensureOffscreenDocument().catch(console.error);
+  ensureOffscreenDocument().catch((err: unknown) => console.warn('[opentabs] offscreen creation failed:', err));
 });
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -191,9 +195,9 @@ chrome.runtime.onStartup.addListener(() => {
   })();
 });
 
-ensureOffscreenDocument().catch(console.error);
-setupKeepaliveAlarm().catch(console.error);
-reinjectStoredPlugins().catch(console.error);
+ensureOffscreenDocument().catch((err: unknown) => console.warn('[opentabs] offscreen creation failed:', err));
+setupKeepaliveAlarm().catch((err: unknown) => console.warn('[opentabs] keepalive alarm failed:', err));
+reinjectStoredPlugins().catch((err: unknown) => console.warn('[opentabs] plugin reinjection failed:', err));
 
 // Relay MCP server URL changes to the offscreen document, and invalidate
 // the plugin metadata cache when storage is modified from another context
