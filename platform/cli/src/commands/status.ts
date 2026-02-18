@@ -123,4 +123,4 @@ Examples:
     .action((_options: StatusOptions, command: Command) => handleStatus(command.optsWithGlobals()));
 };
 
-export { registerStatusCommand };
+export { colorTabState, formatUptime, isTimeout, registerStatusCommand };
