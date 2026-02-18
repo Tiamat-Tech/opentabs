@@ -128,6 +128,7 @@ const readPluginToolNames = (): string[] => {
 
 const createTestConfigDir = (): string => {
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-config-'));
+  fs.chmodSync(configDir, 0o700);
 
   const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
 
@@ -143,7 +144,9 @@ const createTestConfigDir = (): string => {
     secret: crypto.randomUUID(),
   };
 
-  fs.writeFileSync(path.join(configDir, 'config.json'), JSON.stringify(config, null, 2) + '\n', 'utf-8');
+  const configPath = path.join(configDir, 'config.json');
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+  fs.chmodSync(configPath, 0o600);
 
   return configDir;
 };
