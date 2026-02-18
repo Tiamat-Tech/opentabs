@@ -284,6 +284,7 @@ execute_prd() {
     echo -e "  ${BOLD}── Iteration $i/$max_iterations — $remaining stories remaining ──${RESET}"
 
     RESULT_FILE=$(mktemp)
+    STDERR_FILE=$(mktemp)
 
     if [[ "$TOOL" == "amp" ]]; then
       OUTPUT=$(cat "$SCRIPT_DIR/RALPH.md" | amp --dangerously-allow-all 2>&1 | tee /dev/stderr) || true
@@ -293,9 +294,29 @@ execute_prd() {
         --print \
         --output-format stream-json \
         --verbose \
-        < "$SCRIPT_DIR/RALPH.md" 2>/dev/null \
+        < "$SCRIPT_DIR/RALPH.md" 2>"$STDERR_FILE" \
         | stream_filter "$RESULT_FILE" || true
     fi
+
+    # Detect empty iterations: if claude produced no output at all, it likely
+    # crashed or errored. Log stderr and abort the PRD to avoid burning
+    # through all iterations with no work done.
+    RESULT_SIZE=$(wc -c < "$RESULT_FILE" 2>/dev/null | tr -d ' ')
+    if [ "${RESULT_SIZE:-0}" -eq 0 ]; then
+      echo ""
+      echo -e "  ${RED}Empty iteration — claude produced no output.${RESET}"
+      if [ -s "$STDERR_FILE" ]; then
+        echo -e "  ${RED}stderr:${RESET}"
+        head -20 "$STDERR_FILE" | while IFS= read -r errline; do
+          echo -e "    ${DIM}$errline${RESET}"
+        done
+      fi
+      rm -f "$RESULT_FILE" "$STDERR_FILE"
+      echo -e "  ${YELLOW}Aborting PRD to avoid burning iterations.${RESET}"
+      return 1
+    fi
+
+    rm -f "$STDERR_FILE"
 
     if [ -f "$RESULT_FILE" ] && grep -q "<promise>COMPLETE</promise>" "$RESULT_FILE" 2>/dev/null; then
       echo ""

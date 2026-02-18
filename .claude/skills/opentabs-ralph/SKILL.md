@@ -5,7 +5,7 @@ description: 'Plan work and generate ralph task files for autonomous execution. 
 
 # Ralph Task Planner
 
-Plan work and generate timestamped PRD files in `.ralph/` for autonomous execution by the Ralph daemon.
+Plan work and generate PRD files in `.ralph/` for autonomous execution by the Ralph daemon.
 
 Ralph is a bash script (`.ralph/ralph.sh`) that runs as a long-lived daemon, polling `.ralph/` for ready PRD files and processing them in timestamp order. Each PRD file drives a loop of AI coding iterations — one per user story. This skill creates the PRD file that the daemon picks up automatically.
 
@@ -14,14 +14,14 @@ Ralph is a bash script (`.ralph/ralph.sh`) that runs as a long-lived daemon, pol
 ## PRD File Name State Machine
 
 ```
-prd-YYYY-MM-DD-HHMMSS-objective~draft.json    — being written (this skill), ralph ignores
-prd-YYYY-MM-DD-HHMMSS-objective.json           — ready for pickup by ralph daemon
+prd-objective~draft.json                       — being written (this skill), ralph ignores
+prd-YYYY-MM-DD-HHMMSS-objective.json           — ready for pickup by ralph daemon (timestamp added at publish time)
 prd-YYYY-MM-DD-HHMMSS-objective~running.json   — currently being executed by ralph
 prd-YYYY-MM-DD-HHMMSS-objective~done.json      — completed, pending archive
 archived to .ralph/archive/                     — final resting place
 ```
 
-This skill writes with `~draft` and renames to ready. The daemon handles everything after that.
+This skill writes with `~draft` (no timestamp). At publish time, a **shell command** generates the real timestamp and renames the file. This ensures correct ordering — the timestamp reflects when the PRD was actually ready, not when writing started.
 
 ---
 
@@ -29,8 +29,8 @@ This skill writes with `~draft` and renames to ready. The daemon handles everyth
 
 1. Receive a feature description or task from the user
 2. Ask 3-5 essential clarifying questions (with lettered options) if the request is ambiguous
-3. Generate the PRD file with `~draft` suffix (safe from premature pickup)
-4. Rename to ready state (drop `~draft`) — the ralph daemon picks it up automatically
+3. Generate the PRD file with `~draft` suffix and NO timestamp (safe from premature pickup)
+4. Publish: use a shell command to rename with the current timestamp (ensures accurate ordering)
 
 **Important:** Do NOT start implementing. Do NOT launch ralph. Just create the PRD file. The ralph daemon (`ralph.sh`) must already be running and will pick up the file automatically.
 
@@ -66,23 +66,23 @@ This lets users respond with "1A, 2B" for quick iteration.
 
 ### File Naming
 
-Use a timestamped name with a short kebab-case objective slug:
+Use a short kebab-case objective slug with NO timestamp:
 
 ```
-.ralph/prd-YYYY-MM-DD-HHMMSS-objective-slug~draft.json
+.ralph/prd-objective-slug~draft.json
 ```
 
-Example: `.ralph/prd-2026-02-17-143052-improve-sdk-error-handling~draft.json`
+Example: `.ralph/prd-improve-sdk-error-handling~draft.json`
 
-Use the current date/time for the timestamp. Keep the objective slug to 3-5 words max.
+**Do NOT put a timestamp in the draft filename.** The timestamp is added by a shell command at publish time (Step 3). This prevents timestamp inaccuracies from AI model clock drift.
+
+Keep the objective slug to 3-5 words max.
 
 ### Writing Sequence
 
-1. **Write** the PRD to `.ralph/prd-YYYY-MM-DD-HHMMSS-objective~draft.json`
-2. **Verify** the JSON is valid and all fields are correct
-3. **Rename** to `.ralph/prd-YYYY-MM-DD-HHMMSS-objective.json` (drop `~draft`)
-
-The rename is the atomic "publish" step. Once `~draft` is removed, the ralph daemon will pick it up.
+1. **Write** the PRD to `.ralph/prd-objective-slug~draft.json` (no timestamp)
+2. **Verify** the JSON is valid: `python3 -c "import json; json.load(open('.ralph/prd-objective-slug~draft.json')); print('Valid')"`
+3. **Publish** via shell command (see Step 3)
 
 ### PRD Format
 
@@ -114,6 +114,26 @@ The rename is the atomic "publish" step. Once `~draft` is removed, the ralph dae
 ```
 
 **Critical:** The `passes` field MUST be the boolean `false`, not `null` or omitted. Ralph checks `passes == false` to find incomplete stories.
+
+---
+
+## Step 3: Publish (Rename with Timestamp)
+
+After writing and validating the PRD, publish it using this exact shell command:
+
+```bash
+mv .ralph/prd-SLUG~draft.json ".ralph/prd-$(date '+%Y-%m-%d-%H%M%S')-SLUG.json"
+```
+
+Replace `SLUG` with your objective slug. Example:
+
+```bash
+mv .ralph/prd-improve-sdk-error-handling~draft.json ".ralph/prd-$(date '+%Y-%m-%d-%H%M%S')-improve-sdk-error-handling.json"
+```
+
+**This is critical.** The `$(date ...)` shell expansion generates the real wall-clock timestamp at the moment of publishing. Ralph processes PRDs in filename-timestamp order, so accurate timestamps ensure correct sequencing.
+
+**Never hardcode a timestamp in the filename.** Always use `$(date '+%Y-%m-%d-%H%M%S')` in the mv command.
 
 ---
 
@@ -179,9 +199,9 @@ Good notes dramatically increase success rate per iteration.
 
 ---
 
-## Step 3: Confirm and Monitor
+## Step 4: Confirm and Monitor
 
-After renaming the PRD file (dropping `~draft`), tell the user:
+After publishing the PRD file, tell the user:
 
 1. **PRD file created:** the full path and story count
 2. **Auto-pickup:** the ralph daemon will pick it up automatically (no manual launch needed)
@@ -201,7 +221,7 @@ Ralph commits code changes only — never ralph's own state files.
 
 ---
 
-## Checklist Before Renaming (Publishing)
+## Checklist Before Publishing
 
 - [ ] Each story completable in one iteration
 - [ ] Stories ordered by dependency (no story depends on a later story)
@@ -210,5 +230,5 @@ Ralph commits code changes only — never ralph's own state files.
 - [ ] Full verification suite in acceptance criteria (build, type-check, lint, knip, test)
 - [ ] `passes` field is boolean `false` for every story
 - [ ] JSON is valid
-- [ ] File written with `~draft` suffix
-- [ ] Renamed to drop `~draft` (ready for ralph daemon pickup)
+- [ ] File written with `~draft` suffix and NO timestamp in filename
+- [ ] Published via `mv` command with `$(date '+%Y-%m-%d-%H%M%S')` for accurate timestamp
