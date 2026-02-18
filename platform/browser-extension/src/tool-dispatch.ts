@@ -1,6 +1,7 @@
 import { SCRIPT_TIMEOUT_MS } from './constants.js';
 import { sendToServer } from './messaging.js';
 import { getPluginMeta } from './plugin-storage.js';
+import { sanitizeErrorMessage } from './sanitize-error.js';
 import { findAllMatchingTabs } from './tab-matching.js';
 import type { PluginMeta } from './types.js';
 
@@ -244,7 +245,9 @@ export const handleToolDispatch = async (params: Record<string, unknown>, id: st
         jsonrpc: '2.0',
         error: {
           code: isTabGone ? -32001 : -32603,
-          message: isTabGone ? 'Tab closed before tool execution' : `Script execution failed: ${msg}`,
+          message: isTabGone
+            ? 'Tab closed before tool execution'
+            : `Script execution failed: ${sanitizeErrorMessage(msg)}`,
         },
         id,
       });

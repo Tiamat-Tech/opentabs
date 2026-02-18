@@ -17,6 +17,7 @@ import { handleExtensionMessage, sendSyncFull } from './extension-protocol.js';
 import { log } from './logger.js';
 import { createMcpServer, notifyToolListChanged } from './mcp-setup.js';
 import { performConfigReload } from './reload.js';
+import { sanitizeErrorMessage } from './sanitize-error.js';
 import { getNextRequestId, STATE_SCHEMA_VERSION } from './state.js';
 import { version } from './version.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
@@ -196,8 +197,9 @@ const createHandleFetch =
           durationMs: result.durationMs,
         });
       } catch (err) {
-        log.error(`Config reload failed: ${err instanceof Error ? err.message : String(err)}`);
-        return Response.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+        const rawMsg = err instanceof Error ? err.message : String(err);
+        log.error(`Config reload failed: ${rawMsg}`);
+        return Response.json({ ok: false, error: sanitizeErrorMessage(rawMsg) }, { status: 500 });
       }
     }
 

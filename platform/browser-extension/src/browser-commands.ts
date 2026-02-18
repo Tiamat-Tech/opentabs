@@ -1,6 +1,7 @@
 import { SCRIPT_TIMEOUT_MS } from './constants.js';
 import { sendToServer } from './messaging.js';
 import { startCapture, stopCapture, getRequests, getConsoleLogs, clearConsoleLogs } from './network-capture.js';
+import { sanitizeErrorMessage } from './sanitize-error.js';
 import { isBlockedUrlScheme } from '@opentabs-dev/shared';
 
 export const handleBrowserListTabs = async (id: string | number): Promise<void> => {
@@ -17,7 +18,7 @@ export const handleBrowserListTabs = async (id: string | number): Promise<void> 
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -50,7 +51,7 @@ export const handleBrowserOpenTab = async (params: Record<string, unknown>, id: 
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -68,7 +69,7 @@ export const handleBrowserCloseTab = async (params: Record<string, unknown>, id:
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -106,7 +107,7 @@ export const handleBrowserNavigateTab = async (params: Record<string, unknown>, 
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -133,7 +134,7 @@ export const handleBrowserFocusTab = async (params: Record<string, unknown>, id:
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -164,7 +165,7 @@ export const handleBrowserGetTabInfo = async (params: Record<string, unknown>, i
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -194,7 +195,7 @@ export const handleBrowserScreenshotTab = async (
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -241,7 +242,7 @@ export const handleBrowserGetTabContent = async (
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -298,7 +299,7 @@ export const handleBrowserClickElement = async (
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -361,7 +362,7 @@ export const handleBrowserTypeText = async (params: Record<string, unknown>, id:
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -448,7 +449,7 @@ export const handleBrowserSelectOption = async (
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -522,7 +523,7 @@ export const handleBrowserWaitForElement = async (
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -574,7 +575,7 @@ export const handleBrowserQueryElements = async (
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -623,7 +624,7 @@ export const handleBrowserGetCookies = async (params: Record<string, unknown>, i
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -685,7 +686,7 @@ export const handleBrowserSetCookie = async (params: Record<string, unknown>, id
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -722,7 +723,7 @@ export const handleBrowserDeleteCookies = async (
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -857,7 +858,7 @@ export const handleBrowserExecuteScript = async (
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -881,7 +882,7 @@ export const handleBrowserEnableNetworkCapture = async (
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -900,7 +901,7 @@ export const handleBrowserGetNetworkRequests = (params: Record<string, unknown>,
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -918,7 +919,7 @@ export const handleBrowserDisableNetworkCapture = (params: Record<string, unknow
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -938,7 +939,7 @@ export const handleBrowserGetConsoleLogs = (params: Record<string, unknown>, id:
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
@@ -956,7 +957,7 @@ export const handleBrowserClearConsoleLogs = (params: Record<string, unknown>, i
   } catch (err) {
     sendToServer({
       jsonrpc: '2.0',
-      error: { code: -32603, message: err instanceof Error ? err.message : String(err) },
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
   }
