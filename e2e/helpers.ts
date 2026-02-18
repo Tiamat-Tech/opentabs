@@ -222,11 +222,6 @@ export const BROWSER_TOOL_NAMES = [
   'browser_get_cookies',
   'browser_set_cookie',
   'browser_delete_cookies',
-  'browser_enable_network_capture',
-  'browser_get_network_requests',
-  'browser_disable_network_capture',
-  'browser_get_console_logs',
-  'browser_clear_console_logs',
 ];
 
 // ---------------------------------------------------------------------------

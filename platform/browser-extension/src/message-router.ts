@@ -1,10 +1,15 @@
 import {
+  handleBrowserClearConsoleLogs,
   handleBrowserClickElement,
   handleBrowserCloseTab,
   handleBrowserDeleteCookies,
+  handleBrowserDisableNetworkCapture,
+  handleBrowserEnableNetworkCapture,
   handleBrowserExecuteScript,
   handleBrowserFocusTab,
+  handleBrowserGetConsoleLogs,
   handleBrowserGetCookies,
+  handleBrowserGetNetworkRequests,
   handleBrowserGetTabContent,
   handleBrowserGetTabInfo,
   handleBrowserListTabs,
@@ -310,6 +315,46 @@ const methodHandlers = new Map<string, MessageHandler>([
     (params, id) => {
       if (id !== undefined) {
         handleBrowserDeleteCookies(params, id).catch(console.error);
+      }
+    },
+  ],
+  [
+    'browser.enableNetworkCapture',
+    (params, id) => {
+      if (id !== undefined) {
+        handleBrowserEnableNetworkCapture(params, id).catch(console.error);
+      }
+    },
+  ],
+  [
+    'browser.getNetworkRequests',
+    (params, id) => {
+      if (id !== undefined) {
+        handleBrowserGetNetworkRequests(params, id);
+      }
+    },
+  ],
+  [
+    'browser.disableNetworkCapture',
+    (params, id) => {
+      if (id !== undefined) {
+        handleBrowserDisableNetworkCapture(params, id);
+      }
+    },
+  ],
+  [
+    'browser.getConsoleLogs',
+    (params, id) => {
+      if (id !== undefined) {
+        handleBrowserGetConsoleLogs(params, id);
+      }
+    },
+  ],
+  [
+    'browser.clearConsoleLogs',
+    (params, id) => {
+      if (id !== undefined) {
+        handleBrowserClearConsoleLogs(params, id);
       }
     },
   ],

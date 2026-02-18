@@ -65,6 +65,14 @@ const mockHandleBrowserSetCookie = mock(
 const mockHandleBrowserDeleteCookies = mock(
   asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
 );
+const mockHandleBrowserEnableNetworkCapture = mock(
+  asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+);
+const syncNoop = (() => {}) as (params: Record<string, unknown>, id: string | number) => void;
+const mockHandleBrowserGetNetworkRequests = mock(syncNoop);
+const mockHandleBrowserDisableNetworkCapture = mock(syncNoop);
+const mockHandleBrowserGetConsoleLogs = mock(syncNoop);
+const mockHandleBrowserClearConsoleLogs = mock(syncNoop);
 const mockHandleBrowserExecuteScript = mock(
   asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
 );
@@ -95,6 +103,11 @@ await mock.module('./browser-commands.js', () => ({
   handleBrowserGetCookies: mockHandleBrowserGetCookies,
   handleBrowserSetCookie: mockHandleBrowserSetCookie,
   handleBrowserDeleteCookies: mockHandleBrowserDeleteCookies,
+  handleBrowserEnableNetworkCapture: mockHandleBrowserEnableNetworkCapture,
+  handleBrowserGetNetworkRequests: mockHandleBrowserGetNetworkRequests,
+  handleBrowserDisableNetworkCapture: mockHandleBrowserDisableNetworkCapture,
+  handleBrowserGetConsoleLogs: mockHandleBrowserGetConsoleLogs,
+  handleBrowserClearConsoleLogs: mockHandleBrowserClearConsoleLogs,
   handleBrowserExecuteScript: mockHandleBrowserExecuteScript,
 }));
 
@@ -451,6 +464,11 @@ const resetRoutingMocks = (): void => {
   mockHandleBrowserGetCookies.mockReset();
   mockHandleBrowserSetCookie.mockReset();
   mockHandleBrowserDeleteCookies.mockReset();
+  mockHandleBrowserEnableNetworkCapture.mockReset();
+  mockHandleBrowserGetNetworkRequests.mockReset();
+  mockHandleBrowserDisableNetworkCapture.mockReset();
+  mockHandleBrowserGetConsoleLogs.mockReset();
+  mockHandleBrowserClearConsoleLogs.mockReset();
   mockHandleBrowserExecuteScript.mockReset();
 };
 
@@ -473,6 +491,7 @@ describe('handleServerMessage', () => {
     mockHandleBrowserGetCookies.mockResolvedValue(undefined);
     mockHandleBrowserSetCookie.mockResolvedValue(undefined);
     mockHandleBrowserDeleteCookies.mockResolvedValue(undefined);
+    mockHandleBrowserEnableNetworkCapture.mockResolvedValue(undefined);
     mockHandleBrowserExecuteScript.mockResolvedValue(undefined);
   });
 
@@ -768,6 +787,64 @@ describe('handleServerMessage', () => {
 
       expect(mockHandleBrowserDeleteCookies).toHaveBeenCalledTimes(1);
       expect(mockHandleBrowserDeleteCookies).toHaveBeenCalledWith({ url: 'https://example.com', name: 'token' }, 37);
+    });
+
+    test('dispatches browser.enableNetworkCapture to handleBrowserEnableNetworkCapture', () => {
+      handleServerMessage({
+        method: 'browser.enableNetworkCapture',
+        id: 38,
+        params: { tabId: 20, maxRequests: 200, urlFilter: '/api' },
+      });
+
+      expect(mockHandleBrowserEnableNetworkCapture).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserEnableNetworkCapture).toHaveBeenCalledWith(
+        { tabId: 20, maxRequests: 200, urlFilter: '/api' },
+        38,
+      );
+    });
+
+    test('dispatches browser.getNetworkRequests to handleBrowserGetNetworkRequests', () => {
+      handleServerMessage({
+        method: 'browser.getNetworkRequests',
+        id: 39,
+        params: { tabId: 21, clear: true },
+      });
+
+      expect(mockHandleBrowserGetNetworkRequests).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserGetNetworkRequests).toHaveBeenCalledWith({ tabId: 21, clear: true }, 39);
+    });
+
+    test('dispatches browser.disableNetworkCapture to handleBrowserDisableNetworkCapture', () => {
+      handleServerMessage({
+        method: 'browser.disableNetworkCapture',
+        id: 40,
+        params: { tabId: 22 },
+      });
+
+      expect(mockHandleBrowserDisableNetworkCapture).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserDisableNetworkCapture).toHaveBeenCalledWith({ tabId: 22 }, 40);
+    });
+
+    test('dispatches browser.getConsoleLogs to handleBrowserGetConsoleLogs', () => {
+      handleServerMessage({
+        method: 'browser.getConsoleLogs',
+        id: 41,
+        params: { tabId: 23, clear: false, level: 'error' },
+      });
+
+      expect(mockHandleBrowserGetConsoleLogs).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserGetConsoleLogs).toHaveBeenCalledWith({ tabId: 23, clear: false, level: 'error' }, 41);
+    });
+
+    test('dispatches browser.clearConsoleLogs to handleBrowserClearConsoleLogs', () => {
+      handleServerMessage({
+        method: 'browser.clearConsoleLogs',
+        id: 42,
+        params: { tabId: 24 },
+      });
+
+      expect(mockHandleBrowserClearConsoleLogs).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserClearConsoleLogs).toHaveBeenCalledWith({ tabId: 24 }, 42);
     });
 
     test('dispatches browser.executeScript to handleBrowserExecuteScript', () => {
