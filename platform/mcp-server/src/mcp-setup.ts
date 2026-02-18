@@ -96,18 +96,24 @@ const rebuildToolLookups = (state: ServerState): void => {
   }
   state.toolLookup = toolLookup;
 
-  // Browser tool schemas: pre-compute zodToJsonSchema once per reload
-  state.cachedBrowserTools = state.browserTools.map(
-    (bt): CachedBrowserTool => ({
+  // Browser tool schemas: pre-compute zodToJsonSchema once per reload.
+  // Uses jsonSchema7 target because it produces numeric exclusiveMinimum/Maximum
+  // values, which are valid in JSON Schema draft 2020-12 (required by the MCP
+  // protocol). The openApi3 and jsonSchema2012 targets in zod-to-json-schema
+  // v3.25 emit boolean exclusiveMinimum (draft-04 style), which Bedrock rejects.
+  state.cachedBrowserTools = state.browserTools.map((bt): CachedBrowserTool => {
+    const schema = zodToJsonSchema(bt.input, {
+      target: 'jsonSchema7',
+      $refStrategy: 'none',
+    }) as Record<string, unknown>;
+    delete schema['$schema'];
+    return {
       name: bt.name,
       description: bt.description,
-      inputSchema: zodToJsonSchema(bt.input, {
-        target: 'openApi3',
-        $refStrategy: 'none',
-      }) as Record<string, unknown>,
+      inputSchema: schema,
       tool: bt,
-    }),
-  );
+    };
+  });
 };
 
 /**

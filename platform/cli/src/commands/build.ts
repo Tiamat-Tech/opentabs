@@ -69,8 +69,12 @@ const validatePlugin = (plugin: OpenTabsPlugin): string[] => {
 };
 
 const convertToolSchemas = (tool: ToolDefinition) => {
-  const inputSchema = zodToJsonSchema(tool.input, { target: 'openApi3', $refStrategy: 'none' });
-  const outputSchema = zodToJsonSchema(tool.output, { target: 'openApi3', $refStrategy: 'none' });
+  // Uses jsonSchema7 target because it produces numeric exclusiveMinimum/Maximum
+  // values, which are valid in JSON Schema draft 2020-12 (required by the MCP
+  // protocol). The openApi3 and jsonSchema2012 targets in zod-to-json-schema
+  // v3.25 emit boolean exclusiveMinimum (draft-04 style), which Bedrock rejects.
+  const inputSchema = zodToJsonSchema(tool.input, { target: 'jsonSchema7', $refStrategy: 'none' });
+  const outputSchema = zodToJsonSchema(tool.output, { target: 'jsonSchema7', $refStrategy: 'none' });
 
   // Remove the $schema property that zod-to-json-schema adds
   delete (inputSchema as Record<string, unknown>)['$schema'];
