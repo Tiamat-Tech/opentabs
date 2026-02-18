@@ -13,6 +13,7 @@ interface CapturedRequest {
   requestHeaders?: Record<string, string>;
   responseHeaders?: Record<string, string>;
   requestBody?: string;
+  responseBody?: string;
   mimeType?: string;
   timestamp: number;
 }
@@ -29,6 +30,8 @@ interface CaptureState {
   maxRequests: number;
   urlFilter?: string;
   pendingRequests: Map<string, Partial<CapturedRequest>>;
+  /** Maps requestId → index in requests[] for attaching response bodies after loadingFinished */
+  requestIdToIndex: Map<string, number>;
 }
 
 interface HeaderEntry {
@@ -77,6 +80,18 @@ const stringProp = (obj: Record<string, unknown>, key: string, fallback: string)
 /** Truncate a string to MAX_BODY_LENGTH, appending a suffix if truncated. */
 const truncateBody = (body: string): string =>
   body.length > MAX_BODY_LENGTH ? body.slice(0, MAX_BODY_LENGTH) + '... (truncated)' : body;
+
+/** MIME type prefixes for binary content whose response bodies should not be captured. */
+const BINARY_MIME_PREFIXES = ['image/', 'font/', 'video/', 'audio/'];
+const BINARY_MIME_EXACT = new Set(['application/octet-stream', 'application/wasm']);
+
+/** Returns true if the MIME type represents binary content that should be skipped. */
+const isBinaryMime = (mimeType: string | undefined): boolean => {
+  if (!mimeType) return false;
+  const lower = mimeType.toLowerCase();
+  if (BINARY_MIME_EXACT.has(lower)) return true;
+  return BINARY_MIME_PREFIXES.some(prefix => lower.startsWith(prefix));
+};
 
 chrome.debugger.onEvent.addListener((source: chrome.debugger.Debuggee, method: string, params?: object) => {
   const p = params as Record<string, unknown> | undefined;
@@ -129,8 +144,43 @@ chrome.debugger.onEvent.addListener((source: chrome.debugger.Debuggee, method: s
     // Add to buffer, dropping oldest if at capacity
     if (state.requests.length >= state.maxRequests) {
       state.requests.shift();
+      // All indices in requestIdToIndex shifted down by 1 after the shift.
+      // Decrement each value; remove entries that pointed to index 0 (now gone).
+      for (const [rid, ridIdx] of state.requestIdToIndex) {
+        if (ridIdx <= 0) {
+          state.requestIdToIndex.delete(rid);
+        } else {
+          state.requestIdToIndex.set(rid, ridIdx - 1);
+        }
+      }
     }
-    state.requests.push(completed);
+    const idx = state.requests.push(completed) - 1;
+    state.requestIdToIndex.set(requestId, idx);
+  } else if (method === 'Network.loadingFinished') {
+    const requestId = p?.requestId as string | undefined;
+    if (!requestId) return;
+
+    const idx = state.requestIdToIndex.get(requestId);
+    if (idx === undefined) return;
+    state.requestIdToIndex.delete(requestId);
+
+    const request = state.requests[idx];
+    if (!request) return;
+
+    // Skip binary MIME types — response body would not be useful text
+    if (isBinaryMime(request.mimeType)) return;
+
+    // Fetch the response body via CDP
+    chrome.debugger.sendCommand({ tabId }, 'Network.getResponseBody', { requestId }, (result: unknown) => {
+      // Graceful handling: if the request was aborted or the body is unavailable,
+      // chrome.runtime.lastError is set and result is undefined
+      if (chrome.runtime.lastError || !result) return;
+      const res = result as { body?: string; base64Encoded?: boolean };
+      if (typeof res.body !== 'string') return;
+      // For text content, store directly; for base64-encoded text, decode it
+      const body = res.base64Encoded ? atob(res.body) : res.body;
+      request.responseBody = truncateBody(body);
+    });
   } else if (method === 'Runtime.consoleAPICalled') {
     const type = p?.type as string | undefined;
     const args = p?.args as Array<{ type?: string; value?: unknown; description?: string }> | undefined;
@@ -199,6 +249,7 @@ export const startCapture = async (tabId: number, maxRequests: number = 100, url
     maxRequests,
     urlFilter,
     pendingRequests: new Map(),
+    requestIdToIndex: new Map(),
   });
 };
 
@@ -225,6 +276,7 @@ export const getRequests = (tabId: number, clear: boolean = false): CapturedRequ
   const requests = [...state.requests];
   if (clear) {
     state.requests = [];
+    state.requestIdToIndex.clear();
   }
   return requests;
 };

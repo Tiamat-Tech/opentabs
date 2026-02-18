@@ -11,7 +11,8 @@ const getNetworkRequests = defineBrowserTool({
   description:
     'Get network requests captured since browser_enable_network_capture was called on this tab. ' +
     'Returns URL, HTTP method, status code, request/response headers, request body (for POST/PUT/PATCH), ' +
-    'MIME type, and timing for each request.',
+    'response body (for text-based responses), MIME type, and timing for each request. ' +
+    'The responseBody field contains the decoded response content when available (skipped for binary MIME types like images/fonts/video).',
   input: z.object({
     tabId: z.number().int().positive().describe('Tab ID to get captured requests for'),
     clear: z.boolean().optional().describe('Clear the request buffer after reading — defaults to false'),
