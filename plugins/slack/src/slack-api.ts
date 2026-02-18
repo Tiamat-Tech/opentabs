@@ -411,7 +411,7 @@ const slackApi = async <T extends Record<string, unknown>>(
   const record = data as Record<string, unknown>;
   if (record.ok !== true) {
     const error = typeof record.error === 'string' ? record.error : 'unknown_error';
-    throw new ToolError(error, error);
+    throw new ToolError(`Slack API error: ${error}`, error);
   }
 
   return data as T & { ok: true };
