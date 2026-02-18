@@ -240,24 +240,18 @@ const registerMcpHandlers = (server: McpServerInstance, state: ServerState): voi
       }
     }
 
-    // O(1) plugin tool lookup via pre-built map
-    const lookup = state.toolLookup.get(toolName);
-
-    if (!lookup) {
+    // O(1) plugin tool lookup + enabled check via pre-built map
+    const callableCheck = checkToolCallable(state, toolName);
+    if (!callableCheck.ok) {
       return {
-        content: [{ type: 'text' as const, text: `Tool ${toolName} not found` }],
+        content: [{ type: 'text' as const, text: callableCheck.error }],
         isError: true,
       };
     }
 
-    const { pluginName: foundPlugin, toolName: foundTool } = lookup;
-
-    if (!isToolEnabled(state, toolName)) {
-      return {
-        content: [{ type: 'text' as const, text: `Tool ${toolName} is disabled` }],
-        isError: true,
-      };
-    }
+    const { pluginName: foundPlugin, toolName: foundTool } = callableCheck;
+    // Safe to assert: checkToolCallable verified the tool exists in toolLookup
+    const lookup = state.toolLookup.get(toolName) as ToolLookupEntry;
 
     // Validate args against the tool's JSON Schema before dispatching.
     // The validator is pre-compiled at discovery time for performance.
@@ -445,6 +439,32 @@ export const getEnabledToolsList = (
   }
 
   return tools;
+};
+
+/** Result of checking whether a plugin tool is callable */
+export interface ToolCallableOk {
+  ok: true;
+  pluginName: string;
+  toolName: string;
+}
+
+export interface ToolCallableError {
+  ok: false;
+  error: string;
+}
+
+export type ToolCallableResult = ToolCallableOk | ToolCallableError;
+
+/**
+ * Check if a prefixed plugin tool name is callable: exists in the tool lookup
+ * and is enabled in the tool config. Browser tools are handled separately
+ * (before this check) in the tools/call handler.
+ */
+export const checkToolCallable = (state: ServerState, prefixedToolName: string): ToolCallableResult => {
+  const lookup = state.toolLookup.get(prefixedToolName);
+  if (!lookup) return { ok: false, error: `Tool ${prefixedToolName} not found` };
+  if (!isToolEnabled(state, prefixedToolName)) return { ok: false, error: `Tool ${prefixedToolName} is disabled` };
+  return { ok: true, pluginName: lookup.pluginName, toolName: lookup.toolName };
 };
 
 export type { McpServerInstance };

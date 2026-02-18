@@ -1,4 +1,10 @@
-import { getEnabledToolsList, rebuildToolLookups, registerMcpHandlers, trustTierPrefix } from './mcp-setup.js';
+import {
+  checkToolCallable,
+  getEnabledToolsList,
+  rebuildToolLookups,
+  registerMcpHandlers,
+  trustTierPrefix,
+} from './mcp-setup.js';
 import { createState } from './state.js';
 import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
@@ -488,5 +494,62 @@ describe('getEnabledToolsList — tool entry shape', () => {
       description: 'List all open tabs',
     });
     expect(typeof tools[0]?.inputSchema).toBe('object');
+  });
+});
+
+describe('checkToolCallable', () => {
+  test('returns ok with correct pluginName and toolName when tool exists and is enabled', () => {
+    const state = createState();
+    state.plugins.set('slack', createPlugin('slack', ['send_message']));
+    rebuildToolLookups(state);
+
+    const result = checkToolCallable(state, 'slack_send_message');
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.pluginName).toBe('slack');
+      expect(result.toolName).toBe('send_message');
+    }
+  });
+
+  test('returns error containing "disabled" when tool exists but is disabled', () => {
+    const state = createState();
+    state.plugins.set('slack', createPlugin('slack', ['send_message']));
+    rebuildToolLookups(state);
+    state.toolConfig = { slack_send_message: false };
+
+    const result = checkToolCallable(state, 'slack_send_message');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('disabled');
+    }
+  });
+
+  test('returns error containing "not found" when tool does not exist', () => {
+    const state = createState();
+    rebuildToolLookups(state);
+
+    const result = checkToolCallable(state, 'nonexistent_tool');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('not found');
+    }
+  });
+
+  test('browser tool names are not in toolLookup (handled separately)', () => {
+    const state = createState();
+    state.browserTools = [createBrowserTool('browser_list_tabs', 'List tabs')];
+    rebuildToolLookups(state);
+
+    const result = checkToolCallable(state, 'browser_list_tabs');
+
+    // Browser tools are not in the plugin toolLookup — they are handled
+    // by a separate code path before checkToolCallable is called
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('not found');
+    }
   });
 });
