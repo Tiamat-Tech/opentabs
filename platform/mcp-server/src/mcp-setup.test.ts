@@ -1,8 +1,9 @@
-import { rebuildToolLookups, trustTierPrefix } from './mcp-setup.js';
+import { rebuildToolLookups, registerMcpHandlers, trustTierPrefix } from './mcp-setup.js';
 import { createState } from './state.js';
 import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
 import type { BrowserToolDefinition } from './browser-tools/definition.js';
+import type { McpServerInstance } from './mcp-setup.js';
 import type { RegisteredPlugin } from './state.js';
 
 /** Create a minimal RegisteredPlugin for testing */
@@ -259,5 +260,91 @@ describe('trustTierPrefix', () => {
 
   test('returns correct prefix for local tier', () => {
     expect(trustTierPrefix('local')).toBe('[Local plugin] ');
+  });
+});
+
+/** Create a mock McpServerInstance that captures registered handlers */
+const createMockServer = (): {
+  server: McpServerInstance;
+  handlers: Map<unknown, (request: { params: { name: string; arguments?: Record<string, unknown> } }) => unknown>;
+} => {
+  const handlers = new Map<
+    unknown,
+    (request: { params: { name: string; arguments?: Record<string, unknown> } }) => unknown
+  >();
+  const server: McpServerInstance = {
+    setRequestHandler: (schema: unknown, handler) => {
+      handlers.set(schema, handler);
+    },
+    connect: () => Promise.resolve(),
+    sendToolListChanged: () => Promise.resolve(),
+  };
+  return { server, handlers };
+};
+
+/** Retrieve the tools/list handler by finding the handler that returns a { tools } shape */
+const getListToolsHandler = (
+  handlers: Map<unknown, (request: { params: { name: string; arguments?: Record<string, unknown> } }) => unknown>,
+): ((request: { params: { name: string; arguments?: Record<string, unknown> } }) => unknown) => {
+  // registerMcpHandlers registers exactly 2 handlers (tools/list and tools/call).
+  // The tools/list handler is registered first. Iterate and return the one whose
+  // result has a `tools` array property.
+  for (const handler of handlers.values()) {
+    const result = handler({ params: { name: '' } }) as Record<string, unknown>;
+    if ('tools' in result) return handler;
+  }
+  throw new Error('tools/list handler not found');
+};
+
+describe('registerMcpHandlers — disabled tool filtering', () => {
+  test('disabled tools are excluded from tools/list response', () => {
+    const state = createState();
+    state.plugins.set('slack', createPlugin('slack', ['send_message', 'read_messages', 'list_channels']));
+    rebuildToolLookups(state);
+
+    // Disable one tool via toolConfig
+    state.toolConfig = { slack_read_messages: false };
+
+    const { server, handlers } = createMockServer();
+    registerMcpHandlers(server, state);
+
+    const listTools = getListToolsHandler(handlers);
+    const result = listTools({ params: { name: '' } }) as { tools: Array<{ name: string }> };
+
+    const toolNames = result.tools.map(t => t.name);
+    expect(toolNames).toContain('slack_send_message');
+    expect(toolNames).not.toContain('slack_read_messages');
+    expect(toolNames).toContain('slack_list_channels');
+    expect(toolNames).toHaveLength(2);
+  });
+
+  test('re-enabling a disabled tool makes it reappear in tools/list', () => {
+    const state = createState();
+    state.plugins.set('slack', createPlugin('slack', ['send_message', 'read_messages']));
+    rebuildToolLookups(state);
+
+    // Disable a tool
+    state.toolConfig = { slack_send_message: false };
+
+    const { server, handlers } = createMockServer();
+    registerMcpHandlers(server, state);
+
+    const listTools = getListToolsHandler(handlers);
+
+    // Verify tool is absent when disabled
+    const resultBefore = listTools({ params: { name: '' } }) as { tools: Array<{ name: string }> };
+    const namesBefore = resultBefore.tools.map(t => t.name);
+    expect(namesBefore).not.toContain('slack_send_message');
+    expect(namesBefore).toContain('slack_read_messages');
+
+    // Re-enable the tool
+    state.toolConfig = {};
+
+    // Same handler, same state reference — tool should reappear
+    const resultAfter = listTools({ params: { name: '' } }) as { tools: Array<{ name: string }> };
+    const namesAfter = resultAfter.tools.map(t => t.name);
+    expect(namesAfter).toContain('slack_send_message');
+    expect(namesAfter).toContain('slack_read_messages');
+    expect(namesAfter).toHaveLength(2);
   });
 });
