@@ -174,6 +174,16 @@ describe('validatePlugin', () => {
       const tools = [makeTool({ name: 'tool_a' }), makeTool({ name: 'tool_b' })];
       expect(validatePlugin(makePlugin({ tools }))).toEqual([]);
     });
+
+    test('rejects tool name starting with a digit', () => {
+      const errors = validatePlugin(makePlugin({ tools: [makeTool({ name: '1tool' })] }));
+      expect(errors.some(e => e.includes('snake_case'))).toBe(true);
+    });
+
+    test('produces two errors for tool with both empty name and empty description', () => {
+      const errors = validatePlugin(makePlugin({ tools: [makeTool({ name: '', description: '' })] }));
+      expect(errors.filter(e => e.includes('name') || e.includes('description'))).toHaveLength(2);
+    });
   });
 
   // -- Multiple errors --
