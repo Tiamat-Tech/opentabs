@@ -62,6 +62,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
+# Claude Code refuses to launch inside another Claude Code session.
+# ralph.sh may be started from within a Claude Code session, so unset
+# the environment variable that triggers the nested-session guard.
+unset CLAUDECODE
+
 ARCHIVE_DIR="$SCRIPT_DIR/archive"
 mkdir -p "$ARCHIVE_DIR"
 
