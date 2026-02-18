@@ -1,4 +1,4 @@
-import { mock, describe, expect, test, beforeEach } from 'bun:test';
+import { mock, describe, expect, test, beforeEach, afterEach, jest } from 'bun:test';
 import type { ValidatedPluginPayload } from './message-router.js';
 
 // ---------------------------------------------------------------------------
@@ -856,6 +856,65 @@ describe('handleServerMessage', () => {
 
       expect(mockHandleBrowserExecuteScript).toHaveBeenCalledTimes(1);
       expect(mockHandleBrowserExecuteScript).toHaveBeenCalledWith({ tabId: 7, code: 'return 1' }, 24);
+    });
+  });
+
+  describe('extension.reload routing', () => {
+    const chromeMock = (globalThis as Record<string, unknown>).chrome as {
+      storage: { session: { set: ReturnType<typeof mock> } };
+      runtime: { reload: ReturnType<typeof mock> };
+    };
+    const chromeSessionSet = chromeMock.storage.session.set;
+    const chromeRuntimeReload = chromeMock.runtime.reload;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      chromeSessionSet.mockClear();
+      chromeRuntimeReload.mockClear();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    test('sends success result and calls chrome.runtime.reload() when id is provided', async () => {
+      handleServerMessage({ method: 'extension.reload', id: 55 });
+
+      expect(mockSendToServer).toHaveBeenCalledTimes(1);
+      expect(mockSendToServer).toHaveBeenCalledWith({
+        jsonrpc: '2.0',
+        result: { reloading: true },
+        id: 55,
+      });
+
+      expect(chromeSessionSet).toHaveBeenCalledTimes(1);
+      expect(chromeSessionSet).toHaveBeenCalledWith({ wsConnected: false });
+
+      // Flush the microtask queue so the .catch().then() chain fires and
+      // schedules the setTimeout for chrome.runtime.reload()
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Advance past RELOAD_FLUSH_DELAY_MS (100ms)
+      jest.advanceTimersByTime(100);
+      expect(chromeRuntimeReload).toHaveBeenCalledTimes(1);
+    });
+
+    test('does not send a response when id is not provided', async () => {
+      handleServerMessage({ method: 'extension.reload' });
+
+      expect(mockSendToServer).not.toHaveBeenCalled();
+
+      // Reload still happens even without an id
+      expect(chromeSessionSet).toHaveBeenCalledTimes(1);
+
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      jest.advanceTimersByTime(100);
+      expect(chromeRuntimeReload).toHaveBeenCalledTimes(1);
     });
   });
 
