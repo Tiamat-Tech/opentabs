@@ -10,11 +10,12 @@ You are an autonomous coding agent working on the OpenTabs Platform project.
 4. Work on the current branch (do NOT create or switch branches)
 5. Pick the **highest priority** user story where `passes: false`
 6. Implement that single user story
-7. Run quality checks: `bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e`
-8. Update CLAUDE.md files if you discover reusable patterns (see below)
-9. If checks pass, commit code changes (see Git Rules below)
-10. **After committing**, update the PRD to set `passes: true` for the completed story
-11. **After committing**, append your progress to the matching progress file
+7. Run ALL quality checks: `bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e`
+8. **If ANY check fails, fix it before proceeding** — even pre-existing failures. See "Own the Codebase" below.
+9. Update CLAUDE.md files if you discover reusable patterns (see below)
+10. **Only if ALL checks exit 0**, commit code changes (see Git Rules below)
+11. **After committing**, update the PRD to set `passes: true` for the completed story
+12. **After committing**, append your progress to the matching progress file
 
 ## Project Context
 
@@ -105,9 +106,27 @@ Only update CLAUDE.md if you have **genuinely reusable knowledge** that would he
 - Use arrow function expressions (not function declarations)
 - No TODO/FIXME/HACK comments — if something needs to be done, do it now
 
-## Own the Codebase
+## Own the Codebase — Hard Gate
 
-You are the engineer on duty. If quality checks fail — even on code you did not write — it is your responsibility to fix them before moving on. Pre-existing test failures, lint errors, type errors, or build breakages are not someone else's problem. Fix them as part of your current story's work (or as a separate commit before your story if the fix is unrelated). A green build is a precondition, not an afterthought.
+**You MUST NOT commit code unless ALL quality checks exit 0.** This is a hard gate, not a suggestion.
+
+If quality checks fail — even on code you did not write — you MUST fix them before committing anything. There are NO exceptions:
+
+- "Pre-existing" is not an excuse. Fix it.
+- "Flaky test" is not an excuse. Fix the flakiness or make the test deterministic.
+- "Timing-related" is not an excuse. Add proper waits, retries, or fix the race condition.
+- "Not related to my story" is not an excuse. Fix it in a separate commit before your story commit.
+- "Works on re-run" is not an excuse. If it fails once, it's broken. Fix the root cause.
+
+If you cannot fix the failing check within your iteration, do NOT commit your story. Leave it as `passes: false` and document what's blocking in the progress file. A committed story with failing checks is worse than an uncommitted story — it poisons the codebase for all future iterations.
+
+**The verification command must exit 0 end-to-end:**
+
+```bash
+bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e
+```
+
+Run this BEFORE committing. If any command fails, do not commit.
 
 ## Browser Testing (If Available)
 
