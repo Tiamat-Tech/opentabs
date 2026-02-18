@@ -1,5 +1,11 @@
-import { fetchConfigState, handleServerResponse, rejectAllPending, setToolEnabled } from './bridge.js';
-import { beforeEach, describe, expect, test } from 'bun:test';
+import {
+  fetchConfigState,
+  handleServerResponse,
+  rejectAllPending,
+  setAllToolsEnabled,
+  setToolEnabled,
+} from './bridge.js';
+import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 
 /** Captured sendMessage calls. Each entry has the message object passed to sendMessage. */
 let sendMessageCalls: Array<{ message: unknown }> = [];
@@ -206,6 +212,70 @@ describe('sendRequest error handling', () => {
     expect(typeof msg.data.id).toBe('string');
 
     cleanupPending(promise);
+  });
+});
+
+describe('setAllToolsEnabled', () => {
+  test('sends JSON-RPC with method config.setAllToolsEnabled and correct params', () => {
+    const promise = setAllToolsEnabled('slack', true);
+
+    expect(sendMessageCalls).toHaveLength(1);
+    const entry = sendMessageCalls.at(0);
+    if (!entry) throw new Error('Expected sendMessage call');
+    const msg = entry.message as { type: string; data: Record<string, unknown> };
+
+    expect(msg.type).toBe('bg:send');
+    expect(msg.data.jsonrpc).toBe('2.0');
+    expect(msg.data.method).toBe('config.setAllToolsEnabled');
+    expect(msg.data.params).toEqual({ plugin: 'slack', enabled: true });
+    expect(typeof msg.data.id).toBe('string');
+
+    cleanupPending(promise);
+  });
+
+  test('sends enabled=false when disabling all tools', () => {
+    const promise = setAllToolsEnabled('datadog', false);
+
+    const entry = sendMessageCalls.at(0);
+    if (!entry) throw new Error('Expected sendMessage call');
+    const msg = entry.message as { type: string; data: Record<string, unknown> };
+
+    expect(msg.data.method).toBe('config.setAllToolsEnabled');
+    expect(msg.data.params).toEqual({ plugin: 'datadog', enabled: false });
+
+    cleanupPending(promise);
+  });
+});
+
+describe('request timeout', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('rejects after REQUEST_TIMEOUT_MS with timeout error', async () => {
+    const promise = fetchConfigState();
+
+    jest.advanceTimersByTime(30_000);
+
+    await expectRejection(promise, 'timed out after 30000ms');
+  });
+
+  test('cleans up pending request from internal map after timeout', async () => {
+    const promise = fetchConfigState();
+    const id = getLastRequestId();
+
+    jest.advanceTimersByTime(30_000);
+
+    await expectRejection(promise, 'timed out after 30000ms');
+
+    // After timeout, handleServerResponse with the same id returns false
+    // (the entry was removed from the pending map)
+    const handled = handleServerResponse({ id, result: {} });
+    expect(handled).toBe(false);
   });
 });
 
