@@ -10,9 +10,11 @@ const enableNetworkCapture = defineBrowserTool({
   name: 'browser_enable_network_capture',
   description:
     'Start capturing network requests and responses for a browser tab using the Chrome DevTools Protocol. ' +
-    'Captures request URL, method, status, headers, request bodies (POST data), response bodies, and timing. ' +
+    'Captures request URL, method, status code, request headers, response headers, request bodies (POST/PUT/PATCH data), ' +
+    'response bodies, MIME type, and timing for each request. ' +
     'Response bodies are captured automatically for text-based responses (JSON, HTML, JS, CSS, etc.) ' +
     'and skipped for binary content (images, fonts, video, audio). ' +
+    'Use urlFilter to focus on API calls (e.g., "/api" or "graphql") and reduce noise from static assets. ' +
     'Retrieve captured data with browser_get_network_requests. ' +
     'Only one capture session per tab — call browser_disable_network_capture first to restart.',
   input: z.object({
