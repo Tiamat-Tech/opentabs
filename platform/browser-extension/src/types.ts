@@ -64,6 +64,11 @@ export interface BgGetLogsMessage {
   };
 }
 
+/** Background → Offscreen: force WebSocket disconnect and immediate reconnect */
+export interface BgForceReconnectMessage {
+  type: 'bg:forceReconnect';
+}
+
 /** Background → Side panel: request current React state and rendered HTML */
 export interface SpGetStateMessage {
   type: 'sp:getState';
@@ -92,6 +97,7 @@ export type InternalMessage =
   | BgSendMessage
   | BgGetConnectionStateMessage
   | BgGetLogsMessage
+  | BgForceReconnectMessage
   | SpGetStateMessage
   | SpConnectionStateMessage
   | SpRelayMessage;

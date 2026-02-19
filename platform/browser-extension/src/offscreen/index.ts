@@ -387,6 +387,24 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
       break;
     }
 
+    case 'bg:forceReconnect': {
+      if (ws) {
+        try {
+          ws.close(1000, 'Force reconnect');
+        } catch {
+          // Already closed
+        }
+      }
+      backoffMs = INITIAL_BACKOFF_MS;
+      if (reconnectTimeoutId !== null) {
+        clearTimeout(reconnectTimeoutId);
+        reconnectTimeoutId = null;
+      }
+      void connect();
+      sendResponse({ ok: true });
+      break;
+    }
+
     // Messages handled by the background script or side panel — not processed here.
     case 'offscreen:getUrl':
     case 'ws:state':

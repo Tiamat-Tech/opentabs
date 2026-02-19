@@ -16,7 +16,7 @@ import { findAllMatchingTabs } from './tab-matching.js';
 import { getLastKnownStates } from './tab-state.js';
 import { isBlockedUrlScheme } from '@opentabs-dev/shared';
 import type { LogEntry, LogFilterOptions, LogStats } from './log-collector.js';
-import type { BgGetLogsMessage, SpGetStateMessage } from './types.js';
+import type { BgForceReconnectMessage, BgGetLogsMessage, SpGetStateMessage } from './types.js';
 
 interface CdpFrame {
   id: string;
@@ -2105,5 +2105,26 @@ export const handleExtensionCheckAdapter = async (
       error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
       id,
     });
+  }
+};
+
+export const handleExtensionForceReconnect = async (id: string | number): Promise<void> => {
+  try {
+    // Send the success response FIRST, before the WebSocket is torn down.
+    // The response travels over the current WebSocket connection; if we
+    // close it first, the response would never reach the MCP server.
+    sendToServer({ jsonrpc: '2.0', result: { reconnecting: true }, id });
+
+    // Small delay so the response flushes over the WebSocket before we
+    // ask the offscreen document to close and reconnect.
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    await chrome.runtime.sendMessage({
+      type: 'bg:forceReconnect',
+    } satisfies BgForceReconnectMessage);
+  } catch (err) {
+    // The response was already sent above, so this catch is best-effort.
+    // If sendToServer itself failed, there's nothing more we can do.
+    console.warn('[opentabs] extension.forceReconnect failed:', err);
   }
 };

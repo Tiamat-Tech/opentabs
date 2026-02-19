@@ -30,6 +30,7 @@ import {
   handleBrowserTypeText,
   handleBrowserWaitForElement,
   handleExtensionCheckAdapter,
+  handleExtensionForceReconnect,
   handleExtensionGetLogs,
   handleExtensionGetSidePanel,
   handleExtensionGetState,
@@ -535,6 +536,16 @@ const methodHandlers = new Map<string, MessageHandler>([
       if (id !== undefined) {
         handleExtensionCheckAdapter(params, id).catch((err: unknown) =>
           console.warn('[opentabs] extension.checkAdapter handler failed:', err),
+        );
+      }
+    },
+  ],
+  [
+    'extension.forceReconnect',
+    (_params, id) => {
+      if (id !== undefined) {
+        handleExtensionForceReconnect(id).catch((err: unknown) =>
+          console.warn('[opentabs] extension.forceReconnect handler failed:', err),
         );
       }
     },

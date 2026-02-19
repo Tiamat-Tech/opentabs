@@ -108,6 +108,7 @@ const mockHandleExtensionGetSidePanel = mock(asyncNoop as (id: string | number) 
 const mockHandleExtensionCheckAdapter = mock(
   asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
 );
+const mockHandleExtensionForceReconnect = mock(asyncNoop as (id: string | number) => Promise<void>);
 
 await mock.module('./messaging.js', () => ({
   sendToServer: mockSendToServer,
@@ -150,6 +151,7 @@ await mock.module('./browser-commands.js', () => ({
   handleBrowserHoverElement: mockHandleBrowserHoverElement,
   handleBrowserHandleDialog: mockHandleBrowserHandleDialog,
   handleExtensionCheckAdapter: mockHandleExtensionCheckAdapter,
+  handleExtensionForceReconnect: mockHandleExtensionForceReconnect,
   handleExtensionGetState: mockHandleExtensionGetState,
   handleExtensionGetLogs: mockHandleExtensionGetLogs,
   handleExtensionGetSidePanel: mockHandleExtensionGetSidePanel,
@@ -525,6 +527,7 @@ const resetRoutingMocks = (): void => {
   mockHandleExtensionGetLogs.mockReset();
   mockHandleExtensionGetSidePanel.mockReset();
   mockHandleExtensionCheckAdapter.mockReset();
+  mockHandleExtensionForceReconnect.mockReset();
 };
 
 describe('handleServerMessage', () => {
@@ -559,6 +562,7 @@ describe('handleServerMessage', () => {
     mockHandleExtensionGetLogs.mockResolvedValue(undefined);
     mockHandleExtensionGetSidePanel.mockResolvedValue(undefined);
     mockHandleExtensionCheckAdapter.mockResolvedValue(undefined);
+    mockHandleExtensionForceReconnect.mockResolvedValue(undefined);
   });
 
   describe('sync.full routing', () => {
@@ -1041,6 +1045,13 @@ describe('handleServerMessage', () => {
 
       expect(mockHandleExtensionCheckAdapter).toHaveBeenCalledTimes(1);
       expect(mockHandleExtensionCheckAdapter).toHaveBeenCalledWith({ plugin: 'slack' }, 52);
+    });
+
+    test('dispatches extension.forceReconnect to handleExtensionForceReconnect', () => {
+      handleServerMessage({ method: 'extension.forceReconnect', id: 53 });
+
+      expect(mockHandleExtensionForceReconnect).toHaveBeenCalledTimes(1);
+      expect(mockHandleExtensionForceReconnect).toHaveBeenCalledWith(53);
     });
   });
 

@@ -237,6 +237,7 @@ export const BROWSER_TOOL_NAMES = [
   'extension_get_logs',
   'extension_get_side_panel',
   'extension_check_adapter',
+  'extension_force_reconnect',
 ];
 
 // ---------------------------------------------------------------------------

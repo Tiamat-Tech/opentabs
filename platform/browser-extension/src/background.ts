@@ -171,6 +171,7 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, _sender, sendRes
     case 'ws:send':
     case 'ws:getState':
     case 'ws:setUrl':
+    case 'bg:forceReconnect':
     case 'sp:getState':
     case 'sp:connectionState':
     case 'sp:serverMessage':

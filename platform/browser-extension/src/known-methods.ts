@@ -47,6 +47,7 @@ export const DISPATCH_METHODS = [
   'extension.getLogs',
   'extension.getSidePanel',
   'extension.checkAdapter',
+  'extension.forceReconnect',
 ] as const;
 
 /**
