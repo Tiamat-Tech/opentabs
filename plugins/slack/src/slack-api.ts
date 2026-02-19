@@ -245,7 +245,7 @@ const getAuthFromLocalStorageScan = (): SlackAuth | null => {
         if (auth) return auth;
       } catch {
         // Not JSON — try regex extraction from raw string
-        const tokenMatch = /(xoxc-[a-zA-Z0-9-]+)/.exec(raw);
+        const tokenMatch = /(xoxc-[a-zA-Z0-9_-]+)/.exec(raw);
         if (tokenMatch?.[1]) {
           return buildAuth(tokenMatch[1]);
         }
