@@ -750,7 +750,9 @@ const cleanupStaleExecFiles = async (): Promise<void> => {
     return;
   }
 
-  const staleExecFiles = entries.filter(f => f.startsWith(EXEC_FILE_PREFIX) && f.endsWith('.js'));
+  const staleExecFiles = entries.filter(
+    f => f.startsWith(EXEC_FILE_PREFIX) && (f.endsWith('.js') || f.endsWith('.js.tmp')),
+  );
   if (staleExecFiles.length === 0) return;
 
   await Promise.allSettled(staleExecFiles.map(f => Bun.file(join(adaptersDir, f)).delete()));
