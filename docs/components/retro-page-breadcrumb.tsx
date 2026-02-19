@@ -1,0 +1,43 @@
+'use client';
+
+import { useTreeContext, useTreePath } from 'fumadocs-ui/contexts/tree';
+import { getBreadcrumbItemsFromPath } from 'fumadocs-core/breadcrumb';
+import { ChevronRight } from 'lucide-react';
+import { useMemo } from 'react';
+import Link from 'fumadocs-core/link';
+import { cn } from '@/lib/utils';
+
+export function RetroPageBreadcrumb() {
+  const path = useTreePath();
+  const { root } = useTreeContext();
+
+  const items = useMemo(() => getBreadcrumbItemsFromPath(root, path, { includePage: true }), [root, path]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <nav aria-label="breadcrumb">
+      <ol className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm">
+        {items.map((item, i) => (
+          <li key={i} className="inline-flex items-center gap-1.5">
+            {i !== 0 && <ChevronRight className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />}
+            {item.url ? (
+              <Link
+                href={item.url}
+                className={cn(
+                  'hover:text-foreground font-medium transition-colors',
+                  i === items.length - 1 && 'text-foreground font-semibold',
+                )}>
+                {item.name}
+              </Link>
+            ) : (
+              <span aria-current="page" className="text-foreground truncate font-semibold">
+                {item.name}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}

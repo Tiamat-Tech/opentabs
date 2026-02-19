@@ -1,0 +1,50 @@
+---
+title: Welcome to OpenTabs
+description: An AI-powered platform for interacting with web applications through your authenticated browser session.
+---
+
+# Welcome to OpenTabs
+
+OpenTabs bridges the gap between AI agents and web applications — no API integrations required. Your AI agent uses your existing authenticated browser sessions to interact with any web app.
+
+<Cards>
+  <Card
+    title="Quick Start"
+    description="Get OpenTabs running in under 5 minutes."
+    href="/docs/guides/installation"
+  />
+  <Card
+    title="Getting Started"
+    description="Learn about OpenTabs typography and code formatting."
+    href="/docs/getting-started"
+  />
+  <Card
+    title="Components"
+    description="Explore all available MDX components and UI elements."
+    href="/docs/components"
+  />
+  <Card
+    title="Plugin SDK"
+    description="Build and publish your own OpenTabs plugins."
+    href="/docs"
+  />
+</Cards>
+
+## How It Works
+
+OpenTabs consists of three core pieces that work together:
+
+| Component | Role |
+|---|---|
+| **MCP Server** | Discovers plugins, registers tools, dispatches calls |
+| **Chrome Extension** | Injects adapters into tabs, handles tool execution |
+| **Plugin SDK** | Tools for building and publishing plugins |
+
+## Key Features
+
+- **Zero-configuration access** — AI agents connect to web apps you're already logged into
+- **Plugin-based architecture** — anyone can publish an OpenTabs plugin as an npm package
+- **Live tab state** — agents get real-time feedback when tabs are available or authenticated
+- **Hot reload** — changes to plugins and server code apply instantly without restarting
+
+> OpenTabs gives AI agents access to any web application through the user's authenticated browser session — without requiring any changes to the web application itself.

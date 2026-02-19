@@ -1,0 +1,158 @@
+---
+title: Installation
+description: Get OpenTabs up and running in your development environment.
+---
+
+# Installation
+
+This guide walks you through setting up the OpenTabs platform from scratch — MCP server, Chrome extension, and your first plugin.
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+- **Bun** `>=1.0.0` — the runtime and package manager for the platform
+- **Chrome** or a Chromium-based browser with Developer mode access
+- **Node.js** `>=20` — required for some tooling (Playwright, etc.)
+
+<Callout type="info" title="Why Bun?">
+  OpenTabs uses Bun natively for its file APIs, HTTP server, and build system. While Node.js is
+  supported for some tasks, Bun is required for running the MCP server.
+</Callout>
+
+## Installation Steps
+
+<Steps>
+  <Step>
+    ### Clone the repository
+
+    Start by cloning the OpenTabs monorepo:
+
+    ```bash title="Terminal"
+    git clone https://github.com/opentabs/opentabs.git
+    cd opentabs
+    ```
+  </Step>
+  <Step>
+    ### Install dependencies
+
+    Use Bun to install all workspace dependencies at once:
+
+    ```bash title="Terminal"
+    bun install
+    ```
+
+    This installs dependencies for all packages in the monorepo: `mcp-server`, `browser-extension`, `plugin-sdk`, and `create-plugin`.
+  </Step>
+  <Step>
+    ### Build the platform
+
+    Compile all TypeScript packages and bundle the browser extension side panel:
+
+    ```bash title="Terminal"
+    bun run build
+    ```
+
+    The build output is placed in:
+    - `platform/*/dist/` — compiled TypeScript for server packages
+    - `~/.opentabs/extension/` — the Chrome extension (ready to load unpacked)
+  </Step>
+  <Step>
+    ### Load the extension
+
+    1. Open `chrome://extensions/` in Chrome
+    2. Enable **Developer mode** (toggle in the top-right)
+    3. Click **Load unpacked**
+    4. Select the `~/.opentabs/extension/` directory
+
+    <Callout type="warn" title="After code changes">
+      The Chrome extension does **not** auto-reload. After running `bun run build`, you must
+      manually click the refresh icon on the extension card in `chrome://extensions/`.
+    </Callout>
+  </Step>
+  <Step>
+    ### Configure your first plugin
+
+    Create the OpenTabs config directory and register a plugin:
+
+    ```bash title="Terminal"
+    mkdir -p ~/.opentabs
+    ```
+
+    ```json title="~/.opentabs/config.json"
+    {
+      "plugins": [
+        "/absolute/path/to/your/plugin"
+      ]
+    }
+    ```
+  </Step>
+  <Step>
+    ### Start the MCP server
+
+    Run the MCP server with hot reload enabled:
+
+    ```bash title="Terminal"
+    bun --hot platform/mcp-server/dist/index.js
+    ```
+
+    Verify the server is running:
+
+    ```bash title="Terminal"
+    curl http://localhost:3000/health
+    ```
+
+    You should see a response like:
+
+    ```json
+    {
+      "status": "ok",
+      "plugins": [],
+      "reloadCount": 0
+    }
+    ```
+
+    <Callout type="success" title="Setup complete!">
+      OpenTabs is now running. Connect your AI agent (Claude, Cursor, etc.) via the MCP endpoint
+      at `http://localhost:3000/mcp`.
+    </Callout>
+  </Step>
+</Steps>
+
+## Configuration Reference
+
+The `~/.opentabs/config.json` file controls plugin discovery:
+
+| Field | Type | Description |
+|---|---|---|
+| `plugins` | `string[]` | Absolute paths to local plugin directories |
+
+## Troubleshooting
+
+### Extension not connecting
+
+Check that the MCP server is running and the extension is loaded:
+
+```bash
+curl http://localhost:3000/health
+```
+
+If the extension shows "Disconnected" in the side panel, try:
+
+1. Verify the MCP server is running on port `3000`
+2. Reload the extension from `chrome://extensions/`
+3. Check the browser console for WebSocket errors
+
+### Hot reload not triggering
+
+If `bun run build` doesn't trigger a hot reload, check the `/health` endpoint's `reloadCount`. If it hasn't incremented, restart the MCP server:
+
+```bash
+# Kill the running server and restart
+bun --hot platform/mcp-server/dist/index.js
+```
+
+<Callout type="info">
+  The Bun file watcher can go stale on long-running processes. If hot reload stops working after
+  extended use, a manual restart always fixes it.
+</Callout>

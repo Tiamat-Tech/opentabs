@@ -40,7 +40,6 @@ const config: Linter.Config[] = [
       'test-results/**',
       'plugins/**',
       'docs/**',
-      'docs-v2/**',
     ],
   },
   // Main TypeScript/TSX rules

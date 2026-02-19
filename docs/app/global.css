@@ -1,0 +1,331 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'fumadocs-ui/css/preset.css';
+
+@theme inline {
+  --font-head: var(--font-head);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --radius: var(--radius);
+  --shadow-xs: 1px 1px 0 0 var(--border);
+  --shadow-sm: 2px 2px 0 0 var(--border);
+  --shadow: 3px 3px 0 0 var(--border);
+  --shadow-md: 4px 4px 0 0 var(--border);
+  --shadow-lg: 6px 6px 0 0 var(--border);
+  --shadow-xl: 10px 10px 0 1px var(--border);
+  --shadow-2xl: 16px 16px 0 1px var(--border);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+
+  /* Fumadocs dynamic color tokens mapped to RetroUI variables */
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-primary: var(--primary);
+  --color-fd-primary-foreground: var(--primary-foreground);
+  --color-fd-border: var(--border);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--card-foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-accent: var(--accent);
+  --color-fd-accent-foreground: var(--accent-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground);
+  --color-fd-ring: var(--border);
+  --color-fd-popover: var(--background);
+  --color-fd-popover-foreground: var(--foreground);
+  --color-fd-overlay: rgba(0, 0, 0, 0.8);
+}
+
+/* Fumadocs static color tokens — used by shiki.css diff highlighting and callout icons */
+@theme static {
+  --color-fd-info: oklch(62.3% 0.214 259.815);
+  --color-fd-warning: oklch(76.9% 0.188 70.08);
+  --color-fd-error: oklch(63.7% 0.237 25.331);
+  --color-fd-success: oklch(72.3% 0.219 149.579);
+  --color-fd-idea: oklch(70.5% 0.209 60.849);
+  --color-fd-diff-remove: rgba(200, 10, 100, 0.12);
+  --color-fd-diff-remove-symbol: rgb(230, 10, 100);
+  --color-fd-diff-add: rgba(14, 180, 100, 0.1);
+  --color-fd-diff-add-symbol: rgb(10, 200, 100);
+}
+
+:root {
+  --radius: 0;
+  --background: #fff;
+  --foreground: #000;
+  --card: #fff;
+  --card-foreground: #000;
+  --primary: #ffdb33;
+  --primary-hover: #ffcc00;
+  --primary-foreground: #000;
+  --secondary: #000;
+  --secondary-foreground: #fff;
+  --muted: #d5d5d5;
+  --muted-foreground: #5a5a5a;
+  --accent: #fae583;
+  --accent-foreground: #000;
+  --destructive: #e63946;
+  --destructive-foreground: #fff;
+  --border: #000;
+}
+
+.dark {
+  --background: #1a1a1a;
+  --foreground: #f5f5f5;
+  --card: #242424;
+  --card-foreground: #f5f5f5;
+  --primary: #ffdb33;
+  --primary-hover: #ffcc00;
+  --primary-foreground: #000;
+  --secondary: #3a3a3a;
+  --secondary-foreground: #f5f5f5;
+  --muted: #3f3f46;
+  --muted-foreground: #a0a0a0;
+  --accent: #fae583;
+  --accent-foreground: #000;
+  --destructive: #e63946;
+  --destructive-foreground: #fff;
+  --border: #5c5c5c;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* RetroUI prose link styling — applies to all links in docs content */
+.prose a,
+.nd-prose a {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  text-decoration-color: var(--primary);
+  text-underline-offset: 2px;
+}
+
+.prose a:hover,
+.nd-prose a:hover {
+  text-decoration: underline;
+}
+
+/* ===== RetroUI Home Layout Navbar Overrides ===== */
+
+/* Home page header (#nd-nav): 2px border, solid background, no blur.
+ * HeaderNavigationMenu renders as: <header id="nd-nav"> > <div class="border-b ..."> */
+#nd-nav > div {
+  border-bottom-width: 2px;
+  border-bottom-color: var(--border);
+  background-color: var(--background);
+  backdrop-filter: none;
+}
+
+/* ===== RetroUI Navbar / Sidebar Overrides ===== */
+
+/* Desktop sidebar: 2px right border, solid bg-background (override fd-card) */
+#nd-sidebar aside {
+  border-right-width: 2px;
+  background-color: var(--background);
+}
+
+/* Sidebar collapse panel button: 2px border to match RetroUI */
+[data-sidebar-panel] {
+  border-width: 2px;
+}
+
+/* Active sidebar link: full primary yellow bg with black text (RetroUI active state).
+ * Overrides Fumadocs' default bg-fd-primary/10 + text-fd-primary (light tint).
+ * Applies to both desktop sidebar (#nd-sidebar) and mobile drawer (#nd-sidebar-mobile). */
+#nd-sidebar [data-active='true'],
+#nd-sidebar-mobile [data-active='true'] {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 600;
+}
+
+/* Sidebar section dividers: 2px border lines */
+#nd-sidebar .border-t {
+  border-top-width: 2px;
+}
+
+/* Sidebar section headers (SidebarSeparator renders as <p>): font-head uppercase.
+ * Applies to both desktop sidebar and mobile drawer. */
+#nd-sidebar p,
+#nd-sidebar-mobile p {
+  font-family: var(--font-head);
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Mobile drawer: border-l-2 on the left side */
+#nd-sidebar-mobile {
+  border-left-width: 2px;
+}
+
+/* Sidebar folder content left border line: border-border color already set via fd mapping,
+ * but ensure the pseudo-element uses border-border */
+#nd-sidebar [data-radix-collapsible-content]::before {
+  background-color: var(--border);
+}
+
+/* ===== RetroUI Table of Contents Overrides ===== */
+
+/* TOC container: left border separates it from page content */
+#nd-toc {
+  border-left: 2px solid var(--border);
+}
+
+/* TOC title ("On this page"): Archivo Black, uppercase */
+#toc-title {
+  font-family: var(--font-head);
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* TOC items container: 2px border instead of default thin border */
+#nd-toc .border-s {
+  border-inline-start-width: 2px;
+  border-inline-start-color: var(--border);
+}
+
+/* Active TOC heading: text-primary + font-semibold */
+#nd-toc [data-active='true'] {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Inactive TOC headings: hover to foreground */
+#nd-toc a:not([data-active='true']):hover {
+  color: var(--foreground);
+}
+
+/* ===== RetroUI Search Dialog Overrides ===== */
+
+/* Content container: sharp corners (override rounded-xl), 2px border, flat offset shadow
+ * Targets the Radix DialogContent element which has role="dialog" + data-state. */
+[role="dialog"][data-state] {
+  border-radius: 0;
+  border-width: 2px;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Child element separators: 2px bottom border (override Fumadocs *:border-b = 1px) */
+[role="dialog"][data-state] > * {
+  border-bottom-width: 2px;
+}
+
+/* Search result items: sharp corners, primary yellow active state.
+ * Fumadocs sets aria-selected on active items and uses JS onPointerMove to activate on hover. */
+[role="dialog"] button[aria-selected] {
+  border-radius: 0;
+}
+
+[role="dialog"] button[aria-selected="true"] {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Close (ESC) button: RetroUI outline button press effect.
+ * Selector targets button that is a direct child of the header div (direct child of the dialog). */
+[role="dialog"] > div > button[type="button"] {
+  border-radius: 0;
+  border-width: 2px;
+  box-shadow: var(--shadow-sm);
+  transition-property: box-shadow, transform;
+  transition-duration: 150ms;
+}
+
+[role="dialog"] > div > button[type="button"]:hover {
+  box-shadow: none;
+  transform: translateY(2px);
+}
+
+/* ===== RetroUI Final Polish (US-019) ===== */
+
+/* DocsTitle (page.data.title rendered by DocsPage): enforce font-head since this h1 is outside
+ * the MDX prose context and doesn't receive the getMDXComponents() h1 override. */
+#nd-page > h1 {
+  font-family: var(--font-head);
+}
+
+/* Sidebar and mobile drawer links/buttons: sharp corners (override rounded-lg from itemVariants) */
+#nd-sidebar a,
+#nd-sidebar button,
+#nd-sidebar-mobile a,
+#nd-sidebar-mobile button {
+  border-radius: 0;
+}
+
+/* Sidebar collapsed panel: sharp corners (override rounded-xl) */
+[data-sidebar-panel] > * {
+  border-radius: 0;
+}
+
+/* Mobile TOC popover header: 2px border, no blur */
+[data-toc-popover] header {
+  border-bottom-width: 2px;
+  backdrop-filter: none;
+  background-color: var(--background);
+}
+
+/* Home layout nav items: sharp corners */
+#nd-nav a,
+#nd-nav button {
+  border-radius: 0;
+}
+
+/* Code blocks ejected from Fumadocs: ensure font-mono is used */
+pre, code {
+  font-family: var(--font-mono);
+}
+
+/* ===== RetroUI Steps component — CSS counter-based step numbering */
+.retro-steps {
+  counter-reset: retro-step;
+}
+
+.retro-step {
+  counter-increment: retro-step;
+}
+
+/*
+ * Step number indicator: a square box centered on the container's left border line.
+ * Container: ml-4 (16px margin) + border-l-2 (2px) + pl-10 (40px padding).
+ * .retro-step left edge is 42px (2px border + 40px padding) from the border line.
+ * Center a 2rem (32px) indicator on that line: left = -(42px + 16px) = -58px = -3.625rem.
+ */
+.retro-step::before {
+  content: counter(retro-step);
+  position: absolute;
+  left: -3.625rem;
+  top: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border: 2px solid var(--border);
+  font-family: var(--font-head);
+  font-weight: bold;
+  font-size: 0.875rem;
+  border-radius: 0;
+}
