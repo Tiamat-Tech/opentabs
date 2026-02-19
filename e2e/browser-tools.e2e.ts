@@ -2227,6 +2227,311 @@ test.describe('Browser tools — dialog handling', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Browser tools — network body capture
+// ---------------------------------------------------------------------------
+
+test.describe('Browser tools — network body capture', () => {
+  test('captured POST requests include requestBody', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    // Enable network capture
+    const enableResult = await mcpClient.callTool('browser_enable_network_capture', { tabId });
+    expect(enableResult.isError).toBe(false);
+
+    // Navigate to /post-test which auto-sends a POST to /api/echo with JSON body.
+    // CDP captures requests from inline page scripts (unlike file-injected scripts).
+    await mcpClient.callTool('browser_navigate_tab', {
+      tabId,
+      url: testServer.url + '/post-test',
+    });
+
+    // Poll until the /api/echo request with requestBody appears
+    let echoReq: Record<string, unknown> | undefined;
+    await waitFor(
+      async () => {
+        try {
+          const result = await mcpClient.callTool('browser_get_network_requests', { tabId });
+          if (result.isError) return false;
+          const data = parseToolResult(result.content);
+          const reqs = data.requests as Array<Record<string, unknown>>;
+          echoReq = reqs.find(r => (r.url as string).includes('/api/echo') && typeof r.requestBody === 'string');
+          return echoReq !== undefined;
+        } catch {
+          return false;
+        }
+      },
+      15_000,
+      300,
+      '/api/echo with requestBody captured',
+    );
+
+    expect(echoReq).toBeDefined();
+    if (!echoReq) throw new Error('Expected /api/echo request with requestBody not found');
+    expect(echoReq.method).toBe('POST');
+    expect(echoReq.requestBody as string).toContain('test-body-e2e');
+
+    // Clean up
+    await mcpClient.callTool('browser_disable_network_capture', { tabId });
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('captured requests include responseBody', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    // Enable network capture
+    const enableResult = await mcpClient.callTool('browser_enable_network_capture', { tabId });
+    expect(enableResult.isError).toBe(false);
+
+    // Navigate to /post-test which sends a POST to /api/echo.
+    // The responseBody is attached asynchronously after Network.loadingFinished.
+    await mcpClient.callTool('browser_navigate_tab', {
+      tabId,
+      url: testServer.url + '/post-test',
+    });
+
+    // Poll until the /api/echo request with responseBody appears
+    let echoReq: Record<string, unknown> | undefined;
+    await waitFor(
+      async () => {
+        try {
+          const result = await mcpClient.callTool('browser_get_network_requests', { tabId });
+          if (result.isError) return false;
+          const data = parseToolResult(result.content);
+          const reqs = data.requests as Array<Record<string, unknown>>;
+          echoReq = reqs.find(r => (r.url as string).includes('/api/echo') && typeof r.responseBody === 'string');
+          return echoReq !== undefined;
+        } catch {
+          return false;
+        }
+      },
+      15_000,
+      300,
+      '/api/echo with responseBody captured',
+    );
+
+    expect(echoReq).toBeDefined();
+    if (!echoReq) throw new Error('Expected /api/echo request with responseBody not found');
+    const responseBody = JSON.parse(echoReq.responseBody as string) as Record<string, unknown>;
+    expect(responseBody.ok).toBe(true);
+
+    // Clean up
+    await mcpClient.callTool('browser_disable_network_capture', { tabId });
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Browser tools — page HTML
+// ---------------------------------------------------------------------------
+
+test.describe('Browser tools — page HTML', () => {
+  test('browser_get_page_html returns full page HTML', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_get_page_html', { tabId });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    expect(typeof data.title).toBe('string');
+    expect(typeof data.url).toBe('string');
+    expect(typeof data.html).toBe('string');
+
+    const html = data.html as string;
+    expect(html).toContain('<html');
+    expect(html).toContain('</html>');
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('browser_get_page_html with selector returns scoped HTML', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+
+    // Open the /interactive page which has #test-btn
+    const tabId = await openInteractivePage(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_get_page_html', {
+      tabId,
+      selector: '#test-btn',
+    });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    expect(typeof data.html).toBe('string');
+
+    const html = data.html as string;
+    expect(html).toContain('Click me');
+    expect(html).not.toContain('<html');
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('browser_get_page_html returns error for non-existent selector', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_get_page_html', {
+      tabId,
+      selector: '#does-not-exist-e2e',
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain('Element not found');
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Browser tools — web storage
+// ---------------------------------------------------------------------------
+
+test.describe('Browser tools — web storage', () => {
+  test('browser_get_storage reads localStorage entries', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    // Set a localStorage entry via execute_script
+    await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: `localStorage.setItem('e2e-storage-key', 'e2e-storage-value')`,
+    });
+
+    // Read all localStorage entries
+    const result = await mcpClient.callTool('browser_get_storage', { tabId, storageType: 'local' });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    const entries = data.entries as Array<{ key: string; value: string }>;
+    expect(Array.isArray(entries)).toBe(true);
+    const entry = entries.find(e => e.key === 'e2e-storage-key');
+    expect(entry).toBeDefined();
+    expect(entry?.value).toBe('e2e-storage-value');
+
+    // Clean up storage
+    await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: `localStorage.removeItem('e2e-storage-key')`,
+    });
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('browser_get_storage reads a specific key', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    // Set a localStorage entry
+    await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: `localStorage.setItem('e2e-specific-key', 'e2e-specific-value')`,
+    });
+
+    // Read the specific key
+    const result = await mcpClient.callTool('browser_get_storage', {
+      tabId,
+      storageType: 'local',
+      key: 'e2e-specific-key',
+    });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    expect(data.key).toBe('e2e-specific-key');
+    expect(data.value).toBe('e2e-specific-value');
+
+    // Clean up storage
+    await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: `localStorage.removeItem('e2e-specific-key')`,
+    });
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('browser_get_storage reads sessionStorage', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    // Set a sessionStorage entry
+    await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: `sessionStorage.setItem('e2e-session-key', 'e2e-session-value')`,
+    });
+
+    // Read sessionStorage
+    const result = await mcpClient.callTool('browser_get_storage', {
+      tabId,
+      storageType: 'session',
+    });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    const entries = data.entries as Array<{ key: string; value: string }>;
+    expect(Array.isArray(entries)).toBe(true);
+    const entry = entries.find(e => e.key === 'e2e-session-key');
+    expect(entry).toBeDefined();
+    expect(entry?.value).toBe('e2e-session-value');
+
+    // Clean up storage
+    await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: `sessionStorage.removeItem('e2e-session-key')`,
+    });
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('browser_get_storage returns error for non-existent tab', async ({
+    mcpServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+
+    const result = await mcpClient.callTool('browser_get_storage', { tabId: 999999 });
+    expect(result.isError).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Extension debugging tools
 // ---------------------------------------------------------------------------
 

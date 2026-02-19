@@ -322,6 +322,31 @@ const server = Bun.serve({
       });
     }
 
+    // --- POST test page (for network body capture E2E tests) ---
+    // Loads, then immediately sends a POST to /api/echo with a JSON body
+    if (path === '/post-test') {
+      const postTestHtml = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>POST Test Page</title></head>
+<body>
+  <p id="status">sending...</p>
+  <script>
+    fetch('/api/echo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'test-body-e2e' })
+    })
+      .then(r => r.json())
+      .then(data => { document.getElementById('status').textContent = 'done: ' + JSON.stringify(data); })
+      .catch(err => { document.getElementById('status').textContent = 'error: ' + err.message; });
+  </script>
+</body>
+</html>`;
+      return new Response(postTestHtml, {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    }
+
     // =======================================================================
     // Control endpoints (called by the test harness, not by the plugin)
     // =======================================================================

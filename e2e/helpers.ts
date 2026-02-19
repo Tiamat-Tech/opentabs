@@ -238,6 +238,8 @@ export const BROWSER_TOOL_NAMES = [
   'extension_get_side_panel',
   'extension_check_adapter',
   'extension_force_reconnect',
+  'browser_get_page_html',
+  'browser_get_storage',
 ];
 
 // ---------------------------------------------------------------------------
