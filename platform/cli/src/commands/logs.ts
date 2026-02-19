@@ -45,19 +45,36 @@ const tailFile = async (filePath: string, lineCount: number): Promise<{ content:
  */
 const followFile = async (filePath: string, initialOffset: number): Promise<never> => {
   let offset = initialOffset;
+  let reading = false;
+  let readRequested = false;
 
   const readNewContent = (): void => {
+    if (reading) {
+      readRequested = true;
+      return;
+    }
     const currentSize = statSync(filePath).size;
     if (currentSize < offset) {
       // File was truncated (e.g., new server start) — read from beginning
       offset = 0;
     }
     if (currentSize <= offset) return;
+    reading = true;
     const stream = createReadStream(filePath, { start: offset, encoding: 'utf-8' });
     stream.on('data', (chunk: string | Buffer) => {
       process.stdout.write(chunk);
     });
-    offset = currentSize;
+    stream.on('end', () => {
+      offset = currentSize;
+      reading = false;
+      if (readRequested) {
+        readRequested = false;
+        readNewContent();
+      }
+    });
+    stream.on('error', () => {
+      reading = false;
+    });
   };
 
   const watcher = watch(filePath, () => readNewContent());
