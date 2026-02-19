@@ -2,6 +2,8 @@ import defaultMdxComponents from 'fumadocs-ui/mdx';
 import type { MDXComponents } from 'mdx/types';
 import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { RetroCodeBlock, Pre } from '@/components/retroui-codeblock';
+import type { CodeBlockProps } from 'fumadocs-ui/components/codeblock';
 
 // Mapping from Fumadocs callout type to RetroUI Alert status color classes
 const calloutStatusClasses: Record<string, string> = {
@@ -113,6 +115,12 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
         className={cn('border-primary bg-accent/20 my-4 border-l-4 px-4 py-3 font-sans', className)}
         {...props}
       />
+    ),
+    // Fenced code blocks — RetroUI styling: border-2 shadow-md, primary title bar, outline copy button
+    pre: (props: CodeBlockProps) => (
+      <RetroCodeBlock {...props}>
+        <Pre>{props.children}</Pre>
+      </RetroCodeBlock>
     ),
     // Inline code — does not affect fenced code blocks (those are handled by the pre override)
     code: ({ className, ...props }: ComponentPropsWithoutRef<'code'>) => (
