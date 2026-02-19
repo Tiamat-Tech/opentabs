@@ -226,7 +226,7 @@ const createHandleFetch =
       if (!state.extensionWs) {
         return Response.json({ ok: false, error: 'Extension not connected' }, { status: 503 });
       }
-      const id = getNextRequestId(state);
+      const id = getNextRequestId();
       state.extensionWs.send(JSON.stringify({ jsonrpc: '2.0', method: 'extension.reload', id }));
       return Response.json({ ok: true, message: 'Reload signal sent to extension' });
     }

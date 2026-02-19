@@ -108,11 +108,6 @@ export interface ServerState {
   pendingDispatches: Map<string | number, PendingDispatch>;
   /** Extension WebSocket connection (single connection) */
   extensionWs: WsHandle | null;
-  /**
-   * @deprecated No longer used — IDs are now generated via crypto.randomUUID().
-   * Retained as optional so hot reload does not fail on stale globalThis state.
-   */
-  nextRequestId?: number;
   /** Outdated npm plugins detected on startup */
   outdatedPlugins: OutdatedPlugin[];
   /** Browser tools — updated on each hot reload so existing session handlers see fresh definitions */
@@ -174,7 +169,7 @@ export const createState = (): ServerState => ({
 });
 
 /** Generate a cryptographically random JSON-RPC request ID */
-export const getNextRequestId = (_state: ServerState): string => crypto.randomUUID();
+export const getNextRequestId = (): string => crypto.randomUUID();
 
 /** Get the prefixed tool name: plugin_tool */
 export const prefixedToolName = (plugin: string, tool: string): string => `${plugin}_${tool}`;

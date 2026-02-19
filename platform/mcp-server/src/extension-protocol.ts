@@ -204,7 +204,7 @@ const dispatchToExtension = (
     return Promise.reject(new Error('Extension not connected'));
   }
 
-  const id = getNextRequestId(state);
+  const id = getNextRequestId();
 
   const msg: JsonRpcRequest = {
     jsonrpc: '2.0',

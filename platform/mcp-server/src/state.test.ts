@@ -41,16 +41,14 @@ describe('createState', () => {
 
 describe('getNextRequestId', () => {
   test('returns a valid UUID string', () => {
-    const state = createState();
-    const id = getNextRequestId(state);
+    const id = getNextRequestId();
 
     expect(typeof id).toBe('string');
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 
   test('returns unique IDs on each call', () => {
-    const state = createState();
-    const ids = new Set(Array.from({ length: 100 }, () => getNextRequestId(state)));
+    const ids = new Set(Array.from({ length: 100 }, () => getNextRequestId()));
 
     expect(ids.size).toBe(100);
   });

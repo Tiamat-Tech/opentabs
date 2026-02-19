@@ -21,7 +21,7 @@ const reloadExtension = defineBrowserTool({
     if (!state.extensionWs) {
       return Promise.resolve({ ok: false, error: 'Extension not connected' });
     }
-    const id = getNextRequestId(state);
+    const id = getNextRequestId();
     try {
       state.extensionWs.send(JSON.stringify({ jsonrpc: '2.0', method: 'extension.reload', id }));
     } catch {
