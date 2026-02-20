@@ -1,0 +1,330 @@
+---
+title: CLI Commands
+description: Complete reference for all opentabs CLI commands — server management, plugin operations, diagnostics, and configuration.
+lastUpdated: 2026-02-20
+---
+
+The `opentabs` CLI manages the MCP server, plugins, configuration, and diagnostics. Install it via the `@opentabs-dev/cli` package.
+
+## Global options
+
+| Flag | Description |
+|---|---|
+| `--port <number>` | MCP server port. Falls back to `OPENTABS_PORT` env var, then defaults to `9515`. |
+| `-V, --version` | Print CLI version. |
+| `-h, --help` | Show help for any command. |
+
+## opentabs dev
+
+Start the MCP server with hot reload.
+
+```bash
+opentabs dev [options]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--port <number>` | `9515` | Server port. |
+| `--verbose` | — | Enable debug logging (shorthand for `--log-level debug`). |
+| `--log-level <level>` | `info` | Log level: `debug`, `info`, `warn`, `error`, or `silent`. Cannot be combined with `--verbose`. |
+
+The server runs under `bun --hot` for automatic module re-evaluation on file changes. Output is teed to the terminal and `~/.opentabs/server.log`. The process exits if the port is already in use.
+
+```bash
+# Start on default port
+opentabs dev
+
+# Custom port with debug logging
+opentabs dev --port 3000 --verbose
+```
+
+## opentabs build
+
+Build the current plugin directory. Must be run from a plugin project root (a directory with `package.json` and a compiled `dist/index.js`).
+
+```bash
+opentabs build [options]
+```
+
+| Option | Description |
+|---|---|
+| `-w, --watch` | Watch `dist/` for `.js` changes and rebuild automatically (100ms debounce). |
+
+The build process:
+
+1. Dynamically imports the compiled plugin from `dist/index.js`
+2. Validates plugin metadata (name, version, urlPatterns, tools, Zod schemas)
+3. Bundles the adapter as an IIFE to `dist/adapter.iife.js`
+4. Computes a SHA-256 hash of the adapter and appends integrity verification
+5. Generates `opentabs-plugin.json` manifest with serialized JSON Schema definitions
+
+```bash
+# One-time build
+opentabs build
+
+# Watch mode for development
+opentabs build --watch
+```
+
+## opentabs status
+
+Show MCP server status and connected plugins.
+
+```bash
+opentabs status [options]
+```
+
+| Option | Description |
+|---|---|
+| `--port <number>` | Server port to check (default: `9515`). |
+| `--json` | Output raw JSON from the `/health` endpoint. |
+
+Displays server version, uptime, extension connection, MCP client count, plugin count, total tool count, and per-plugin details (tab state, tool count).
+
+Tab states are color-coded: ready (green), unavailable (yellow), closed (dim).
+
+```bash
+opentabs status
+opentabs status --json
+opentabs status --port 3000
+```
+
+## opentabs doctor
+
+Run diagnostic checks on your OpenTabs setup.
+
+```bash
+opentabs doctor [options]
+```
+
+| Option | Description |
+|---|---|
+| `--port <number>` | Server port to check (default: `9515`). |
+
+Performs the following checks:
+
+1. **Bun runtime** — verifies Bun is installed
+2. **Config file** — checks `~/.opentabs/config.json` exists
+3. **MCP server health** — fetches `/health` endpoint (3s timeout)
+4. **Extension connection** — checks if the Chrome extension is connected
+5. **Extension installed** — verifies `~/.opentabs/extension/manifest.json` exists
+6. **Extension version** — compares installed extension version to CLI version
+7. **Plugins** — for each configured plugin, checks for manifest and IIFE bundle
+
+Results are shown as a checklist with pass (✓), warning (!), and error (✗) indicators. Exits with code 1 if any fatal check fails.
+
+```bash
+opentabs doctor
+```
+
+## opentabs setup
+
+Install the Chrome extension files to `~/.opentabs/extension/`.
+
+```bash
+opentabs setup
+```
+
+Copies the browser extension source to `~/.opentabs/extension/`, creates the `adapters/` directory for plugin injection, and writes a `.opentabs-version` marker file. After running, load the extension as an unpacked extension from `chrome://extensions`.
+
+```bash
+opentabs setup
+```
+
+## opentabs logs
+
+Tail the MCP server log output.
+
+```bash
+opentabs logs [options]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--lines <n>` | `50` | Number of lines to display. |
+| `--no-follow` | — | Print recent lines and exit instead of following new output. |
+
+Reads from `~/.opentabs/server.log`. By default, follows the file for new output (like `tail -f`). Handles file truncation gracefully.
+
+```bash
+# Follow logs in real time
+opentabs logs
+
+# Show last 100 lines and exit
+opentabs logs --lines 100 --no-follow
+```
+
+## opentabs reload
+
+Reload server configuration and plugins, or trigger an extension reload.
+
+```bash
+opentabs reload [options]
+```
+
+| Option | Description |
+|---|---|
+| `--port <number>` | Server port (default: `9515`). |
+| `--extension` | Reload the Chrome extension instead of server config. |
+
+**Default behavior**: sends `POST /reload` to the server, which rediscovers plugins and reloads configuration. Returns plugin count and duration.
+
+**With `--extension`**: sends `POST /extension/reload` to signal the connected Chrome extension to reload.
+
+```bash
+# Reload server config and plugins
+opentabs reload
+
+# Reload the Chrome extension
+opentabs reload --extension
+```
+
+## opentabs config
+
+View and manage configuration. Has four subcommands.
+
+### opentabs config show
+
+Display the current configuration (secret redacted).
+
+```bash
+opentabs config show [options]
+```
+
+| Option | Description |
+|---|---|
+| `--json` | Output config as JSON. |
+
+```bash
+opentabs config show
+opentabs config show --json
+```
+
+### opentabs config init
+
+Create a config file with defaults.
+
+```bash
+opentabs config init [options]
+```
+
+| Option | Description |
+|---|---|
+| `--force` | Overwrite existing config. |
+
+Creates `~/.opentabs/config.json` with `plugins: []`, `tools: {}`, and an auto-generated `secret`. Exits with a warning if the config already exists (unless `--force` is passed).
+
+```bash
+opentabs config init
+opentabs config init --force
+```
+
+### opentabs config path
+
+Print the config file path.
+
+```bash
+opentabs config path
+```
+
+### opentabs config set
+
+Set a config value.
+
+```bash
+opentabs config set <key> <value>
+```
+
+Currently supports enabling/disabling tools:
+
+```bash
+# Disable a tool
+opentabs config set tool.slack_send_message disabled
+
+# Re-enable a tool
+opentabs config set tool.slack_send_message enabled
+```
+
+The key format is `tool.<plugin>_<tool>` and value must be `enabled` or `disabled`.
+
+## opentabs plugin
+
+Manage plugins. Has four subcommands.
+
+### opentabs plugin create
+
+Scaffold a new plugin project.
+
+```bash
+opentabs plugin create <name> --domain <domain> [options]
+```
+
+| Argument/Option | Required | Description |
+|---|---|---|
+| `<name>` | Yes | Plugin name (lowercase alphanumeric + hyphens). |
+| `--domain <domain>` | Yes | Target domain (e.g., `.slack.com`, `github.com`). |
+| `--display <name>` | No | Display name (e.g., `Slack`). |
+| `--description <desc>` | No | Plugin description. |
+
+Generates a standalone npm package with TypeScript config, `package.json` (with `@opentabs-dev/plugin-sdk` and `@opentabs-dev/cli` dependencies), a scaffolded plugin class, and an example tool. Auto-registers the plugin in `~/.opentabs/config.json`.
+
+The standalone `create-opentabs-plugin` package provides the same functionality:
+
+```bash
+bunx create-opentabs-plugin my-plugin --domain .example.com --display "My App"
+```
+
+### opentabs plugin list
+
+List configured plugins and their status.
+
+```bash
+opentabs plugin list [options]
+```
+
+| Option | Description |
+|---|---|
+| `--json` | Output plugin info as JSON. |
+
+Each plugin shows a status indicator:
+
+| Indicator | Meaning |
+|---|---|
+| `+` (green) | Ready — manifest and IIFE bundle present. |
+| `~` (yellow) | Not built — manifest missing. |
+| `!` (red) | Not found — directory missing. |
+
+```bash
+opentabs plugin list
+opentabs plugin list --json
+```
+
+### opentabs plugin add
+
+Add a plugin path to the config.
+
+```bash
+opentabs plugin add <path>
+```
+
+Resolves the path, normalizes it relative to the config directory, checks for duplicates, and appends to the `plugins` array in `config.json`. Warns if the directory or build artifacts are missing. The MCP server detects the change automatically.
+
+```bash
+opentabs plugin add ./my-plugin
+opentabs plugin add /absolute/path/to/plugin
+```
+
+### opentabs plugin remove
+
+Remove a plugin from the config.
+
+```bash
+opentabs plugin remove <path-or-name>
+```
+
+Matches against the plugins array by exact path, suffix match (e.g., `/my-plugin`), or directory name. The MCP server detects the change automatically.
+
+```bash
+opentabs plugin remove ./my-plugin
+opentabs plugin remove my-plugin
+```
