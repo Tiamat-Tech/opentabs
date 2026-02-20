@@ -48,12 +48,12 @@ export default function HomePage() {
           <div className="border-border bg-primary mb-6 inline-flex items-center gap-2 rounded border-2 px-3 py-1.5 font-sans text-sm font-semibold">
             Now in beta
           </div>
-          <h1 className="font-head mb-6 text-3xl leading-tight font-bold sm:text-4xl md:text-5xl lg:text-7xl">
+          <h1 className="font-head mb-6 text-3xl leading-tight font-bold sm:text-5xl md:text-7xl">
             AI agents for
             <br />
             <span className="bg-primary px-2">any web app</span>
           </h1>
-          <p className="text-muted-foreground mb-8 max-w-2xl font-sans text-base md:text-lg lg:text-xl">
+          <p className="text-muted-foreground mb-8 max-w-2xl font-sans text-base md:text-xl">
             OpenTabs gives AI agents access to any web application through your authenticated browser session — no API
             integrations, no new credentials, no changes to the app.
           </p>
