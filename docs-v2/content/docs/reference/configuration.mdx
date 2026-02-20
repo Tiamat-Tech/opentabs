@@ -1,0 +1,133 @@
+---
+title: Configuration
+description: Reference for the ~/.opentabs/config.json configuration file and environment variables.
+lastUpdated: 2026-02-20
+---
+
+OpenTabs stores its configuration in a single JSON file. The MCP server reads this file on startup and when triggered by `opentabs reload` or the `/reload` endpoint.
+
+## Config file location
+
+The default config file path is:
+
+```
+~/.opentabs/config.json
+```
+
+Override the config directory with the `OPENTABS_CONFIG_DIR` environment variable:
+
+```bash
+OPENTABS_CONFIG_DIR=/tmp/my-opentabs bun --hot platform/mcp-server/dist/index.js
+```
+
+The config file is created automatically on first server run with sensible defaults. The directory is created with `0700` permissions and the file with `0600` permissions.
+
+## Config fields
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `plugins` | `string[]` | `[]` | Local plugin directory paths. Relative paths are resolved from the config directory. Absolute paths are also supported. All paths must be under `$HOME` or `$TMPDIR` (security restriction). |
+| `tools` | `Record<string, boolean>` | `{}` | Per-tool enable/disable overrides. Keys are prefixed tool names (e.g., `slack_send_message`). Absent keys default to enabled. Set to `false` to disable a tool. |
+| `secret` | `string` | *(auto-generated)* | 64-character hex string (256-bit) used for authentication. Shared between the MCP server and Chrome extension. Auto-generated on first run if missing. |
+| `npmPlugins` | `string[]` | `[]` | npm package names explicitly allowed for plugin discovery. Only packages listed here will be loaded from `node_modules`. |
+
+## Example config
+
+```json
+{
+  "plugins": [
+    "../plugins/slack",
+    "/Users/you/projects/my-opentabs-plugin"
+  ],
+  "tools": {
+    "slack_delete_message": false
+  },
+  "secret": "a1b2c3d4e5f6...64 hex characters...",
+  "npmPlugins": [
+    "opentabs-plugin-jira"
+  ]
+}
+```
+
+## Field details
+
+### plugins
+
+An array of filesystem paths pointing to local plugin directories. Each path must contain a valid `opentabs-plugin.json` manifest and a `dist/adapter.iife.js` bundle.
+
+- **Relative paths** are resolved from the config directory (`~/.opentabs/` by default)
+- **Absolute paths** are used as-is
+- **Security**: paths are validated with `realpath()` to resolve symlinks, then checked against `$HOME` and `$TMPDIR` — plugins outside these directories are rejected
+- The `create-opentabs-plugin` scaffolder and `opentabs plugin add` command both auto-register plugins in this array
+
+### tools
+
+A map of prefixed tool names to booleans. This lets you disable specific tools without removing the plugin:
+
+```json
+{
+  "tools": {
+    "slack_delete_message": false,
+    "slack_send_message": false
+  }
+}
+```
+
+- **Absent keys** default to enabled — you only need entries for tools you want to disable
+- **Tool names** use the `<plugin>_<tool>` format (e.g., `slack_send_message`, `browser_screenshot_tab`)
+- Changes are persisted atomically via a read-modify-write pattern with a mutex to prevent races
+
+### secret
+
+A 64-character hex string (256-bit cryptographic random) used for authentication:
+
+- **MCP endpoint** (`/mcp`): sent as `Authorization: Bearer <secret>` header
+- **WebSocket** (`/ws`): sent via the `Sec-WebSocket-Protocol` header (keeps secrets out of URL/logs)
+- **Admin endpoints** (`/reload`, `/extension/reload`): require the same Bearer token
+
+Auto-generated on first server run. If the field is missing from an existing config (e.g., after upgrading), the server generates a new secret and writes it back.
+
+### npmPlugins
+
+An explicit allowlist of npm package names that the server will load as plugins during discovery. The server scans `node_modules` for packages matching `opentabs-plugin-*` or with the `opentabs-plugin` keyword, but only loads packages listed in this array.
+
+```json
+{
+  "npmPlugins": [
+    "opentabs-plugin-jira",
+    "opentabs-plugin-linear"
+  ]
+}
+```
+
+An empty array (the default) means no npm plugins are loaded — only local plugins from the `plugins` array.
+
+## Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `9515` | HTTP server port for the MCP server. |
+| `OPENTABS_CONFIG_DIR` | `~/.opentabs` | Override the config directory path. Useful for running multiple server instances or isolated test environments. |
+
+## Config directory structure
+
+The `~/.opentabs/` directory contains more than just the config file:
+
+```
+~/.opentabs/
+├── config.json              # Configuration file
+├── extension/               # Managed Chrome extension install
+│   ├── manifest.json        # Extension manifest
+│   ├── background.js        # Service worker
+│   ├── adapters/            # Plugin adapter IIFEs
+│   │   ├── slack.js
+│   │   └── ...
+│   └── .opentabs-version    # Version marker
+└── logs/                    # Server logs
+```
+
+The `extension/` directory is managed by `opentabs setup` and `bun run build`. Load this directory as an unpacked extension in `chrome://extensions`.
+
+## Atomic writes
+
+Config changes (from the server, CLI commands, or the `/reload` endpoint) use an atomic write pattern: content is written to a temporary file with `0600` permissions, then renamed over the target. This prevents readers from seeing partially-written files. A mutex serializes concurrent write operations.
