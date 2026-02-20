@@ -28,13 +28,13 @@ const TabStateHint = ({ plugin }: { plugin: PluginState }) => {
 
   if (plugin.tabState === 'closed') {
     return (
-      <div className="text-destructive py-2 pr-3 pl-5 text-[11px]">
+      <div className="text-destructive px-3 py-2 text-[11px]">
         {domain ? `Open ${domain} in your browser` : 'Open a matching tab in your browser'}
       </div>
     );
   }
 
-  return <div className="text-muted-foreground py-2 pr-3 pl-5 text-[11px]">Log in to {plugin.displayName}</div>;
+  return <div className="text-muted-foreground px-3 py-2 text-[11px]">Log in to {plugin.displayName}</div>;
 };
 
 const PluginCard = ({
@@ -146,7 +146,7 @@ const PluginCard = ({
       <Accordion.Content className="border-border border-t">
         <TabStateHint plugin={plugin} />
         {toolFilter && (
-          <div className="text-muted-foreground mb-1 pt-2 pr-3 pl-5 text-xs">
+          <div className="text-muted-foreground mb-1 px-3 pt-2 text-xs">
             {visibleTools.length} of {plugin.tools.length} tools
           </div>
         )}
