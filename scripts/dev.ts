@@ -8,17 +8,15 @@
  *    "Watching for file changes" line in tsc output).
  * 3. Runs the extension build pipeline (bundle + side panel + install).
  * 4. Starts the MCP server via `bun --hot platform/mcp-server/dist/index.js`.
- * 5. Watches extension-related dist directories for tsc output changes and
- *    re-runs the extension pipeline (debounced), then sends a reload signal
- *    to the Chrome extension via the MCP server.
+ * 5. On each subsequent tsc recompilation (detected via the "Watching for
+ *    file changes" sentinel in tsc output), re-runs the extension pipeline
+ *    (debounced) and sends a reload signal to the Chrome extension.
  * 6. Pipes all processes' stdout/stderr with prefixed labels.
  * 7. Cleans up on SIGINT/SIGTERM.
  */
 
-import { watch } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import type { FSWatcher } from 'node:fs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 
@@ -52,20 +50,20 @@ const pipeWithPrefix = async (stream: ReadableStream<Uint8Array>, prefix: string
 };
 
 /**
- * Pipe tsc stdout with a prefix, resolving `onReady` when the
- * "Watching for file changes" sentinel is detected. Continues
- * piping after the sentinel for incremental rebuild output.
+ * Pipe tsc stdout with a prefix, calling `onCompilationDone` each time
+ * tsc finishes a compilation (detected by the "Watching for file changes"
+ * sentinel). Fires on both the initial compilation and every incremental
+ * recompilation.
  */
 const pipeTscStdout = async (
   stream: ReadableStream<Uint8Array>,
   prefix: string,
   output: Writable,
-  onReady: () => void,
+  onCompilationDone: () => void,
 ): Promise<void> => {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let partial = '';
-  let ready = false;
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -77,9 +75,8 @@ const pipeTscStdout = async (
       if (line.length > 0) {
         output.write(`${prefix} ${line}\n`);
       }
-      if (!ready && line.includes('Watching for file changes')) {
-        ready = true;
-        onReady();
+      if (line.includes('Watching for file changes')) {
+        onCompilationDone();
       }
     }
   }
@@ -182,14 +179,10 @@ const reloadExtension = async (): Promise<void> => {
   }
 };
 
-// Track child processes and watchers for cleanup
+// Track child processes for cleanup
 const children: Array<ReturnType<typeof Bun.spawn>> = [];
-const watchers: FSWatcher[] = [];
 
 const cleanup = (): void => {
-  for (const w of watchers) {
-    w.close();
-  }
   for (const child of children) {
     child.kill('SIGTERM');
   }
@@ -213,9 +206,24 @@ const tsc = Bun.spawn(['bun', 'run', 'tsc', '--build', '--watch'], {
 });
 children.push(tsc);
 
-// 2. Pipe tsc output and wait for initial compilation
+// 2. Pipe tsc output and wait for initial compilation.
+//    `pipeTscStdout` calls the callback every time tsc prints the
+//    "Watching for file changes" sentinel (after initial + incremental builds).
+//    The first call resolves the ready promise; subsequent calls schedule
+//    extension rebuilds (connected in step 5).
+let onTscRecompile: (() => void) | null = null;
+let tscReadyResolve: (() => void) | null = null;
 const tscReady = new Promise<void>(r => {
-  void pipeTscStdout(tsc.stdout, '[tsc]', process.stdout, r);
+  tscReadyResolve = r;
+});
+
+void pipeTscStdout(tsc.stdout, '[tsc]', process.stdout, () => {
+  if (tscReadyResolve) {
+    tscReadyResolve();
+    tscReadyResolve = null;
+    return;
+  }
+  onTscRecompile?.();
 });
 void pipeWithPrefix(tsc.stderr, '[tsc]', process.stderr);
 
@@ -237,49 +245,51 @@ children.push(mcp);
 void pipeWithPrefix(mcp.stdout, '[mcp]', process.stdout);
 void pipeWithPrefix(mcp.stderr, '[mcp]', process.stderr);
 
-// 5. Watch extension-related dist dirs for tsc output changes.
-//    Only browser-extension/dist/ and shared/dist/ trigger the extension pipeline.
-//    MCP server dist/ changes are handled by bun --hot automatically.
+// 5. Rebuild the extension on each tsc recompilation.
+//
+//    Previous approach watched browser-extension/dist/ for file changes, but
+//    the extension build pipeline writes back into the same dist/ directory
+//    (bundle step overwrites tsc output, side panel writes to dist/side-panel/),
+//    causing an infinite rebuild loop.
+//
+//    Instead, we trigger rebuilds from tsc's own output: each time tsc prints
+//    "Watching for file changes", it has finished writing all dist/ files for
+//    the current compilation. This avoids the feedback loop entirely.
 let extensionRebuildTimer: ReturnType<typeof setTimeout> | null = null;
 let extensionBuildInProgress = false;
+let rebuildRequestedDuringBuild = false;
 
 const DEBOUNCE_MS = 300;
 
 const scheduleExtensionRebuild = (): void => {
+  if (extensionBuildInProgress) {
+    // tsc finished another compilation while the build pipeline is still
+    // running. Remember to rebuild again after the current build finishes.
+    rebuildRequestedDuringBuild = true;
+    return;
+  }
   if (extensionRebuildTimer !== null) {
     clearTimeout(extensionRebuildTimer);
   }
   extensionRebuildTimer = setTimeout(() => {
     extensionRebuildTimer = null;
-    if (extensionBuildInProgress) {
-      // A build is already running — reschedule so the change is not lost
-      scheduleExtensionRebuild();
-      return;
-    }
     extensionBuildInProgress = true;
+    rebuildRequestedDuringBuild = false;
     void buildExtension()
       .then(async ok => {
         if (ok) await reloadExtension();
       })
       .finally(() => {
         extensionBuildInProgress = false;
+        if (rebuildRequestedDuringBuild) {
+          rebuildRequestedDuringBuild = false;
+          scheduleExtensionRebuild();
+        }
       });
   }, DEBOUNCE_MS);
 };
 
-const watchDirs = [join(ROOT, 'platform', 'browser-extension', 'dist'), join(ROOT, 'platform', 'shared', 'dist')];
-
-for (const dir of watchDirs) {
-  try {
-    const w = watch(dir, { recursive: true }, () => {
-      scheduleExtensionRebuild();
-    });
-    watchers.push(w);
-    console.log(`[ext] Watching ${dir.replace(ROOT + '/', '')} for changes`);
-  } catch {
-    console.warn(`[ext] Could not watch ${dir.replace(ROOT + '/', '')} — directory may not exist yet`);
-  }
-}
+onTscRecompile = scheduleExtensionRebuild;
 
 // Wait for either process to exit (shouldn't happen in normal operation)
 const tscExit = tsc.exited.then(code => ({ process: 'tsc', code }));
