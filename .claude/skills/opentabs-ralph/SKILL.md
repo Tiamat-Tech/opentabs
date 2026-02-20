@@ -246,10 +246,10 @@ After publishing the PRD file, tell the user:
 1. **PRD file created:** the full path and story count
 2. **Auto-pickup:** the ralph daemon will pick it up automatically (no manual launch needed)
 3. **Monitoring commands:**
-   - **Watch ralph daemon:** `tail -f /tmp/ralph.log`
+   - **Watch ralph daemon:** `tail -f .ralph/ralph.log`
    - **Check PRD state:** `ls -la .ralph/prd-*.json` (look for `~running` suffix)
    - **Check progress:** `cat .ralph/progress-*.txt`
-   - **Start ralph daemon** (if not running): `nohup .ralph/ralph.sh > /tmp/ralph.log 2>&1 &`
+   - **Start ralph daemon** (if not running): `nohup .ralph/ralph.sh &`
 
 ---
 
