@@ -78,7 +78,7 @@ const RetroTabs = ({
               key={item}
               value={escapeValue(item)}
               className={cn(
-                'border-b-border -mb-[2px] min-h-11 cursor-pointer border-2 border-transparent px-4 py-1 font-sans text-sm whitespace-nowrap transition-all focus:outline-none',
+                'border-b-border -mb-[2px] cursor-pointer border-2 border-transparent px-4 py-1 font-sans text-sm whitespace-nowrap transition-all focus:outline-none',
                 'data-[state=active]:border-border data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-semibold',
               )}>
               {item}
