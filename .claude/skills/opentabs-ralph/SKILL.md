@@ -11,6 +11,40 @@ Ralph is a bash script (`.ralph/ralph.sh`) that runs as a long-lived daemon, pol
 
 ---
 
+## PRD Location: Always Root `.ralph/`
+
+**PRD files MUST always be written to the root `.ralph/` directory** (the one containing `ralph.sh`). The ralph daemon only watches this single directory — it does not scan subdirectories or other `.ralph/` folders elsewhere in the repo.
+
+Even when the task targets a standalone subproject (like `docs/`), the PRD goes in root `.ralph/`. The `qualityChecks` field in the PRD tells the ralph agent how to verify the work (see "Standalone Subprojects" below).
+
+---
+
+## Standalone Subprojects
+
+Some directories in the repo are **standalone projects** with their own `package.json`, build system, and tooling — separate from the root monorepo. Currently:
+
+- **`docs/`** — Next.js + Fumadocs static docs site. Has its own `package.json` with `bun run build` (runs `next build`). No lint, knip, type-check, or test scripts.
+
+When planning work for a standalone subproject:
+
+1. **PRD goes in root `.ralph/`** (not in the subproject)
+2. **Add a `"qualityChecks"` field** to the PRD with the subproject-specific verification command. This overrides the default `bun run build && bun run type-check && ...` suite. Example:
+   ```json
+   {
+     "project": "OpenTabs Docs",
+     "qualityChecks": "cd docs && bun run build",
+     "userStories": [...]
+   }
+   ```
+3. **Acceptance criteria** should reference the actual checks that apply, not the root monorepo's full suite. For example, for `docs/` stories use `"cd docs && bun run build passes (next build)"` instead of the default 6-command suite.
+4. **Notes should use paths relative to the repo root** (e.g., `docs/mdx-components.tsx`, not `mdx-components.tsx`) since the ralph agent runs from the project root.
+
+### How to detect a standalone subproject
+
+Check if the target directory has its own `package.json` that is NOT listed in the root workspace configuration. If it does, it's standalone and needs a custom `qualityChecks` field. Read the subproject's `package.json` `scripts` to determine which verification commands are available.
+
+---
+
 ## PRD File Name State Machine
 
 ```
@@ -90,6 +124,7 @@ Keep the objective slug to 3-5 words max.
 {
   "project": "[Project Name]",
   "description": "[What this batch of work accomplishes]",
+  "qualityChecks": "[Optional — override for standalone subprojects, omit for root monorepo work]",
   "userStories": [
     {
       "id": "US-001",
@@ -113,7 +148,10 @@ Keep the objective slug to 3-5 words max.
 }
 ```
 
-**Critical:** The `passes` field MUST be the boolean `false`, not `null` or omitted. Ralph checks `passes == false` to find incomplete stories.
+**Fields:**
+
+- `qualityChecks` (optional): A shell command string that overrides the default verification suite. Use this for standalone subprojects (see "Standalone Subprojects" above). Omit this field for work targeting the root monorepo — the ralph agent defaults to `bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e`.
+- `passes`: MUST be the boolean `false`, not `null` or omitted. Ralph checks `passes == false` to find incomplete stories.
 
 ---
 
@@ -177,7 +215,7 @@ Each criterion must be something the agent can CHECK, not something vague.
 **Good:** "saveConfig call includes secret field", "z.number() params have .min(1)", "Dropdown shows 3 options"
 **Bad:** "Works correctly", "Handles edge cases", "Good UX"
 
-**Always include the full verification suite** as the final acceptance criteria for every story:
+**Always include the verification suite** as the final acceptance criteria for every story. For root monorepo work, use the full suite:
 
 - `bun run build` passes
 - `bun run type-check` passes
@@ -185,6 +223,8 @@ Each criterion must be something the agent can CHECK, not something vague.
 - `bun run knip` passes
 - `bun run test` passes
 - `bun run test:e2e` passes
+
+For standalone subprojects, use the commands from the `qualityChecks` field instead (e.g., `cd docs && bun run build passes` for the docs project). Do not list checks that don't exist in the subproject.
 
 ### Notes Field
 
@@ -223,11 +263,13 @@ Ralph commits code changes only — never ralph's own state files.
 
 ## Checklist Before Publishing
 
+- [ ] PRD is in root `.ralph/` (not in a subdirectory)
 - [ ] Each story completable in one iteration
 - [ ] Stories ordered by dependency (no story depends on a later story)
 - [ ] Acceptance criteria are verifiable (not vague)
 - [ ] Notes field has implementation hints for non-trivial stories
-- [ ] Full verification suite in acceptance criteria (build, type-check, lint, knip, test)
+- [ ] Verification suite in acceptance criteria matches the project (full suite for root monorepo, `qualityChecks` for standalone subprojects)
+- [ ] `qualityChecks` field set if targeting a standalone subproject
 - [ ] `passes` field is boolean `false` for every story
 - [ ] JSON is valid
 - [ ] File written with `~draft` suffix and NO timestamp in filename
