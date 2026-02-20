@@ -243,10 +243,15 @@ body {
   margin-bottom: 0.25rem;
 }
 
-/* Mobile drawer: border-l-2 on the left side, safe area inset for notch devices */
+/* Mobile drawer: border-l-2 on the left side, safe area insets for notch devices,
+ * overscroll containment to prevent scroll chaining to the body, and momentum
+ * scrolling for smooth touch interaction on iOS. */
 #nd-sidebar-mobile {
   border-left-width: 2px;
   padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Sidebar folder content left border line: border-border color already set via fd mapping,
