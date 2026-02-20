@@ -162,7 +162,9 @@ export const getMDXComponents = (components?: MDXComponents): MDXComponents => (
     ),
   table: ({ className, ...props }: ComponentPropsWithoutRef<'table'>) => (
     <div className="relative my-6 w-full overflow-auto">
-      <table className={cn('w-full caption-bottom rounded border-2 text-sm shadow-lg', className)} {...props} />
+      <div className="overflow-hidden rounded border-2 shadow-lg">
+        <table className={cn('w-full caption-bottom text-sm', className)} {...props} />
+      </div>
     </div>
   ),
   thead: ({ className, ...props }: ComponentPropsWithoutRef<'thead'>) => (
