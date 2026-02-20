@@ -431,3 +431,37 @@ code {
     left: -3.625rem;
   }
 }
+
+/* ===== Mobile-specific overrides ===== */
+
+/* Search dialog: reduce shadow offset on small screens so it doesn't consume extra space.
+ * On mobile the 6px RetroUI shadow-lg offset crowds narrow viewports. Use shadow-sm (2px)
+ * instead. Also ensure touch-friendly padding for search results. */
+@media (max-width: 639px) {
+  [role='dialog'][data-state] {
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Search result items: taller tap targets for touch */
+  [role='dialog'] button[aria-selected] {
+    min-height: 2.75rem;
+  }
+}
+
+/* Mobile TOC popover container: 2px border to match RetroUI styling */
+[data-toc-popover] {
+  border-bottom-width: 2px;
+}
+
+/* Reduce shadow offsets on mobile for retro components with shadow-md (4px) or larger.
+ * The RetroUI offset shadow consumes significant horizontal/vertical space on narrow screens.
+ * Downgrade shadow-md → shadow-xs (1px) and shadow-lg → shadow-sm (2px) below sm breakpoint. */
+@media (max-width: 639px) {
+  .shadow-md {
+    box-shadow: var(--shadow-xs);
+  }
+
+  .shadow-lg {
+    box-shadow: var(--shadow-sm);
+  }
+}
