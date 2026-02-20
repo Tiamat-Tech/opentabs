@@ -1,0 +1,30 @@
+---
+title: Installation
+description: Get started with OpenTabs in minutes.
+lastUpdated: 20 Feb, 2026
+---
+
+## Prerequisites
+
+- Bun (v1.0+)
+- Google Chrome
+- An MCP-compatible AI agent (Claude Code, Cursor, etc.)
+
+## Quick Start
+
+Clone the repository and install dependencies:
+
+```bash
+git clone https://github.com/AnomalyCo/opentabs.git
+cd opentabs
+bun install
+bun run build
+```
+
+Load the Chrome extension from `~/.opentabs/extension/` and start the MCP server:
+
+```bash
+bun --hot platform/mcp-server/dist/index.js
+```
+
+The server runs on `http://localhost:9515` by default.

@@ -1,0 +1,1 @@
+export { CliCommand } from "./ComponentInstall";

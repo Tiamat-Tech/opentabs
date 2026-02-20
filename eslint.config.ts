@@ -40,6 +40,7 @@ const config: Linter.Config[] = [
       'test-results/**',
       'plugins/**',
       'docs/**',
+      'docs-v2/**',
       'platform/browser-extension/side-panel/**/*.{js,css}',
     ],
   },
