@@ -117,7 +117,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     blockquote: ({ className, ...props }: ComponentPropsWithoutRef<'blockquote'>) => (
       <blockquote
         className={cn(
-          'border-primary bg-accent/20 my-4 border-l-4 px-4 py-3 font-sans leading-relaxed italic',
+          'border-primary bg-accent/20 my-6 border-l-4 px-4 py-3 font-sans leading-relaxed italic',
           className,
         )}
         {...props}
