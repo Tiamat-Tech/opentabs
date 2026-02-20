@@ -1,11 +1,9 @@
-import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
-import React from "react";
-import { HTMLAttributes } from "react";
-import { Check, Copy } from "lucide-react";
-import { useState } from "react";
-import { Button } from "./retroui";
+"use client";
 
-interface IComponentShowcase extends HTMLAttributes<HTMLDivElement> {}
+import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
+import { useState } from "react";
+import { Check, Copy } from "lucide-react";
+import { Button } from "./retroui";
 
 const CopyableCommand = ({ command }: { command: string }) => {
   const [copied, setCopied] = useState(false);
@@ -94,54 +92,3 @@ export function CliCommand({
     </TabGroup>
   );
 }
-
-function ComponentInstallCli({
-  npmCommand,
-  yarnCommand,
-  pnpmCommand,
-  bunCommand,
-}: {
-  npmCommand: string;
-  yarnCommand?: string;
-  pnpmCommand?: string;
-  bunCommand?: string;
-}) {
-  return (
-    <TabPanel>
-      <CliCommand
-        npmCommand={npmCommand}
-        yarnCommand={yarnCommand}
-        pnpmCommand={pnpmCommand}
-        bunCommand={bunCommand}
-      />
-    </TabPanel>
-  );
-}
-
-function ComponentInstallManual({ children }: { children: React.ReactNode }) {
-  return <TabPanel>{children}</TabPanel>;
-}
-
-function ComponentInstall({ children }: IComponentShowcase) {
-  return (
-    <TabGroup>
-      <TabList className="border-b bg-transparent flex space-x-4 mb-6 text-sm">
-        <Tab className="min-w-12 cursor-pointer relative px-2 py-1 bg-transparent data-selected:border data-selected:border-b-0 data-selected:bg-black data-selected:text-white focus:outline-hidden">
-          CLI
-        </Tab>
-        <Tab className="min-w-12 cursor-pointer relative px-2 py-1 bg-transparent data-selected:border data-selected:border-b-0 data-selected:bg-black data-selected:text-white focus:outline-hidden">
-          Manual
-        </Tab>
-      </TabList>
-
-      <TabPanels>{children}</TabPanels>
-    </TabGroup>
-  );
-}
-
-Object.assign(ComponentInstall, {
-  Cli: ComponentInstallCli,
-  Manual: ComponentInstallManual,
-});
-
-export { ComponentInstall };
