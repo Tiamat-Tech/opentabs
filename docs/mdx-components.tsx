@@ -28,8 +28,8 @@ interface CalloutProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
 const RetroCallout = ({ className, type = 'info', title, icon: _icon, children, ...props }: CalloutProps) => {
   const statusClasses = calloutStatusClasses[type] ?? calloutStatusClasses.info;
   return (
-    <div role="alert" className={cn('relative my-6 w-full rounded border-2 p-4', statusClasses, className)} {...props}>
-      {title && <p className="font-head mb-1 text-lg font-semibold">{title}</p>}
+    <div role="alert" className={cn('relative my-6 w-full rounded border-2 p-5', statusClasses, className)} {...props}>
+      {title && <p className="font-head mb-2 text-lg font-semibold">{title}</p>}
       <div className="font-sans text-sm">{children}</div>
     </div>
   );
