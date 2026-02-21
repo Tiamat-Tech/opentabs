@@ -307,6 +307,44 @@ test.describe('plugin_analyze_site — JSON-RPC API', () => {
   });
 });
 
+test.describe('plugin_analyze_site — API key header auth', () => {
+  test('detects X-API-Key header in API calls', async ({
+    mcpServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    const siteUrl = `${analyzeSiteServer.url}/apikey-app/`;
+    const analysis = await analyzeSite(mcpClient, siteUrl);
+
+    // --- Auth detection ---
+    expect(analysis.auth.authenticated).toBe(true);
+
+    // Verify api-key-header auth method detected
+    const apiKeyMethods = analysis.auth.methods.filter(m => m.type === 'api-key-header');
+    expect(apiKeyMethods.length).toBeGreaterThanOrEqual(1);
+
+    // The X-API-Key header should be mentioned in details
+    const xApiKeyMethod = apiKeyMethods.find(m => m.details.toLowerCase().includes('x-api-key'));
+    expect(xApiKeyMethod).toBeDefined();
+
+    // extractionHint should mention the X-API-Key header
+    expect(xApiKeyMethod?.extractionHint).toContain('X-API-Key');
+
+    // --- API detection ---
+    expect(analysis.apis.endpoints.length).toBeGreaterThanOrEqual(1);
+
+    // Should detect REST endpoints
+    const restEndpoints = analysis.apis.endpoints.filter(e => e.protocol === 'rest');
+    expect(restEndpoints.length).toBeGreaterThanOrEqual(1);
+
+    // --- Title ---
+    expect(analysis.title).toBe('API Key Auth Test App');
+  });
+});
+
 test.describe('plugin_analyze_site — Next.js SSR app', () => {
   test('detects Next.js framework, SSR/SPA status, and auth data in globals', async ({
     mcpServer,

@@ -14,6 +14,7 @@
  *   /graphql/           — GraphQL API endpoint with queries and a mutation
  *   /jsonrpc-app/       — JSON-RPC 2.0 API endpoint with methods
  *   /nextjs-app/        — Next.js-style SSR app with __NEXT_DATA__ and auth data in globals
+ *   /apikey-app/        — API key header auth with X-API-Key on all API requests
  *
  * Start: `bun e2e/analyze-site-test-server.ts`
  * Default port: 0 (dynamic, override with PORT env var)
@@ -390,6 +391,77 @@ const NEXTJS_SSR_HTML = `<!DOCTYPE html>
 </html>`;
 
 // ---------------------------------------------------------------------------
+// API key header scenario HTML
+// ---------------------------------------------------------------------------
+
+/**
+ * Simulates a web app that authenticates API requests with an X-API-Key header:
+ * - API key stored in a JS variable (simulating app-level config)
+ * - All API calls include X-API-Key header
+ * - Server returns 401 without the header
+ */
+const APIKEY_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Key Auth Test App</title>
+</head>
+<body>
+  <div id="app">
+    <h1>API Key Dashboard</h1>
+    <p id="status">Loading...</p>
+  </div>
+
+  <script>
+    // Simulate an app that uses an API key for all requests
+    var apiKey = 'ak_test_1234567890abcdef1234567890abcdef';
+
+    // Delay API calls to allow the orchestrator to enable network capture
+    setTimeout(function() {
+      (async function() {
+        try {
+          var projectsRes = await fetch('/apikey-app/api/projects', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': apiKey
+            }
+          });
+          var eventsRes = await fetch('/apikey-app/api/events', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': apiKey
+            }
+          });
+
+          var projects = await projectsRes.json();
+          var events = await eventsRes.json();
+
+          document.getElementById('status').textContent =
+            'Loaded: ' + projects.projects.length + ' projects, ' +
+            events.events.length + ' events';
+
+          // POST request with API key
+          await fetch('/apikey-app/api/events', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': apiKey
+            },
+            body: JSON.stringify({ name: 'page_view', data: { page: '/dashboard' } })
+          });
+        } catch (e) {
+          document.getElementById('status').textContent = 'Error: ' + e.message;
+        }
+      })();
+    }, 1500);
+  </script>
+</body>
+</html>`;
+
+// ---------------------------------------------------------------------------
 // Server
 // ---------------------------------------------------------------------------
 
@@ -407,7 +479,7 @@ const server = Bun.serve({
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
         },
       });
     }
@@ -738,6 +810,87 @@ const server = Bun.serve({
       return new Response(NEXTJS_SSR_HTML, {
         headers: { 'Content-Type': 'text/html' },
       });
+    }
+
+    // ===================================================================
+    // API key header scenario
+    // ===================================================================
+
+    // Page — serves HTML
+    if (path === '/apikey-app/' || path === '/apikey-app') {
+      return new Response(APIKEY_HTML, {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    }
+
+    // API — GET /apikey-app/api/projects (requires X-API-Key)
+    if (path === '/apikey-app/api/projects' && req.method === 'GET') {
+      if (!req.headers.get('x-api-key')) {
+        return new Response(JSON.stringify({ error: 'API key required' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          projects: [
+            { id: 'proj-1', name: 'Alpha', status: 'active' },
+            { id: 'proj-2', name: 'Bravo', status: 'active' },
+          ],
+          total: 2,
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // API — GET /apikey-app/api/events (requires X-API-Key)
+    if (path === '/apikey-app/api/events' && req.method === 'GET') {
+      if (!req.headers.get('x-api-key')) {
+        return new Response(JSON.stringify({ error: 'API key required' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          events: [
+            { id: 'evt-1', name: 'login', timestamp: '2026-01-01T00:00:00Z' },
+            { id: 'evt-2', name: 'page_view', timestamp: '2026-01-01T00:01:00Z' },
+            { id: 'evt-3', name: 'click', timestamp: '2026-01-01T00:02:00Z' },
+          ],
+          total: 3,
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // API — POST /apikey-app/api/events (requires X-API-Key)
+    if (path === '/apikey-app/api/events' && req.method === 'POST') {
+      if (!req.headers.get('x-api-key')) {
+        return new Response(JSON.stringify({ error: 'API key required' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      let body: Record<string, unknown> = {};
+      try {
+        body = (await req.json()) as Record<string, unknown>;
+      } catch {
+        // ignore parse errors
+      }
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          event: {
+            id: 'evt-new',
+            name: body.name ?? 'unknown',
+            timestamp: new Date().toISOString(),
+          },
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
     }
 
     // --- 404 ---
