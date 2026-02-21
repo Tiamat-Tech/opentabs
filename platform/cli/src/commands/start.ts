@@ -1,11 +1,16 @@
 /**
  * `opentabs start` command — starts the MCP server in production mode.
  *
+ * On first run, auto-initializes ~/.opentabs/ with a config file and
+ * installs the browser extension. Prints first-time setup instructions
+ * after the server starts.
+ *
  * Server output is written to both the terminal and a log file at
  * ~/.opentabs/server.log (or $OPENTABS_CONFIG_DIR/server.log).
  * The `opentabs logs` command tails this file.
  */
 
+import { installExtension } from './setup.js';
 import { getConfigDir, getLogFilePath } from '../config.js';
 import { parsePort, resolvePort } from '../parse-port.js';
 import pc from 'picocolors';
@@ -57,6 +62,52 @@ const teeStream = async (
   }
 };
 
+/**
+ * Auto-initialize the config directory and install the browser extension.
+ * Returns true if this is the first-time setup (extension was newly installed).
+ */
+const autoInitialize = async (configDir: string): Promise<boolean> => {
+  mkdirSync(configDir, { recursive: true });
+
+  try {
+    const result = await installExtension(configDir);
+
+    if (result.installed && result.firstTime) {
+      console.log(pc.green(`Extension installed to ${result.extensionDest} (v${result.version})`));
+      return true;
+    } else if (result.installed) {
+      console.log(pc.dim(`Extension updated to v${result.version}`));
+    }
+  } catch (err) {
+    // Extension install is non-fatal — the server can still start without it.
+    // The user can run `opentabs setup` manually later.
+    console.warn(
+      pc.yellow(`Warning: Could not install extension: ${err instanceof Error ? err.message : String(err)}`),
+    );
+    console.warn(pc.dim('Run opentabs setup manually to install the browser extension.'));
+  }
+
+  return false;
+};
+
+const printFirstTimeInstructions = (extensionDest: string, port: number): void => {
+  console.log('');
+  console.log(pc.bold('First-time setup:'));
+  console.log('');
+  console.log('  1. Load the extension in Chrome:');
+  console.log(`     a. Open ${pc.cyan('chrome://extensions/')}`);
+  console.log(`     b. Enable "Developer mode" (top-right toggle)`);
+  console.log(`     c. Click "Load unpacked" and select: ${pc.cyan(extensionDest)}`);
+  console.log('');
+  console.log('  2. Configure your MCP client (~/.claude/settings/mcp.json):');
+  console.log(
+    pc.dim(
+      `     { "mcpServers": { "opentabs": { "type": "streamable-http", "url": "http://127.0.0.1:${port}/mcp" } } }`,
+    ),
+  );
+  console.log('');
+};
+
 const handleStart = async (options: StartOptions): Promise<void> => {
   const serverEntry = resolveServerEntry();
 
@@ -78,11 +129,13 @@ const handleStart = async (options: StartOptions): Promise<void> => {
     process.exit(1);
   }
 
+  const configDir = getConfigDir();
+  const isFirstTime = await autoInitialize(configDir);
+
   const env: Record<string, string | undefined> = { ...process.env };
   env.PORT = String(port);
 
   const logFilePath = getLogFilePath();
-  mkdirSync(getConfigDir(), { recursive: true });
   const logStream = createWriteStream(logFilePath, { flags: 'a' });
 
   console.log(`Starting OpenTabs MCP server on port ${pc.bold(String(port))}...`);
@@ -91,11 +144,20 @@ const handleStart = async (options: StartOptions): Promise<void> => {
   console.log(`  ${pc.cyan('Health check:')}  http://localhost:${port}/health`);
   console.log(`  ${pc.cyan('Log file:')}     ${logFilePath}`);
   console.log('');
-  console.log(pc.dim('  MCP client config (~/.claude/settings/mcp.json):'));
-  console.log(
-    pc.dim(`  { "mcpServers": { "opentabs": { "type": "streamable-http", "url": "http://127.0.0.1:${port}/mcp" } } }`),
-  );
-  console.log('');
+
+  if (isFirstTime) {
+    const extensionDest = resolve(configDir, 'extension');
+    printFirstTimeInstructions(extensionDest, port);
+  } else {
+    console.log(pc.dim('  MCP client config (~/.claude/settings/mcp.json):'));
+    console.log(
+      pc.dim(
+        `  { "mcpServers": { "opentabs": { "type": "streamable-http", "url": "http://127.0.0.1:${port}/mcp" } } }`,
+      ),
+    );
+    console.log('');
+  }
+
   console.log(pc.dim('  Press Ctrl+C to stop'));
   console.log('');
 
