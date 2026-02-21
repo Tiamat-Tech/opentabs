@@ -12,11 +12,28 @@ Point your MCP client at `http://localhost:9515/mcp`, open a web app in Chrome, 
 
 OpenTabs has three core components that work together:
 
-| Component            | Role                                                                                                                                                                                                               |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **MCP Server**       | Discovers plugins, registers their tools as MCP tools, and dispatches tool calls to the Chrome extension via WebSocket. Runs on `localhost:9515` by default.                                                       |
-| **Chrome Extension** | Receives plugin definitions from the server, injects adapter scripts into matching tabs, and executes tool calls in the page's MAIN world context with full access to DOM, cookies, and localStorage. Manifest V3. |
-| **Plugin SDK**       | Provides the `OpenTabsPlugin` base class and `defineTool` factory for building plugins. Plugins define tools with Zod schemas; the CLI bundles them into injectable adapters.                                      |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Component</Table.Head>
+      <Table.Head>Role</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">MCP Server</Table.Cell>
+      <Table.Cell>Discovers plugins, registers their tools as MCP tools, and dispatches tool calls to the Chrome extension via WebSocket. Runs on `localhost:9515` by default.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Chrome Extension</Table.Cell>
+      <Table.Cell>Receives plugin definitions from the server, injects adapter scripts into matching tabs, and executes tool calls in the page's MAIN world context with full access to DOM, cookies, and localStorage. Manifest V3.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Plugin SDK</Table.Cell>
+      <Table.Cell>Provides the `OpenTabsPlugin` base class and `defineTool` factory for building plugins. Plugins define tools with Zod schemas; the CLI bundles them into injectable adapters.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 The data flow for a tool call:
 

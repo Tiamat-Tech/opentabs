@@ -10,10 +10,24 @@ OpenTabs uses a plugin-based architecture where each plugin is a standalone npm 
 
 A plugin consists of two build artifacts:
 
-| File                   | Purpose                                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------- |
-| `opentabs-plugin.json` | Manifest declaring the plugin's name, URL patterns, and tool definitions with JSON Schema |
-| `dist/adapter.iife.js` | Self-contained IIFE bundle that runs in the browser page's MAIN world context             |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>File</Table.Head>
+      <Table.Head>Purpose</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`opentabs-plugin.json`</Table.Cell>
+      <Table.Cell>Manifest declaring the plugin's name, URL patterns, and tool definitions with JSON Schema</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`dist/adapter.iife.js`</Table.Cell>
+      <Table.Cell>Self-contained IIFE bundle that runs in the browser page's MAIN world context</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 Plugins extend the `OpenTabsPlugin` base class from `@opentabs-dev/plugin-sdk` and define tools using the `defineTool()` factory. The `opentabs build` CLI compiles the plugin source into these two artifacts.
 
@@ -92,11 +106,32 @@ The `opentabs-plugin.json` manifest is validated against a Zod schema at discove
 
 Plugin tools are exposed to MCP clients with a `<plugin>_<tool>` prefix to prevent name collisions:
 
-| Plugin   | Tool            | MCP Name              |
-| -------- | --------------- | --------------------- |
-| `slack`  | `send_message`  | `slack_send_message`  |
-| `slack`  | `read_messages` | `slack_read_messages` |
-| `github` | `create_issue`  | `github_create_issue` |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Plugin</Table.Head>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>MCP Name</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell>`slack`</Table.Cell>
+      <Table.Cell>`send_message`</Table.Cell>
+      <Table.Cell className="font-medium">`slack_send_message`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>`slack`</Table.Cell>
+      <Table.Cell>`read_messages`</Table.Cell>
+      <Table.Cell className="font-medium">`slack_read_messages`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>`github`</Table.Cell>
+      <Table.Cell>`create_issue`</Table.Cell>
+      <Table.Cell className="font-medium">`github_create_issue`</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 Individual tools can be disabled via the `tools` field in `config.json`:
 
@@ -112,11 +147,32 @@ Individual tools can be disabled via the `tools` field in `config.json`:
 
 Each plugin is assigned a trust tier based on its source. The tier is prefixed to tool descriptions in the MCP tool list so AI agents can assess trust:
 
-| Tier      | Source                           | MCP Description Prefix            |
-| --------- | -------------------------------- | --------------------------------- |
-| Official  | `@opentabs-dev/*` npm packages   | `[Official]`                      |
-| Community | Other npm packages               | `[Community plugin — unverified]` |
-| Local     | File paths from `config.plugins` | `[Local plugin]`                  |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tier</Table.Head>
+      <Table.Head>Source</Table.Head>
+      <Table.Head>MCP Description Prefix</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">Official</Table.Cell>
+      <Table.Cell>`@opentabs-dev/*` npm packages</Table.Cell>
+      <Table.Cell>`[Official]`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Community</Table.Cell>
+      <Table.Cell>Other npm packages</Table.Cell>
+      <Table.Cell>`[Community plugin — unverified]`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Local</Table.Cell>
+      <Table.Cell>File paths from `config.plugins`</Table.Cell>
+      <Table.Cell>`[Local plugin]`</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 Official plugins are published by the OpenTabs team. Community plugins are published to npm by third parties and are not verified. Local plugins run from the developer's machine.
 

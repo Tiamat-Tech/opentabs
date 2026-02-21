@@ -35,14 +35,54 @@ The MCP server (`platform/mcp-server`) runs on `localhost:9515` by default (conf
 
 ### HTTP Endpoints
 
-| Endpoint            | Method          | Auth                   | Description                                                    |
-| ------------------- | --------------- | ---------------------- | -------------------------------------------------------------- |
-| `/mcp`              | POST/GET/DELETE | Bearer token           | MCP Streamable HTTP transport. AI agents connect here.         |
-| `/ws`               | WebSocket       | Sec-WebSocket-Protocol | Chrome extension WebSocket connection.                         |
-| `/ws-info`          | GET             | Bearer token           | Returns WebSocket URL and auth secret for extension bootstrap. |
-| `/health`           | GET             | None                   | Server status: plugins, tools, uptime, reload count.           |
-| `/reload`           | POST            | Bearer token           | Trigger config and plugin rediscovery.                         |
-| `/extension/reload` | POST            | Bearer token           | Send reload signal to the extension via WebSocket.             |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Endpoint</Table.Head>
+      <Table.Head>Method</Table.Head>
+      <Table.Head>Auth</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/mcp`</Table.Cell>
+      <Table.Cell>POST/GET/DELETE</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>MCP Streamable HTTP transport. AI agents connect here.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/ws`</Table.Cell>
+      <Table.Cell>WebSocket</Table.Cell>
+      <Table.Cell>Sec-WebSocket-Protocol</Table.Cell>
+      <Table.Cell>Chrome extension WebSocket connection.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/ws-info`</Table.Cell>
+      <Table.Cell>GET</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>Returns WebSocket URL and auth secret for extension bootstrap.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/health`</Table.Cell>
+      <Table.Cell>GET</Table.Cell>
+      <Table.Cell>None</Table.Cell>
+      <Table.Cell>Server status: plugins, tools, uptime, reload count.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/reload`</Table.Cell>
+      <Table.Cell>POST</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>Trigger config and plugin rediscovery.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/extension/reload`</Table.Cell>
+      <Table.Cell>POST</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>Send reload signal to the extension via WebSocket.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ### Hot Reload
 
@@ -86,7 +126,7 @@ When the server sends a `tool.dispatch` request:
    - Calls `tool.handle(input)` in the page's MAIN world context
 4. The result flows back through the WebSocket to the server and then to the AI agent
 
-If the highest-ranked tab is unavailable, the extension falls back to the next matching tab. Tool execution has a 60-second timeout.
+If the highest-ranked tab is unavailable, the extension falls back to the next matching tab. Tool execution has a 25-second timeout.
 
 ## Wire Protocol
 
@@ -96,32 +136,90 @@ All server ↔ extension communication uses **JSON-RPC 2.0** over WebSocket. Mes
 
 **Server → Extension:**
 
-| Method                 | Purpose                                                 |
-| ---------------------- | ------------------------------------------------------- |
-| `sync.full`            | Full plugin list sent on connection                     |
-| `plugin.update`        | Plugin metadata changed (file watcher detected changes) |
-| `plugin.uninstall`     | Plugin removed from discovery                           |
-| `tool.dispatch`        | Execute a plugin tool on a matching tab                 |
-| `tool.invocationStart` | Tool execution started (side panel animation)           |
-| `tool.invocationEnd`   | Tool execution completed (duration, success flag)       |
-| `browser.*`            | Built-in browser tool commands (36 tools)               |
-| `pong`                 | Keepalive response                                      |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Method</Table.Head>
+      <Table.Head>Purpose</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`sync.full`</Table.Cell>
+      <Table.Cell>Full plugin list sent on connection</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.update`</Table.Cell>
+      <Table.Cell>Plugin metadata changed (file watcher detected changes)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.uninstall`</Table.Cell>
+      <Table.Cell>Plugin removed from discovery</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tool.dispatch`</Table.Cell>
+      <Table.Cell>Execute a plugin tool on a matching tab</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tool.invocationStart`</Table.Cell>
+      <Table.Cell>Tool execution started (side panel animation)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tool.invocationEnd`</Table.Cell>
+      <Table.Cell>Tool execution completed (duration, success flag)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser.*`</Table.Cell>
+      <Table.Cell>Built-in browser tool commands (36 tools)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`pong`</Table.Cell>
+      <Table.Cell>Keepalive response</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 **Extension → Server:**
 
-| Method                      | Purpose                                                    |
-| --------------------------- | ---------------------------------------------------------- |
-| `tab.syncAll`               | Full tab state for all plugins (sent on connect/reconnect) |
-| `tab.stateChanged`          | Single plugin's tab state changed                          |
-| `config.getState`           | Fetch config state for side panel                          |
-| `config.setToolEnabled`     | Enable/disable a single tool                               |
-| `config.setAllToolsEnabled` | Enable/disable all tools in a plugin                       |
-| `ping`                      | Keepalive probe                                            |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Method</Table.Head>
+      <Table.Head>Purpose</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tab.syncAll`</Table.Cell>
+      <Table.Cell>Full tab state for all plugins (sent on connect/reconnect)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tab.stateChanged`</Table.Cell>
+      <Table.Cell>Single plugin's tab state changed</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`config.getState`</Table.Cell>
+      <Table.Cell>Fetch config state for side panel</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`config.setToolEnabled`</Table.Cell>
+      <Table.Cell>Enable/disable a single tool</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`config.setAllToolsEnabled`</Table.Cell>
+      <Table.Cell>Enable/disable all tools in a plugin</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ping`</Table.Cell>
+      <Table.Cell>Keepalive probe</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ### Timeouts
 
 - **Tool dispatch**: 30 seconds (server-side). The MCP Streamable HTTP response is held open until the tool completes or times out.
-- **Extension script execution**: 60 seconds.
+- **Extension script execution**: 25 seconds.
 - **Readiness probe** (`isReady()`): 5 seconds.
 - **Keepalive ping/pong**: 15-second interval, 5-second timeout.
 
@@ -153,16 +251,58 @@ During plugin discovery, tool descriptions are scanned for references to browser
 
 Plugins are classified by source and the trust tier is prefixed to tool descriptions shown to AI agents:
 
-| Tier      | Source                      | Description Prefix                |
-| --------- | --------------------------- | --------------------------------- |
-| Official  | `@opentabs-dev/*` npm scope | `[Official]`                      |
-| Community | Any other npm package       | `[Community plugin — unverified]` |
-| Local     | Filesystem path             | `[Local plugin]`                  |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tier</Table.Head>
+      <Table.Head>Source</Table.Head>
+      <Table.Head>Description Prefix</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">Official</Table.Cell>
+      <Table.Cell>`@opentabs-dev/*` npm scope</Table.Cell>
+      <Table.Cell>`[Official]`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Community</Table.Cell>
+      <Table.Cell>Any other npm package</Table.Cell>
+      <Table.Cell>`[Community plugin — unverified]`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Local</Table.Cell>
+      <Table.Cell>Filesystem path</Table.Cell>
+      <Table.Cell>`[Local plugin]`</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ## Hot Reload Summary
 
-| Component        | Reload Method                            | Trigger                                                  |
-| ---------------- | ---------------------------------------- | -------------------------------------------------------- |
-| MCP Server       | `bun --hot` (automatic)                  | Compiled `.js` files change in `dist/`                   |
-| Plugin adapters  | File watcher (automatic)                 | `opentabs-plugin.json` or `dist/adapter.iife.js` changes |
-| Chrome extension | Manual reload from `chrome://extensions` | Any extension source file changes                        |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Component</Table.Head>
+      <Table.Head>Reload Method</Table.Head>
+      <Table.Head>Trigger</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">MCP Server</Table.Cell>
+      <Table.Cell>`bun --hot` (automatic)</Table.Cell>
+      <Table.Cell>Compiled `.js` files change in `dist/`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Plugin adapters</Table.Cell>
+      <Table.Cell>File watcher (automatic)</Table.Cell>
+      <Table.Cell>`opentabs-plugin.json` or `dist/adapter.iife.js` changes</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Chrome extension</Table.Cell>
+      <Table.Cell>Manual reload from `chrome://extensions`</Table.Cell>
+      <Table.Cell>Any extension source file changes</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>

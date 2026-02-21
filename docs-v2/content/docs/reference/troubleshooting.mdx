@@ -74,12 +74,32 @@ The MCP server has a 30-second dispatch timeout. The extension enforces a 25-sec
 
 **Common causes**:
 
-| Cause                                 | Solution                                                                          |
-| ------------------------------------- | --------------------------------------------------------------------------------- |
-| `handle()` function takes too long    | Optimize the tool's adapter code. Break long operations into multiple tool calls. |
-| Tab unresponsive or crashed           | Refresh the target tab. Check Chrome's task manager (`Shift+Esc`) for hung tabs.  |
-| Extension disconnected mid-call       | The server detects this and returns an error. Reconnect the extension.            |
-| Network request in `handle()` stalled | Add timeout logic to `fetch()` calls within the adapter's `handle()` function.    |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Cause</Table.Head>
+      <Table.Head>Solution</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`handle()` function takes too long</Table.Cell>
+      <Table.Cell>Optimize the tool's adapter code. Break long operations into multiple tool calls.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Tab unresponsive or crashed</Table.Cell>
+      <Table.Cell>Refresh the target tab. Check Chrome's task manager (`Shift+Esc`) for hung tabs.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Extension disconnected mid-call</Table.Cell>
+      <Table.Cell>The server detects this and returns an error. Reconnect the extension.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Network request in `handle()` stalled</Table.Cell>
+      <Table.Cell>Add timeout logic to `fetch()` calls within the adapter's `handle()` function.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ## Hot reload not working
 
@@ -174,22 +194,79 @@ The side panel communicates with the background service worker, which relays dat
 
 **Common causes**:
 
-| Error                    | Cause                                                         | Solution                                                                                                                     |
-| ------------------------ | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| TypeScript errors        | Type mismatches or missing types                              | Fix the type errors reported by `tsc`. Run `bun run type-check` for details.                                                 |
-| Zod schema serialization | `.transform()`, `.pipe()`, or `.preprocess()` in tool schemas | Remove transforms from schemas — they cannot be serialized to JSON Schema. Move the logic to the tool's `handle()` function. |
-| Plugin name validation   | Name contains invalid characters or is reserved               | Plugin names must match `^[a-z][a-z0-9-]*$` and must not be a reserved name (e.g., `browser`, `extension`).                  |
-| Missing dependencies     | `@opentabs-dev/plugin-sdk` not installed                      | Run `bun install` in the plugin directory.                                                                                   |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Error</Table.Head>
+      <Table.Head>Cause</Table.Head>
+      <Table.Head>Solution</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">TypeScript errors</Table.Cell>
+      <Table.Cell>Type mismatches or missing types</Table.Cell>
+      <Table.Cell>Fix the type errors reported by `tsc`. Run `bun run type-check` for details.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Zod schema serialization</Table.Cell>
+      <Table.Cell>`.transform()`, `.pipe()`, or `.preprocess()` in tool schemas</Table.Cell>
+      <Table.Cell>Remove transforms from schemas — they cannot be serialized to JSON Schema. Move the logic to the tool's `handle()` function.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Plugin name validation</Table.Cell>
+      <Table.Cell>Name contains invalid characters or is reserved</Table.Cell>
+      <Table.Cell>Plugin names must match `^[a-z][a-z0-9-]*$` and must not be a reserved name (e.g., `browser`, `extension`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Missing dependencies</Table.Cell>
+      <Table.Cell>`@opentabs-dev/plugin-sdk` not installed</Table.Cell>
+      <Table.Cell>Run `bun install` in the plugin directory.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ## Diagnostic commands
 
-| Command                                 | What it does                                                     |
-| --------------------------------------- | ---------------------------------------------------------------- |
-| `opentabs doctor`                       | Full setup diagnostic — Bun, config, server, extension, plugins. |
-| `opentabs status`                       | Server health, plugin list, tab states, tool counts.             |
-| `opentabs status --json`                | Raw JSON from the `/health` endpoint.                            |
-| `opentabs logs`                         | Tail the MCP server log output in real time.                     |
-| `opentabs logs --lines 100 --no-follow` | Show the last 100 log lines and exit.                            |
-| `curl http://localhost:9515/health`     | Direct health check (no CLI needed).                             |
-| `opentabs plugin list`                  | Show configured plugins and their build status.                  |
-| `opentabs config show`                  | View current configuration (secret redacted).                    |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Command</Table.Head>
+      <Table.Head>What it does</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`opentabs doctor`</Table.Cell>
+      <Table.Cell>Full setup diagnostic — Bun, config, server, extension, plugins.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`opentabs status`</Table.Cell>
+      <Table.Cell>Server health, plugin list, tab states, tool counts.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`opentabs status --json`</Table.Cell>
+      <Table.Cell>Raw JSON from the `/health` endpoint.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`opentabs logs`</Table.Cell>
+      <Table.Cell>Tail the MCP server log output in real time.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`opentabs logs --lines 100 --no-follow`</Table.Cell>
+      <Table.Cell>Show the last 100 log lines and exit.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`curl http://localhost:9515/health`</Table.Cell>
+      <Table.Cell>Direct health check (no CLI needed).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`opentabs plugin list`</Table.Cell>
+      <Table.Cell>Show configured plugins and their build status.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`opentabs config show`</Table.Cell>
+      <Table.Cell>View current configuration (secret redacted).</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>

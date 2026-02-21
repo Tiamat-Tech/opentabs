@@ -39,14 +39,47 @@ export default new MyPlugin();
 
 ### Abstract Properties
 
-| Property      | Type               | Description                                                                                                                                                                                                                                                       |
-| ------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | `string`           | Unique plugin identifier. Lowercase alphanumeric with hyphens (`^[a-z0-9]+(-[a-z0-9]+)*$`). Used as the tool name prefix (e.g., `slack` → `slack_send_message`). Reserved names: `system`, `browser`, `opentabs`, `extension`, `config`, `plugin`, `tool`, `mcp`. |
-| `version`     | `string`           | Semver version string (e.g., `0.0.1`).                                                                                                                                                                                                                            |
-| `description` | `string`           | Brief description of the plugin's purpose. Shown to AI agents in MCP tool listings.                                                                                                                                                                               |
-| `displayName` | `string`           | Human-readable name shown in the Chrome extension side panel and health endpoint (e.g., `Slack`).                                                                                                                                                                 |
-| `urlPatterns` | `string[]`         | Chrome match patterns that determine which tabs get the adapter injected. See [Chrome match patterns](https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns).                                                                              |
-| `tools`       | `ToolDefinition[]` | Array of tool definitions created with `defineTool()`. At least one tool is required.                                                                                                                                                                             |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Property</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`name`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Unique plugin identifier. Lowercase alphanumeric with hyphens (`^[a-z0-9]+(-[a-z0-9]+)*$`). Used as the tool name prefix (e.g., `slack` → `slack_send_message`). Reserved names: `system`, `browser`, `opentabs`, `extension`, `config`, `plugin`, `tool`, `mcp`.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`version`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Semver version string (e.g., `0.0.1`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`description`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Brief description of the plugin's purpose. Shown to AI agents in MCP tool listings.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`displayName`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Human-readable name shown in the Chrome extension side panel and health endpoint (e.g., `Slack`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`urlPatterns`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string[]`</Table.Cell>
+      <Table.Cell>Chrome match patterns that determine which tabs get the adapter injected. See [Chrome match patterns](https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tools`</Table.Cell>
+      <Table.Cell className="*:text-xs">`ToolDefinition[]`</Table.Cell>
+      <Table.Cell>Array of tool definitions created with `defineTool()`. At least one tool is required.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ### Abstract Methods
 
@@ -56,11 +89,28 @@ Readiness probe called by the Chrome extension to determine if the web app in th
 
 Returns `true` if the user is authenticated and the service is operational. The result maps to the [tab state machine](/docs/concepts/tab-state-machine):
 
-| Condition                               | Tab State     |
-| --------------------------------------- | ------------- |
-| No tab matches `urlPatterns`            | `closed`      |
-| Tab exists, `isReady()` returns `false` | `unavailable` |
-| Tab exists, `isReady()` returns `true`  | `ready`       |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Condition</Table.Head>
+      <Table.Head>Tab State</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell>No tab matches `urlPatterns`</Table.Cell>
+      <Table.Cell className="font-medium">`closed`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Tab exists, `isReady()` returns `false`</Table.Cell>
+      <Table.Cell className="font-medium">`unavailable`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Tab exists, `isReady()` returns `true`</Table.Cell>
+      <Table.Cell className="font-medium">`ready`</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 The extension probes `isReady()` with a 5-second timeout. If the probe times out or throws, the tab is treated as `unavailable`.
 
@@ -147,15 +197,52 @@ export const sendMessage = defineTool({
 
 ### Configuration Properties
 
-| Property      | Type                                   | Description                                                                                                                                  |
-| ------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | `string`                               | Tool name in `snake_case`. Auto-prefixed with the plugin name when registered as an MCP tool (e.g., `send_message` → `slack_send_message`).  |
-| `displayName` | `string`                               | Human-readable name shown in the side panel (e.g., `Send Message`).                                                                          |
-| `description` | `string`                               | Description shown to AI agents. Must be accurate and informative — AI agents rely on this to choose the right tool. Maximum 1000 characters. |
-| `icon`        | `LucideIconName`                       | Kebab-case [Lucide](https://lucide.dev/icons) icon name displayed in the side panel (e.g., `send`, `message-square`, `search`).              |
-| `input`       | `z.ZodObject`                          | Zod object schema defining the tool's input parameters. Serialized to JSON Schema for MCP registration and manifest generation.              |
-| `output`      | `z.ZodType`                            | Zod schema defining the tool's return value shape. Serialized to JSON Schema for manifest generation.                                        |
-| `handle`      | `(params: TInput) => Promise<TOutput>` | Async function that executes the tool. Receives pre-validated input. Runs in the browser page's MAIN world context.                          |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Property</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`name`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Tool name in `snake_case`. Auto-prefixed with the plugin name when registered as an MCP tool (e.g., `send_message` → `slack_send_message`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`displayName`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Human-readable name shown in the side panel (e.g., `Send Message`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`description`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Description shown to AI agents. Must be accurate and informative — AI agents rely on this to choose the right tool. Maximum 1000 characters.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`icon`</Table.Cell>
+      <Table.Cell className="*:text-xs">`LucideIconName`</Table.Cell>
+      <Table.Cell>Kebab-case [Lucide](https://lucide.dev/icons) icon name displayed in the side panel (e.g., `send`, `message-square`, `search`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`input`</Table.Cell>
+      <Table.Cell className="*:text-xs">`z.ZodObject`</Table.Cell>
+      <Table.Cell>Zod object schema defining the tool's input parameters. Serialized to JSON Schema for MCP registration and manifest generation.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`output`</Table.Cell>
+      <Table.Cell className="*:text-xs">`z.ZodType`</Table.Cell>
+      <Table.Cell>Zod schema defining the tool's return value shape. Serialized to JSON Schema for manifest generation.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`handle`</Table.Cell>
+      <Table.Cell className="*:text-xs">`(params: TInput) => Promise<TOutput>`</Table.Cell>
+      <Table.Cell>Async function that executes the tool. Receives pre-validated input. Runs in the browser page's MAIN world context.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ### handle() Execution Context
 
@@ -238,10 +325,27 @@ export const getChannel = defineTool({
 new ToolError(message: string, code: string)
 ```
 
-| Parameter | Type     | Description                                                                                                                                        |
-| --------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `message` | `string` | Human-readable error message.                                                                                                                      |
-| `code`    | `string` | Machine-readable error code (e.g., `CHANNEL_NOT_FOUND`, `UNAUTHORIZED`, `RATE_LIMITED`). AI agents can use this to decide how to handle the error. |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Parameter</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`message`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Human-readable error message.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`code`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Machine-readable error code (e.g., `CHANNEL_NOT_FOUND`, `UNAUTHORIZED`, `RATE_LIMITED`). AI agents can use this to decide how to handle the error.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 Unhandled errors (non-`ToolError` exceptions) are caught by the platform, sanitized (file paths, IPs, and URLs stripped), and returned as generic error responses.
 
@@ -249,17 +353,74 @@ Unhandled errors (non-`ToolError` exceptions) are caught by the platform, saniti
 
 The `@opentabs-dev/plugin-sdk` package exports:
 
-| Export                 | Kind     | Description                                                      |
-| ---------------------- | -------- | ---------------------------------------------------------------- |
-| `OpenTabsPlugin`       | Class    | Abstract base class for plugins                                  |
-| `defineTool()`         | Function | Type-safe tool definition factory                                |
-| `ToolError`            | Class    | Structured error class for tool handlers                         |
-| `ToolDefinition`       | Type     | TypeScript interface for tool definitions                        |
-| `Manifest`             | Type     | TypeScript type for `opentabs-plugin.json`                       |
-| `ManifestTool`         | Type     | TypeScript type for a single tool in the manifest                |
-| `LucideIconName`       | Type     | String union of valid Lucide icon names                          |
-| `LUCIDE_ICON_NAMES`    | Set      | Runtime set of valid Lucide icon names                           |
-| `NAME_REGEX`           | RegExp   | Pattern for valid plugin names                                   |
-| `RESERVED_NAMES`       | Set      | Set of reserved plugin name strings                              |
-| `validatePluginName()` | Function | Validates a plugin name, returns error string or `null`          |
-| `validateUrlPattern()` | Function | Validates a Chrome match pattern, returns error string or `null` |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Export</Table.Head>
+      <Table.Head>Kind</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`OpenTabsPlugin`</Table.Cell>
+      <Table.Cell>Class</Table.Cell>
+      <Table.Cell>Abstract base class for plugins</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`defineTool()`</Table.Cell>
+      <Table.Cell>Function</Table.Cell>
+      <Table.Cell>Type-safe tool definition factory</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ToolError`</Table.Cell>
+      <Table.Cell>Class</Table.Cell>
+      <Table.Cell>Structured error class for tool handlers</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ToolDefinition`</Table.Cell>
+      <Table.Cell>Type</Table.Cell>
+      <Table.Cell>TypeScript interface for tool definitions</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`Manifest`</Table.Cell>
+      <Table.Cell>Type</Table.Cell>
+      <Table.Cell>TypeScript type for `opentabs-plugin.json`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ManifestTool`</Table.Cell>
+      <Table.Cell>Type</Table.Cell>
+      <Table.Cell>TypeScript type for a single tool in the manifest</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`LucideIconName`</Table.Cell>
+      <Table.Cell>Type</Table.Cell>
+      <Table.Cell>String union of valid Lucide icon names</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`LUCIDE_ICON_NAMES`</Table.Cell>
+      <Table.Cell>Set</Table.Cell>
+      <Table.Cell>Runtime set of valid Lucide icon names</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`NAME_REGEX`</Table.Cell>
+      <Table.Cell>RegExp</Table.Cell>
+      <Table.Cell>Pattern for valid plugin names</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`RESERVED_NAMES`</Table.Cell>
+      <Table.Cell>Set</Table.Cell>
+      <Table.Cell>Set of reserved plugin name strings</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`validatePluginName()`</Table.Cell>
+      <Table.Cell>Function</Table.Cell>
+      <Table.Cell>Validates a plugin name, returns error string or `null`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`validateUrlPattern()`</Table.Cell>
+      <Table.Cell>Function</Table.Cell>
+      <Table.Cell>Validates a Chrome match pattern, returns error string or `null`</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>

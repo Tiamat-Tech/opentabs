@@ -26,12 +26,37 @@ opentabs plugin create my-plugin --domain .example.com --display "My App"
 
 **Options:**
 
-| Flag                   | Required | Description                                                |
-| ---------------------- | -------- | ---------------------------------------------------------- |
-| `<name>`               | Yes      | Plugin name — lowercase, alphanumeric, hyphens only        |
-| `--domain <domain>`    | Yes      | Target domain (e.g., `.slack.com`, `github.com`)           |
-| `--display <name>`     | No       | Human-readable display name (defaults to title-cased name) |
-| `--description <desc>` | No       | Plugin description                                         |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Flag</Table.Head>
+      <Table.Head>Required</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`<name>`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+      <Table.Cell>Plugin name — lowercase, alphanumeric, hyphens only</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--domain <domain>`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+      <Table.Cell>Target domain (e.g., `.slack.com`, `github.com`)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--display <name>`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Human-readable display name (defaults to title-cased name)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--description <desc>`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Plugin description</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 The scaffolder creates the following project structure:
 
@@ -155,15 +180,52 @@ export const submitForm = defineTool({
 
 **Tool configuration:**
 
-| Property      | Type                           | Description                                                   |
-| ------------- | ------------------------------ | ------------------------------------------------------------- |
-| `name`        | `string`                       | Tool name in snake*case. Exposed as `<plugin>*<name>` in MCP. |
-| `displayName` | `string`                       | Human-readable name for UI.                                   |
-| `description` | `string`                       | Shown to AI agents — must be accurate and informative.        |
-| `icon`        | `string`                       | [Lucide icon](https://lucide.dev/icons/) name in kebab-case.  |
-| `input`       | `ZodObject`                    | Zod schema for input parameters.                              |
-| `output`      | `ZodObject`                    | Zod schema for return value.                                  |
-| `handle`      | `(params) => Promise<TOutput>` | Async function that executes the tool.                        |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Property</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`name`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Tool name in snake_case. Exposed as `<plugin>_<name>` in MCP.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`displayName`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Human-readable name for UI.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`description`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>Shown to AI agents — must be accurate and informative.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`icon`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>[Lucide icon](https://lucide.dev/icons/) name in kebab-case.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`input`</Table.Cell>
+      <Table.Cell className="*:text-xs">`ZodObject`</Table.Cell>
+      <Table.Cell>Zod schema for input parameters.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`output`</Table.Cell>
+      <Table.Cell className="*:text-xs">`ZodObject`</Table.Cell>
+      <Table.Cell>Zod schema for return value.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`handle`</Table.Cell>
+      <Table.Cell className="*:text-xs">`(params) => Promise<TOutput>`</Table.Cell>
+      <Table.Cell>Async function that executes the tool.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ### handle() Execution Context
 

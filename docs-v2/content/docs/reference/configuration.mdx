@@ -24,12 +24,42 @@ The config file is created automatically on first server run with sensible defau
 
 ## Config fields
 
-| Field        | Type                      | Default            | Description                                                                                                                                                                                  |
-| ------------ | ------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `plugins`    | `string[]`                | `[]`               | Local plugin directory paths. Relative paths are resolved from the config directory. Absolute paths are also supported. All paths must be under `$HOME` or `$TMPDIR` (security restriction). |
-| `tools`      | `Record<string, boolean>` | `{}`               | Per-tool enable/disable overrides. Keys are prefixed tool names (e.g., `slack_send_message`). Absent keys default to enabled. Set to `false` to disable a tool.                              |
-| `secret`     | `string`                  | _(auto-generated)_ | 64-character hex string (256-bit) used for authentication. Shared between the MCP server and Chrome extension. Auto-generated on first run if missing.                                       |
-| `npmPlugins` | `string[]`                | `[]`               | npm package names explicitly allowed for plugin discovery. Only packages listed here will be loaded from `node_modules`.                                                                     |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Field</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Default</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugins`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string[]`</Table.Cell>
+      <Table.Cell className="*:text-xs">`[]`</Table.Cell>
+      <Table.Cell>Local plugin directory paths. Relative paths are resolved from the config directory. Absolute paths are also supported. All paths must be under `$HOME` or `$TMPDIR` (security restriction).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tools`</Table.Cell>
+      <Table.Cell className="*:text-xs">`Record<string, boolean>`</Table.Cell>
+      <Table.Cell className="*:text-xs">`{}`</Table.Cell>
+      <Table.Cell>Per-tool enable/disable overrides. Keys are prefixed tool names (e.g., `slack_send_message`). Absent keys default to enabled. Set to `false` to disable a tool.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`secret`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell className="*:text-xs">_(auto-generated)_</Table.Cell>
+      <Table.Cell>64-character hex string (256-bit) used for authentication. Shared between the MCP server and Chrome extension. Auto-generated on first run if missing.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`npmPlugins`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string[]`</Table.Cell>
+      <Table.Cell className="*:text-xs">`[]`</Table.Cell>
+      <Table.Cell>npm package names explicitly allowed for plugin discovery. Only packages listed here will be loaded from `node_modules`.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ## Example config
 
@@ -96,10 +126,27 @@ An empty array (the default) means no npm plugins are loaded — only local plug
 
 ## Environment variables
 
-| Variable              | Default       | Description                                                                                                     |
-| --------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- |
-| `PORT`                | `9515`        | HTTP server port for the MCP server.                                                                            |
-| `OPENTABS_CONFIG_DIR` | `~/.opentabs` | Override the config directory path. Useful for running multiple server instances or isolated test environments. |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Variable</Table.Head>
+      <Table.Head>Default</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`PORT`</Table.Cell>
+      <Table.Cell>`9515`</Table.Cell>
+      <Table.Cell>HTTP server port for the MCP server.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`OPENTABS_CONFIG_DIR`</Table.Cell>
+      <Table.Cell>`~/.opentabs`</Table.Cell>
+      <Table.Cell>Override the config directory path. Useful for running multiple server instances or isolated test environments.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ## Config directory structure
 

@@ -17,7 +17,7 @@ Before you begin, make sure you have:
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/AnomalyCo/opentabs.git
+git clone https://github.com/opentabs-dev/opentabs.git
 cd opentabs
 bun install
 bun run build
@@ -65,7 +65,7 @@ On first run, the MCP server generates a shared secret and stores it in `~/.open
 Find your secret:
 
 ```bash
-cat ~/.opentabs/config.json | grep secret
+opentabs config show --json | jq -r .secret
 ```
 
 ### Claude Code
@@ -122,12 +122,37 @@ curl http://localhost:9515/health
 
 The config file at `~/.opentabs/config.json` is auto-created on first server run. See the [Configuration reference](/docs/reference/configuration) for all available options.
 
-| Field        | Type     | Description                              |
-| ------------ | -------- | ---------------------------------------- |
-| `plugins`    | string[] | Local plugin directory paths             |
-| `tools`      | object   | Per-tool enable/disable overrides        |
-| `secret`     | string   | 64-char hex auth secret (auto-generated) |
-| `npmPlugins` | string[] | Allowed npm plugin package names         |
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Field</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugins`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string[]`</Table.Cell>
+      <Table.Cell>Local plugin directory paths</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tools`</Table.Cell>
+      <Table.Cell className="*:text-xs">`object`</Table.Cell>
+      <Table.Cell>Per-tool enable/disable overrides</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`secret`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string`</Table.Cell>
+      <Table.Cell>64-char hex auth secret (auto-generated)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`npmPlugins`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string[]`</Table.Cell>
+      <Table.Cell>Allowed npm plugin package names</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ## Next Steps
 
