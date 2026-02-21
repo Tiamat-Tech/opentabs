@@ -99,7 +99,7 @@ export const checkForUpdates = async (state: ServerState): Promise<void> => {
           name: pkgName,
           currentVersion: plugin.version,
           latestVersion: latest,
-          updateCommand: `bun update ${pkgName}`,
+          updateCommand: `npm update -g ${pkgName}`,
         };
         return outdated;
       }

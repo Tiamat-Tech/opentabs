@@ -968,7 +968,12 @@ describe('handleExtensionMessage — config.getState', () => {
     state.extensionWs = ws;
 
     state.outdatedPlugins = [
-      { name: 'old-plugin', currentVersion: '1.0.0', latestVersion: '2.0.0', updateCommand: 'bun add old-plugin' },
+      {
+        name: 'old-plugin',
+        currentVersion: '1.0.0',
+        latestVersion: '2.0.0',
+        updateCommand: 'npm update -g old-plugin',
+      },
     ];
 
     handleExtensionMessage(state, JSON.stringify({ jsonrpc: '2.0', method: 'config.getState', id: 3 }), noopCallbacks);
@@ -989,7 +994,7 @@ describe('handleExtensionMessage — config.getState', () => {
       name: 'old-plugin',
       currentVersion: '1.0.0',
       latestVersion: '2.0.0',
-      updateCommand: 'bun add old-plugin',
+      updateCommand: 'npm update -g old-plugin',
     });
   });
 

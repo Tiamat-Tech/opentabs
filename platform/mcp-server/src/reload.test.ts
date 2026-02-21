@@ -234,8 +234,18 @@ describe('performReload', () => {
 
     // Local plugins have no npmPackageName, so both npm entries are pruned
     state.outdatedPlugins = [
-      { name: 'opentabs-plugin-alpha', currentVersion: '1.0.0', latestVersion: '2.0.0', updateCommand: 'bun add' },
-      { name: 'opentabs-plugin-gone', currentVersion: '1.0.0', latestVersion: '2.0.0', updateCommand: 'bun add' },
+      {
+        name: 'opentabs-plugin-alpha',
+        currentVersion: '1.0.0',
+        latestVersion: '2.0.0',
+        updateCommand: 'npm update -g opentabs-plugin-alpha',
+      },
+      {
+        name: 'opentabs-plugin-gone',
+        currentVersion: '1.0.0',
+        latestVersion: '2.0.0',
+        updateCommand: 'npm update -g opentabs-plugin-gone',
+      },
     ];
 
     await performReload(state, [], emptyTransports(), false);
