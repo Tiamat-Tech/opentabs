@@ -409,7 +409,7 @@ export default function Home() {
             <Text as="h2" className="text-foreground mb-2">
               Start building today
             </Text>
-            <p className="text-foreground opacity-70">
+            <p className="text-foreground/70">
               Free and open source. No API keys. No config files.
             </p>
           </div>
