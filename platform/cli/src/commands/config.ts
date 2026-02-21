@@ -118,6 +118,32 @@ const handleConfigSet = async (key: string, value: string): Promise<void> => {
   console.log(`${toolName}: ${indicator}`);
 };
 
+interface ConfigResetOptions {
+  confirm?: boolean;
+}
+
+const handleConfigReset = async (options: ConfigResetOptions): Promise<void> => {
+  const configPath = getConfigPath();
+  const configFile = Bun.file(configPath);
+
+  if (!(await configFile.exists())) {
+    console.log(`No config file found at ${configPath}`);
+    return;
+  }
+
+  if (!options.confirm) {
+    console.error(pc.yellow(`This will delete your config at ${configPath}.`));
+    console.error(pc.yellow('Your server secret will change on next start.'));
+    console.error('');
+    console.error(`Run with ${pc.bold('--confirm')} to proceed:`);
+    console.error(`  opentabs config reset --confirm`);
+    process.exit(1);
+  }
+
+  await configFile.delete();
+  console.log('Config reset. Run opentabs start to regenerate.');
+};
+
 const registerConfigCommand = (program: Command): void => {
   const configCmd = program
     .command('config')
@@ -161,6 +187,18 @@ Examples:
   $ opentabs config show --json`,
     )
     .action((options: ConfigShowOptions) => handleConfigShow(options));
+
+  configCmd
+    .command('reset')
+    .description('Delete config file (server will regenerate on next start)')
+    .option('--confirm', 'Skip confirmation and delete immediately')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ opentabs config reset --confirm`,
+    )
+    .action((options: ConfigResetOptions) => handleConfigReset(options));
 };
 
 export { registerConfigCommand };
