@@ -110,6 +110,11 @@ const mockHandleExtensionCheckAdapter = mock(
 );
 const mockHandleExtensionForceReconnect = mock(asyncNoop as (id: string | number) => Promise<void>);
 
+const mockHandleResourceRead = mock(
+  asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+);
+const mockHandlePromptGet = mock(asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>);
+
 await mock.module('./messaging.js', () => ({
   sendToServer: mockSendToServer,
   forwardToSidePanel: mockForwardToSidePanel,
@@ -117,6 +122,11 @@ await mock.module('./messaging.js', () => ({
 
 await mock.module('./tool-dispatch.js', () => ({
   handleToolDispatch: mockHandleToolDispatch,
+}));
+
+await mock.module('./resource-prompt-dispatch.js', () => ({
+  handleResourceRead: mockHandleResourceRead,
+  handlePromptGet: mockHandlePromptGet,
 }));
 
 await mock.module('./browser-commands.js', () => ({
@@ -533,6 +543,8 @@ const resetRoutingMocks = (): void => {
   mockHandleExtensionGetSidePanel.mockReset();
   mockHandleExtensionCheckAdapter.mockReset();
   mockHandleExtensionForceReconnect.mockReset();
+  mockHandleResourceRead.mockReset();
+  mockHandlePromptGet.mockReset();
 };
 
 describe('handleServerMessage', () => {
@@ -568,6 +580,8 @@ describe('handleServerMessage', () => {
     mockHandleExtensionGetSidePanel.mockResolvedValue(undefined);
     mockHandleExtensionCheckAdapter.mockResolvedValue(undefined);
     mockHandleExtensionForceReconnect.mockResolvedValue(undefined);
+    mockHandleResourceRead.mockResolvedValue(undefined);
+    mockHandlePromptGet.mockResolvedValue(undefined);
   });
 
   describe('sync.full routing', () => {
@@ -686,6 +700,53 @@ describe('handleServerMessage', () => {
       });
 
       expect(mockHandleToolDispatch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resource.read routing', () => {
+    test('delegates to handleResourceRead with params and id', () => {
+      handleServerMessage({
+        method: 'resource.read',
+        id: 60,
+        params: { plugin: 'slack', uri: 'test://items' },
+      });
+
+      expect(mockHandleResourceRead).toHaveBeenCalledTimes(1);
+      expect(mockHandleResourceRead).toHaveBeenCalledWith({ plugin: 'slack', uri: 'test://items' }, 60);
+    });
+
+    test('does not dispatch resource.read without an id', () => {
+      handleServerMessage({
+        method: 'resource.read',
+        params: { plugin: 'slack', uri: 'test://items' },
+      });
+
+      expect(mockHandleResourceRead).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('prompt.get routing', () => {
+    test('delegates to handlePromptGet with params and id', () => {
+      handleServerMessage({
+        method: 'prompt.get',
+        id: 61,
+        params: { plugin: 'slack', prompt: 'greet', arguments: { name: 'World' } },
+      });
+
+      expect(mockHandlePromptGet).toHaveBeenCalledTimes(1);
+      expect(mockHandlePromptGet).toHaveBeenCalledWith(
+        { plugin: 'slack', prompt: 'greet', arguments: { name: 'World' } },
+        61,
+      );
+    });
+
+    test('does not dispatch prompt.get without an id', () => {
+      handleServerMessage({
+        method: 'prompt.get',
+        params: { plugin: 'slack', prompt: 'greet', arguments: {} },
+      });
+
+      expect(mockHandlePromptGet).not.toHaveBeenCalled();
     });
   });
 

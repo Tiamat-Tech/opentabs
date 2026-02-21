@@ -12,6 +12,8 @@ export const DISPATCH_METHODS = [
   'plugin.update',
   'plugin.uninstall',
   'tool.dispatch',
+  'resource.read',
+  'prompt.get',
   'browser.listTabs',
   'browser.openTab',
   'browser.closeTab',

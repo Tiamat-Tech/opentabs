@@ -40,6 +40,7 @@ import { cleanupAdaptersInMatchingTabs, injectPluginIntoMatchingTabs } from './i
 import { forwardToSidePanel, sendToServer } from './messaging.js';
 import { getAllPluginMeta, removePlugin, removePluginsBatch, storePluginsBatch } from './plugin-storage.js';
 import { checkRateLimit } from './rate-limiter.js';
+import { handleResourceRead, handlePromptGet } from './resource-prompt-dispatch.js';
 import { clearPluginTabState, computePluginTabState, sendTabSyncAll } from './tab-state.js';
 import { handleToolDispatch } from './tool-dispatch.js';
 import type { PluginMeta } from './types.js';
@@ -225,6 +226,8 @@ const methodHandlers = new Map<string, MessageHandler>([
     },
   ],
   ['tool.dispatch', wrapAsync('tool.dispatch', handleToolDispatch)],
+  ['resource.read', wrapAsync('resource.read', handleResourceRead)],
+  ['prompt.get', wrapAsync('prompt.get', handlePromptGet)],
   ['browser.listTabs', wrapAsync('browser.listTabs', (_params, id) => handleBrowserListTabs(id))],
   ['browser.openTab', wrapAsync('browser.openTab', handleBrowserOpenTab)],
   ['browser.closeTab', wrapAsync('browser.closeTab', handleBrowserCloseTab)],

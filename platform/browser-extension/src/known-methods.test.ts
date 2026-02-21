@@ -15,6 +15,11 @@ await mock.module('./tool-dispatch.js', () => ({
   handleToolDispatch: mock(),
 }));
 
+await mock.module('./resource-prompt-dispatch.js', () => ({
+  handleResourceRead: mock(),
+  handlePromptGet: mock(),
+}));
+
 const asyncNoop = () => Promise.resolve();
 
 await mock.module('./browser-commands.js', () => ({

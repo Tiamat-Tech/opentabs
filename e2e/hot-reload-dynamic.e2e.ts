@@ -430,7 +430,7 @@ test.describe('Hot reload — multiple MCP sessions', () => {
 
       // Verify both sessions were re-registered and notified
       const logsJoined = mcpServer.logs.join('\n');
-      expect(logsJoined).toMatch(/re-registered 2\/2 session\(s\), notifying of tool list change/);
+      expect(logsJoined).toMatch(/re-registered 2\/2 session\(s\), notifying of list changes/);
 
       // Both sessions should still work and return the same tools
       const tools1After = await mcpClient.listTools();

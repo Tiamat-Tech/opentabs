@@ -64,7 +64,7 @@ test.describe.serial('Hot reload — MCP session tool list', () => {
 
     // Verify hot reload notified our session
     const logsJoined = mcpServer.logs.join('\n');
-    expect(logsJoined).toMatch(/re-registered \d+\/\d+ session\(s\), notifying of tool list change/);
+    expect(logsJoined).toMatch(/re-registered \d+\/\d+ session\(s\), notifying of list changes/);
 
     // 5. List tools from the SAME session — should still work
     const toolsAfter = await mcpClient.listTools();
