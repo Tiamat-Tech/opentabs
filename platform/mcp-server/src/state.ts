@@ -14,6 +14,9 @@ import type { FSWatcher } from 'node:fs';
 /** Timeout for tool dispatch and browser command requests (ms) */
 export const DISPATCH_TIMEOUT_MS = 30_000;
 
+/** Absolute upper bound for a single dispatch, even with continuous progress (5 minutes) */
+export const MAX_DISPATCH_TIMEOUT_MS = 300_000;
+
 /** Active file watcher entry for a single plugin directory */
 export interface FileWatcherEntry {
   pluginDir: string;
@@ -65,6 +68,8 @@ export interface PendingDispatch {
   progressToken?: string | number;
   /** Callback to emit an MCP ProgressNotification for this dispatch */
   onProgress?: (progress: number, total: number, message?: string) => void;
+  /** Timestamp (ms) of the last progress notification — updated by handleToolProgress for observability */
+  lastProgressTs?: number;
 }
 
 /** Resolved tool lookup entry for O(1) dispatch in tools/call */

@@ -6,7 +6,7 @@ import {
   writeAdapterFile,
 } from './extension-protocol.js';
 import { buildRegistry } from './registry.js';
-import { createState, DISPATCH_TIMEOUT_MS } from './state.js';
+import { createState, DISPATCH_TIMEOUT_MS, MAX_DISPATCH_TIMEOUT_MS } from './state.js';
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { mkdir, readdir } from 'node:fs/promises';
@@ -1735,6 +1735,224 @@ describe('dispatchToExtension — timeout', () => {
     expect(err).toBeInstanceOf(Error);
     expect((err as Error).message).toContain('browser.openTab');
     expect((err as Error).message).toContain('timed out');
+  });
+});
+
+describe('handleToolProgress — timeout reset', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('dispatch without progress times out at DISPATCH_TIMEOUT_MS', async () => {
+    const state = createState();
+    const ws = createMockWs();
+    state.extensionWs = ws;
+
+    const promise = dispatchToExtension(
+      state,
+      'tool.dispatch',
+      { plugin: 'test', tool: 'slow' },
+      { label: 'test/slow', onProgress: () => {} },
+    );
+
+    jest.advanceTimersByTime(DISPATCH_TIMEOUT_MS);
+
+    const err: unknown = await promise.catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain('timed out');
+    expect((err as Error).message).toContain(`${DISPATCH_TIMEOUT_MS}ms`);
+  });
+
+  test('progress resets the timeout — dispatch survives past DISPATCH_TIMEOUT_MS', async () => {
+    const state = createState();
+    const ws = createMockWs();
+    state.extensionWs = ws;
+
+    let progressCalls = 0;
+    const promise = dispatchToExtension(
+      state,
+      'tool.dispatch',
+      { plugin: 'test', tool: 'slow' },
+      {
+        label: 'test/slow',
+        onProgress: () => {
+          progressCalls++;
+        },
+      },
+    );
+
+    // Extract the dispatchId from the sent message
+    const rawMsg = ws.sent[0];
+    expect(rawMsg).toBeDefined();
+    const sentMsg = JSON.parse(rawMsg as string) as { id: string; params: { dispatchId: string } };
+    const dispatchId = sentMsg.params.dispatchId;
+
+    // Advance 20s (before 30s timeout) and send a progress notification
+    jest.advanceTimersByTime(20_000);
+    expect(state.pendingDispatches.has(dispatchId)).toBe(true);
+
+    handleExtensionMessage(
+      state,
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'tool.progress',
+        params: { dispatchId, progress: 1, total: 3, message: 'Step 1' },
+      }),
+      noopCallbacks,
+    );
+    expect(progressCalls).toBe(1);
+
+    // Advance another 20s (total 40s — past original 30s timeout).
+    // The dispatch should still be alive because progress reset the timer.
+    jest.advanceTimersByTime(20_000);
+    expect(state.pendingDispatches.has(dispatchId)).toBe(true);
+
+    // Send another progress at 40s
+    handleExtensionMessage(
+      state,
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'tool.progress',
+        params: { dispatchId, progress: 2, total: 3 },
+      }),
+      noopCallbacks,
+    );
+    expect(progressCalls).toBe(2);
+
+    // Resolve the dispatch to clean up
+    const pending = state.pendingDispatches.get(dispatchId);
+    expect(pending).toBeDefined();
+    const settledPending = pending as PendingDispatch;
+    clearTimeout(settledPending.timerId);
+    settledPending.resolve({ output: 'done' });
+
+    const result = await promise;
+    expect(result).toEqual({ output: 'done' });
+  });
+
+  test('progress updates lastProgressTs on PendingDispatch', () => {
+    const state = createState();
+    const ws = createMockWs();
+    state.extensionWs = ws;
+
+    void dispatchToExtension(state, 'tool.dispatch', { plugin: 'test', tool: 'slow' }, { label: 'test/slow' });
+
+    const rawMsg = ws.sent[0];
+    expect(rawMsg).toBeDefined();
+    const sentMsg = JSON.parse(rawMsg as string) as { params: { dispatchId: string } };
+    const dispatchId = sentMsg.params.dispatchId;
+
+    const pending = state.pendingDispatches.get(dispatchId);
+    expect(pending).toBeDefined();
+    const checkedPending = pending as PendingDispatch;
+    expect(checkedPending.lastProgressTs).toBeUndefined();
+
+    handleExtensionMessage(
+      state,
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'tool.progress',
+        params: { dispatchId, progress: 1, total: 5 },
+      }),
+      noopCallbacks,
+    );
+
+    expect(checkedPending.lastProgressTs).toBeDefined();
+    expect(typeof checkedPending.lastProgressTs).toBe('number');
+
+    // Clean up
+    clearTimeout(checkedPending.timerId);
+    checkedPending.resolve('cleanup');
+  });
+
+  test('absolute max timeout fires even with continuous progress', async () => {
+    const state = createState();
+    const ws = createMockWs();
+    state.extensionWs = ws;
+
+    const promise = dispatchToExtension(
+      state,
+      'tool.dispatch',
+      { plugin: 'test', tool: 'forever' },
+      { label: 'test/forever', onProgress: () => {} },
+    );
+
+    const rawMsg = ws.sent[0];
+    expect(rawMsg).toBeDefined();
+    const sentMsg = JSON.parse(rawMsg as string) as { params: { dispatchId: string } };
+    const dispatchId = sentMsg.params.dispatchId;
+
+    // Send progress every 20s to keep resetting the timeout.
+    // MAX_DISPATCH_TIMEOUT_MS is 300_000 (5 minutes).
+    // After 280s, send progress — remaining max = 20s, next timeout = min(30s, 20s) = 20s.
+    for (let elapsed = 0; elapsed < MAX_DISPATCH_TIMEOUT_MS - DISPATCH_TIMEOUT_MS; elapsed += 20_000) {
+      jest.advanceTimersByTime(20_000);
+      if (!state.pendingDispatches.has(dispatchId)) break;
+      handleExtensionMessage(
+        state,
+        JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'tool.progress',
+          params: { dispatchId, progress: elapsed / 20_000, total: 100 },
+        }),
+        noopCallbacks,
+      );
+    }
+
+    // The dispatch should still be alive right before the absolute max
+    expect(state.pendingDispatches.has(dispatchId)).toBe(true);
+
+    // Advance past the absolute max timeout — the next progress or timeout fires rejection
+    jest.advanceTimersByTime(DISPATCH_TIMEOUT_MS + 1_000);
+
+    const err: unknown = await promise.catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain('timed out');
+    expect(state.pendingDispatches.has(dispatchId)).toBe(false);
+  });
+
+  test('progress after absolute max elapsed rejects immediately', async () => {
+    const state = createState();
+    const ws = createMockWs();
+    state.extensionWs = ws;
+
+    const promise = dispatchToExtension(
+      state,
+      'tool.dispatch',
+      { plugin: 'test', tool: 'forever' },
+      { label: 'test/forever', onProgress: () => {} },
+    );
+
+    const rawMsg = ws.sent[0];
+    expect(rawMsg).toBeDefined();
+    const sentMsg = JSON.parse(rawMsg as string) as { params: { dispatchId: string } };
+    const dispatchId = sentMsg.params.dispatchId;
+
+    // Manually set startTs to simulate a dispatch that has been running for MAX_DISPATCH_TIMEOUT_MS
+    const pending = state.pendingDispatches.get(dispatchId);
+    expect(pending).toBeDefined();
+    (pending as PendingDispatch).startTs = Date.now() - MAX_DISPATCH_TIMEOUT_MS - 1;
+
+    // Send progress — this should trigger immediate rejection because the absolute max is exceeded
+    handleExtensionMessage(
+      state,
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'tool.progress',
+        params: { dispatchId, progress: 1, total: 10 },
+      }),
+      noopCallbacks,
+    );
+
+    const err: unknown = await promise.catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain('absolute max timeout');
+    expect((err as Error).message).toContain(`${MAX_DISPATCH_TIMEOUT_MS}ms`);
+    expect(state.pendingDispatches.has(dispatchId)).toBe(false);
   });
 });
 

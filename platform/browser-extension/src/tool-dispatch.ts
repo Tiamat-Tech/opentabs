@@ -1,9 +1,25 @@
-import { SCRIPT_TIMEOUT_MS } from './constants.js';
+import { SCRIPT_TIMEOUT_MS, MAX_SCRIPT_TIMEOUT_MS } from './constants.js';
 import { sendToServer } from './messaging.js';
 import { getPluginMeta } from './plugin-storage.js';
 import { sanitizeErrorMessage } from './sanitize-error.js';
 import { findAllMatchingTabs, urlMatchesPatterns } from './tab-matching.js';
 import type { PluginMeta } from './types.js';
+
+/**
+ * Per-dispatch progress callbacks — keyed by dispatchId, called by background.ts
+ * when a tool:progress message arrives. Each callback resets the extension-side
+ * script timeout for the corresponding dispatch.
+ */
+const progressCallbacks = new Map<string, () => void>();
+
+/**
+ * Notify the extension-side dispatch that a progress event arrived.
+ * Called from the background message handler (tool:progress case).
+ */
+const notifyDispatchProgress = (dispatchId: string): void => {
+  const cb = progressCallbacks.get(dispatchId);
+  if (cb) cb();
+};
 
 /**
  * Get the link for console.warn logging: npm URL for published plugins, filesystem path for local.
@@ -124,6 +140,10 @@ const removeProgressListener = (tabId: number, dispatchId: string): void => {
  * Execute a tool on a specific tab. Returns the structured result from the
  * adapter script, or throws if the tab is inaccessible (e.g., closed).
  *
+ * The extension-side timeout starts at SCRIPT_TIMEOUT_MS (25s). When the tool
+ * reports progress, the timeout is reset via the progressCallbacks registry.
+ * The absolute upper bound is MAX_SCRIPT_TIMEOUT_MS (295s).
+ *
  * @param dispatchId - Correlation ID for progress reporting. The injected MAIN
  *   world function creates a ToolHandlerContext with a reportProgress callback
  *   that fires CustomEvents keyed by this ID.
@@ -136,6 +156,7 @@ const executeToolOnTab = async (
   dispatchId: string,
 ): Promise<ToolResult> => {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const startTs = Date.now();
 
   const scriptPromise = chrome.scripting.executeScript({
     target: { tabId },
@@ -251,10 +272,28 @@ const executeToolOnTab = async (
     args: [pluginName, toolName, input, dispatchId],
   });
 
+  let timeoutReject: ((err: Error) => void) | undefined;
   const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    timeoutReject = reject;
     timeoutId = setTimeout(() => {
       reject(new Error(`Script execution timed out after ${SCRIPT_TIMEOUT_MS}ms`));
     }, SCRIPT_TIMEOUT_MS);
+  });
+
+  // Register a progress callback that resets the extension-side timeout.
+  // Called by background.ts when a tool:progress message arrives.
+  progressCallbacks.set(dispatchId, () => {
+    clearTimeout(timeoutId);
+    const elapsed = Date.now() - startTs;
+    const remainingMax = MAX_SCRIPT_TIMEOUT_MS - elapsed;
+    if (remainingMax <= 0) {
+      timeoutReject?.(new Error(`Script execution exceeded absolute max timeout of ${MAX_SCRIPT_TIMEOUT_MS}ms`));
+      return;
+    }
+    const nextTimeout = Math.min(SCRIPT_TIMEOUT_MS, remainingMax);
+    timeoutId = setTimeout(() => {
+      timeoutReject?.(new Error(`Script execution timed out after ${SCRIPT_TIMEOUT_MS}ms`));
+    }, nextTimeout);
   });
 
   let results: Awaited<typeof scriptPromise>;
@@ -262,6 +301,7 @@ const executeToolOnTab = async (
     results = await Promise.race([scriptPromise, timeoutPromise]);
   } finally {
     clearTimeout(timeoutId);
+    progressCallbacks.delete(dispatchId);
   }
 
   const firstResult = results[0] as { result?: unknown } | undefined;
@@ -286,7 +326,7 @@ const isAdapterNotReady = (result: ToolResult): boolean => result.type === 'erro
  * matching tabs when the best-ranked tab is not ready), executes the tool,
  * and returns the result.
  */
-export const handleToolDispatch = async (params: Record<string, unknown>, id: string | number): Promise<void> => {
+const handleToolDispatch = async (params: Record<string, unknown>, id: string | number): Promise<void> => {
   // dispatchId is the correlation key for progress reporting, injected by the MCP server
   const dispatchId = typeof params.dispatchId === 'string' ? params.dispatchId : String(id);
 
@@ -439,3 +479,5 @@ export const handleToolDispatch = async (params: Record<string, unknown>, id: st
     });
   }
 };
+
+export { handleToolDispatch, notifyDispatchProgress };

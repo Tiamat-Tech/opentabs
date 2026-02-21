@@ -5,6 +5,7 @@ import { handleServerMessage } from './message-router.js';
 import { forwardToSidePanel, sendToServer } from './messaging.js';
 import { invalidatePluginCache } from './plugin-storage.js';
 import { checkTabStateChanges, clearTabStateCache, sendTabSyncAll } from './tab-state.js';
+import { notifyDispatchProgress } from './tool-dispatch.js';
 import type { InternalMessage } from './types.js';
 
 // --- Side panel toggle ---
@@ -228,6 +229,8 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, _sender, sendRes
           },
         });
       }
+      // Reset the extension-side script timeout for this dispatch
+      notifyDispatchProgress(message.dispatchId);
       sendResponse({ ok: true });
       return true;
     }

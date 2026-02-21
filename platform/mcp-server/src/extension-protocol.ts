@@ -6,7 +6,13 @@
 import { getAdaptersDir } from './config.js';
 import { appendLog } from './log-buffer.js';
 import { log } from './logger.js';
-import { prefixedToolName, isToolEnabled, getNextRequestId, DISPATCH_TIMEOUT_MS } from './state.js';
+import {
+  prefixedToolName,
+  isToolEnabled,
+  getNextRequestId,
+  DISPATCH_TIMEOUT_MS,
+  MAX_DISPATCH_TIMEOUT_MS,
+} from './state.js';
 import { SIDE_PANEL_PROTOCOL_VERSION } from '@opentabs-dev/shared';
 import { mkdir, readdir, rename } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -713,9 +719,11 @@ const handleConfigSetAllToolsEnabled = (
 
 /**
  * Handle tool.progress notification from the extension.
- * Looks up the pending dispatch by dispatchId and invokes the onProgress callback
- * to emit an MCP ProgressNotification to the client. Fire-and-forget: errors in
- * the progress chain do not affect tool execution.
+ * Looks up the pending dispatch by dispatchId, invokes the onProgress callback
+ * to emit an MCP ProgressNotification to the client, and resets the dispatch
+ * timeout timer (the tool is alive). The timer reset is bounded by
+ * MAX_DISPATCH_TIMEOUT_MS — if the dispatch has been running longer than the
+ * absolute maximum, it is rejected immediately regardless of progress.
  */
 const handleToolProgress = (state: ServerState, params: Record<string, unknown> | undefined): void => {
   if (!params) return;
@@ -732,6 +740,9 @@ const handleToolProgress = (state: ServerState, params: Record<string, unknown> 
   const pending = state.pendingDispatches.get(dispatchId);
   if (!pending) return;
 
+  pending.lastProgressTs = Date.now();
+
+  // Forward the progress notification to the MCP client
   if (pending.onProgress) {
     try {
       pending.onProgress(progress, total, message);
@@ -739,6 +750,29 @@ const handleToolProgress = (state: ServerState, params: Record<string, unknown> 
       // Fire-and-forget — errors in the progress chain must not affect tool execution
     }
   }
+
+  // Reset the dispatch timeout — the tool is alive and making progress.
+  // Bounded by MAX_DISPATCH_TIMEOUT_MS from the dispatch start time.
+  clearTimeout(pending.timerId);
+  const elapsed = Date.now() - pending.startTs;
+  const remainingMax = MAX_DISPATCH_TIMEOUT_MS - elapsed;
+
+  if (remainingMax <= 0) {
+    // Absolute max exceeded — reject immediately
+    state.pendingDispatches.delete(dispatchId);
+    pending.reject(
+      new Error(`Dispatch ${pending.label} exceeded absolute max timeout of ${MAX_DISPATCH_TIMEOUT_MS}ms`),
+    );
+    return;
+  }
+
+  const nextTimeout = Math.min(DISPATCH_TIMEOUT_MS, remainingMax);
+  pending.timerId = setTimeout(() => {
+    if (state.pendingDispatches.has(dispatchId)) {
+      state.pendingDispatches.delete(dispatchId);
+      pending.reject(new Error(`Dispatch ${pending.label} timed out after ${DISPATCH_TIMEOUT_MS}ms`));
+    }
+  }, nextTimeout);
 };
 
 /** Valid plugin log levels (matches MCP LoggingLevel subset used by the SDK) */
