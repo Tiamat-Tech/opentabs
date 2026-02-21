@@ -13,6 +13,7 @@ interface AuditOptions {
   limit?: number;
   plugin?: string;
   tool?: string;
+  since?: string;
   json?: boolean;
 }
 
@@ -31,6 +32,22 @@ const parseLimit = (value: string): number => {
     throw new InvalidArgumentError('Must be a positive integer.');
   }
   return n;
+};
+
+const DURATION_UNITS = new Map<string, number>([
+  ['s', 1_000],
+  ['m', 60_000],
+  ['h', 3_600_000],
+  ['d', 86_400_000],
+]);
+
+const parseDuration = (value: string): number => {
+  const match = /^(\d+)([smhd])$/.exec(value);
+  const unit = match?.[2] ? DURATION_UNITS.get(match[2]) : undefined;
+  if (!match?.[1] || unit === undefined) {
+    throw new InvalidArgumentError('Must be a number followed by s, m, h, or d (e.g., 30m, 1h, 2d).');
+  }
+  return Number(match[1]) * unit;
 };
 
 const formatTimestamp = (iso: string): string => {
@@ -65,14 +82,21 @@ const handleAudit = async (options: AuditOptions): Promise<void> => {
   const port = resolvePort(options);
   const limit = options.limit ?? 20;
 
+  // Parse --since duration (client-side filtering)
+  let sinceMs: number | null = null;
+  if (options.since) {
+    sinceMs = parseDuration(options.since);
+  }
+
   // Read secret from config
   const configPath = getConfigPath();
   const { config } = await readConfig(configPath);
   const secret = config && typeof config.secret === 'string' ? config.secret : null;
 
-  // Build URL
+  // Build URL — request more entries from the server when --since is used
+  // so we have enough to filter from
   const url = new URL(`http://localhost:${port}/audit`);
-  url.searchParams.set('limit', String(limit));
+  url.searchParams.set('limit', String(sinceMs !== null ? 500 : limit));
   if (options.plugin) url.searchParams.set('plugin', options.plugin);
   if (options.tool) url.searchParams.set('tool', options.tool);
 
@@ -96,7 +120,13 @@ const handleAudit = async (options: AuditOptions): Promise<void> => {
       process.exit(1);
     }
 
-    const entries = (await res.json()) as AuditEntry[];
+    let entries = (await res.json()) as AuditEntry[];
+
+    // Client-side time filtering
+    if (sinceMs !== null) {
+      const cutoff = Date.now() - sinceMs;
+      entries = entries.filter(e => new Date(e.timestamp).getTime() >= cutoff);
+    }
 
     if (options.json) {
       console.log(JSON.stringify(entries, null, 2));
@@ -152,6 +182,7 @@ const registerAuditCommand = (program: Command): void => {
     .option('--limit <number>', 'Number of entries to show (default: 20)', parseLimit)
     .option('--plugin <name>', 'Filter by plugin name')
     .option('--tool <name>', 'Filter by tool name')
+    .option('--since <duration>', 'Show entries from the last duration (e.g., 30m, 1h, 2d)')
     .option('--json', 'Output raw JSON from the audit endpoint')
     .addHelpText(
       'after',
@@ -161,6 +192,8 @@ Examples:
   $ opentabs audit --limit 50
   $ opentabs audit --plugin slack
   $ opentabs audit --tool slack_send_message
+  $ opentabs audit --since 1h
+  $ opentabs audit --since 30m --plugin slack
   $ opentabs audit --json`,
     )
     .action((_options: AuditOptions, command: Command) => handleAudit(command.optsWithGlobals()));
