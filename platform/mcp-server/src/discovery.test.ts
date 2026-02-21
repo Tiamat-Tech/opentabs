@@ -1,9 +1,5 @@
-import {
-  checkBrowserToolReferences,
-  determineTrustTier,
-  isAllowedPluginPath,
-  pluginNameFromPackage,
-} from './discovery.js';
+import { checkBrowserToolReferences, determineTrustTier, pluginNameFromPackage } from './discovery.js';
+import { isAllowedPluginPath } from './resolver.js';
 import { describe, expect, test } from 'bun:test';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
