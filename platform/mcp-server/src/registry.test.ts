@@ -28,6 +28,8 @@ const makePlugin = (overrides: Partial<RegisteredPlugin> = {}): RegisteredPlugin
       output_schema: {},
     },
   ],
+  resources: [],
+  prompts: [],
   sourcePath: '/tmp/test-plugin',
   adapterHash: 'abc123',
   npmPackageName: 'opentabs-plugin-test',

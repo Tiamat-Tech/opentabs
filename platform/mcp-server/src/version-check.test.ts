@@ -36,6 +36,8 @@ const makePlugin = (name: string, overrides: Partial<RegisteredPlugin> = {}): Re
   source: 'local' as const,
   iife: `(function(){})()`,
   tools: [],
+  resources: [],
+  prompts: [],
   adapterHash: 'abc123',
   ...overrides,
 });

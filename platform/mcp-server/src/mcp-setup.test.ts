@@ -30,6 +30,8 @@ const createPlugin = (name: string, toolNames: string[]): RegisteredPlugin => ({
     input_schema: { type: 'object' },
     output_schema: { type: 'object' },
   })),
+  resources: [],
+  prompts: [],
 });
 
 describe('buildRegistry — plugin tool lookup', () => {

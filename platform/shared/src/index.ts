@@ -37,6 +37,8 @@ export interface PluginManifest {
   description: string;
   url_patterns: string[];
   tools: ManifestTool[];
+  resources?: ManifestResource[];
+  prompts?: ManifestPrompt[];
   /** SHA-256 hex hash of the adapter IIFE content (set by `opentabs-plugin build`) */
   adapterHash?: string;
 }
@@ -51,6 +53,28 @@ export interface ManifestTool {
   icon: string;
   input_schema: Record<string, unknown>;
   output_schema: Record<string, unknown>;
+}
+
+/** Resource definition within a plugin manifest (serialized form — no runtime functions) */
+export interface ManifestResource {
+  uri: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+}
+
+/** Prompt argument within a manifest prompt definition */
+export interface ManifestPromptArgument {
+  name: string;
+  description?: string;
+  required?: boolean;
+}
+
+/** Prompt definition within a plugin manifest (serialized form — no runtime functions) */
+export interface ManifestPrompt {
+  name: string;
+  description?: string;
+  arguments?: ManifestPromptArgument[];
 }
 
 /** Minimal WebSocket handle — the subset of ServerWebSocket used by handlers */

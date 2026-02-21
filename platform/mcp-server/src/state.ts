@@ -8,7 +8,14 @@
  */
 
 import type { BrowserToolDefinition } from './browser-tools/definition.js';
-import type { TabState, TrustTier, ManifestTool, WsHandle } from '@opentabs-dev/shared';
+import type {
+  TabState,
+  TrustTier,
+  ManifestTool,
+  ManifestResource,
+  ManifestPrompt,
+  WsHandle,
+} from '@opentabs-dev/shared';
 import type { FSWatcher } from 'node:fs';
 
 /** Timeout for tool dispatch and browser command requests (ms) */
@@ -38,6 +45,8 @@ export interface RegisteredPlugin {
   trustTier: TrustTier;
   iife: string;
   tools: ManifestTool[];
+  resources: ManifestResource[];
+  prompts: ManifestPrompt[];
   /** How this plugin was discovered: 'npm' (global auto-discovery) or 'local' (config localPlugins) */
   source: PluginSource;
   /** SHA-256 hex hash of the adapter IIFE content (from manifest, set by `opentabs-plugin build`) */

@@ -14,7 +14,7 @@ import { log } from './logger.js';
 import { err, ok, parsePluginPackageJson, validatePluginName, validateUrlPattern } from '@opentabs-dev/shared';
 import { join } from 'node:path';
 import type { PluginSource } from './state.js';
-import type { ManifestTool, Result, TrustTier } from '@opentabs-dev/shared';
+import type { ManifestPrompt, ManifestResource, ManifestTool, Result, TrustTier } from '@opentabs-dev/shared';
 
 /** Maximum allowed size for the adapter IIFE (5 MB) */
 const MAX_IIFE_SIZE = 5 * 1024 * 1024;
@@ -29,6 +29,8 @@ interface LoadedPlugin {
   readonly trustTier: TrustTier;
   readonly iife: string;
   readonly tools: ManifestTool[];
+  readonly resources: ManifestResource[];
+  readonly prompts: ManifestPrompt[];
   readonly source: PluginSource;
   readonly sourcePath: string;
   readonly adapterHash: string | undefined;
@@ -226,10 +228,14 @@ const loadPlugin = async (
   }
 
   // Extract the tools array from either format
+  const manifestObj =
+    typeof manifestRaw === 'object' && manifestRaw !== null && !Array.isArray(manifestRaw)
+      ? (manifestRaw as Record<string, unknown>)
+      : null;
   const toolsArray = Array.isArray(manifestRaw)
     ? manifestRaw
-    : typeof manifestRaw === 'object' && manifestRaw !== null && 'tools' in manifestRaw
-      ? (manifestRaw as Record<string, unknown>).tools
+    : manifestObj && 'tools' in manifestObj
+      ? manifestObj.tools
       : manifestRaw;
 
   const toolsResult = validateTools(toolsArray, dir);
@@ -237,6 +243,12 @@ const loadPlugin = async (
     return err(toolsResult.error);
   }
   const tools = toolsResult.value;
+
+  // Extract resources and prompts (default to [] for legacy format)
+  const resources: ManifestResource[] =
+    manifestObj && Array.isArray(manifestObj.resources) ? (manifestObj.resources as ManifestResource[]) : [];
+  const prompts: ManifestPrompt[] =
+    manifestObj && Array.isArray(manifestObj.prompts) ? (manifestObj.prompts as ManifestPrompt[]) : [];
 
   // Warn about browser tool references in tool descriptions (prompt injection detection)
   for (const match of checkBrowserToolReferences(tools)) {
@@ -257,6 +269,8 @@ const loadPlugin = async (
     trustTier,
     iife,
     tools,
+    resources,
+    prompts,
     source,
     sourcePath: dir,
     adapterHash,

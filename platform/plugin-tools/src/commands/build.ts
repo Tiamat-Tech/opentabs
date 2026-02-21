@@ -20,7 +20,7 @@ import type {
   ResourceDefinition,
   ToolDefinition,
 } from '@opentabs-dev/plugin-sdk';
-import type { PluginPackageJson } from '@opentabs-dev/shared';
+import type { ManifestPrompt, ManifestPromptArgument, ManifestResource, PluginPackageJson } from '@opentabs-dev/shared';
 import type { Command } from 'commander';
 import type { FSWatcher } from 'node:fs';
 
@@ -280,28 +280,6 @@ const convertToolSchemas = (tool: ToolDefinition) => {
 
   return { inputSchema, outputSchema };
 };
-
-/** Manifest resource entry — serializable data, no runtime functions */
-interface ManifestResource {
-  uri: string;
-  name: string;
-  description?: string;
-  mimeType?: string;
-}
-
-/** Manifest prompt argument entry */
-interface ManifestPromptArgument {
-  name: string;
-  description?: string;
-  required?: boolean;
-}
-
-/** Manifest prompt entry — serializable data, no runtime functions */
-interface ManifestPrompt {
-  name: string;
-  description?: string;
-  arguments?: ManifestPromptArgument[];
-}
 
 /** Full manifest shape written to dist/tools.json */
 interface PluginManifestOutput {

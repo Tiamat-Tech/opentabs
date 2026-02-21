@@ -262,6 +262,8 @@ describe('/health endpoint', () => {
               output_schema: {},
             },
           ],
+          resources: [],
+          prompts: [],
         },
       ],
       [],

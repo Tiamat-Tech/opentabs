@@ -25,6 +25,8 @@ const makePlugin = (overrides: Partial<RegisteredPlugin> = {}): RegisteredPlugin
   source: 'local' as const,
   iife: '(function(){})()',
   tools: [],
+  resources: [],
+  prompts: [],
   ...overrides,
 });
 
