@@ -12,6 +12,7 @@ interface AuditOptions {
   port?: number;
   limit?: number;
   plugin?: string;
+  tool?: string;
   json?: boolean;
 }
 
@@ -73,6 +74,7 @@ const handleAudit = async (options: AuditOptions): Promise<void> => {
   const url = new URL(`http://localhost:${port}/audit`);
   url.searchParams.set('limit', String(limit));
   if (options.plugin) url.searchParams.set('plugin', options.plugin);
+  if (options.tool) url.searchParams.set('tool', options.tool);
 
   try {
     const headers: Record<string, string> = {};
@@ -149,6 +151,7 @@ const registerAuditCommand = (program: Command): void => {
     .description('Show recent tool invocation history')
     .option('--limit <number>', 'Number of entries to show (default: 20)', parseLimit)
     .option('--plugin <name>', 'Filter by plugin name')
+    .option('--tool <name>', 'Filter by tool name')
     .option('--json', 'Output raw JSON from the audit endpoint')
     .addHelpText(
       'after',
@@ -157,6 +160,7 @@ Examples:
   $ opentabs audit
   $ opentabs audit --limit 50
   $ opentabs audit --plugin slack
+  $ opentabs audit --tool slack_send_message
   $ opentabs audit --json`,
     )
     .action((_options: AuditOptions, command: Command) => handleAudit(command.optsWithGlobals()));
