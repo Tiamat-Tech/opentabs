@@ -1,6 +1,7 @@
 import { getConnectionState, fetchConfigState, handleServerResponse, rejectAllPending } from './bridge.js';
-import { DisconnectedState, EmptyState, LoadingState } from './components/EmptyStates.js';
+import { DisconnectedState, LoadingState } from './components/EmptyStates.js';
 import { Footer } from './components/Footer.js';
+import { OnboardingState } from './components/OnboardingState.js';
 import { PluginList } from './components/PluginList.js';
 import { Input } from './components/retro/Input.js';
 import { VersionMismatchBanner } from './components/VersionMismatchBanner.js';
@@ -227,7 +228,7 @@ const App = () => {
         ) : !connected ? (
           <DisconnectedState />
         ) : !hasContent ? (
-          <EmptyState />
+          <OnboardingState connected={connected} pluginCount={plugins.length} />
         ) : (
           <PluginList
             plugins={plugins}

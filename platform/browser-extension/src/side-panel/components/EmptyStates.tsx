@@ -16,14 +16,4 @@ const DisconnectedState = () => (
 
 const LoadingState = () => <Loader size="md" />;
 
-const EmptyState = () => (
-  <Empty>
-    <Empty.Content>
-      <Empty.Title>No Plugins</Empty.Title>
-      <Empty.Separator />
-      <Empty.Description>Add a plugin path to ~/.opentabs/config.json or install one from npm.</Empty.Description>
-    </Empty.Content>
-  </Empty>
-);
-
-export { DisconnectedState, LoadingState, EmptyState };
+export { DisconnectedState, LoadingState };
