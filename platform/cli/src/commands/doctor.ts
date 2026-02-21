@@ -169,13 +169,7 @@ const checkPlugins = async (config: Record<string, unknown> | null): Promise<Che
   const pluginPaths = getLocalPluginsFromConfig(config);
 
   if (pluginPaths.length === 0) {
-    return [
-      warn(
-        'Plugins',
-        'no local plugins configured',
-        'npm plugins are auto-discovered; local plugins are registered by opentabs-plugin build',
-      ),
-    ];
+    return [pass('Local plugins', 'none configured (npm plugins are auto-discovered at startup)')];
   }
 
   const results: CheckResult[] = [];

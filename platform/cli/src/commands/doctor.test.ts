@@ -119,13 +119,13 @@ describe('checkPlugins', () => {
     expect(results[0]?.detail).toContain('no config to check');
   });
 
-  test('returns warn when no plugins are configured', async () => {
+  test('returns pass when no local plugins are configured', async () => {
     const results = await checkPlugins({ localPlugins: [] });
     expect(results).toHaveLength(1);
-    expect(results[0]?.ok).toBe(false);
-    expect(results[0]?.fatal).toBe(false);
-    expect(results[0]?.detail).toContain('no local plugins configured');
-    expect(results[0]?.hint).toContain('auto-discovered');
+    expect(results[0]?.ok).toBe(true);
+    expect(results[0]?.label).toBe('Local plugins');
+    expect(results[0]?.detail).toContain('none configured');
+    expect(results[0]?.detail).toContain('auto-discovered');
   });
 
   test('returns fail when plugin directory does not exist', async () => {
