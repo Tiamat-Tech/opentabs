@@ -4,8 +4,6 @@ description: Reference for the ~/.opentabs/config.json configuration file and en
 lastUpdated: 2026-02-20
 ---
 
-OpenTabs stores its configuration in a single JSON file. The MCP server reads this file on startup and when triggered by `opentabs reload` or the `/reload` endpoint.
-
 ## Config file location
 
 The default config file path is:
@@ -78,7 +76,7 @@ The config file is created automatically on first server run with sensible defau
 
 ### plugins
 
-An array of filesystem paths pointing to local plugin directories. Each path must contain a valid `opentabs-plugin.json` manifest and a `dist/adapter.iife.js` bundle.
+An array of filesystem paths pointing to local plugin directories. Each path must contain a `package.json` with an `opentabs` metadata field, a `dist/tools.json` tool definitions file, and a `dist/adapter.iife.js` adapter bundle.
 
 - **Relative paths** are resolved from the config directory (`~/.opentabs/` by default)
 - **Absolute paths** are used as-is

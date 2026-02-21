@@ -4,8 +4,6 @@ description: Complete reference for all opentabs CLI commands — server managem
 lastUpdated: 2026-02-20
 ---
 
-The `opentabs` CLI manages the MCP server, plugins, configuration, and diagnostics. Install it via the `@opentabs-dev/cli` package.
-
 ## Global options
 
 <Table>
@@ -105,7 +103,7 @@ The build process:
 2. Validates plugin metadata (name, version, urlPatterns, tools, Zod schemas)
 3. Bundles the adapter as an IIFE to `dist/adapter.iife.js`
 4. Computes a SHA-256 hash of the adapter and appends integrity verification
-5. Generates `opentabs-plugin.json` manifest with serialized JSON Schema definitions
+5. Generates `dist/tools.json` with serialized JSON Schema tool definitions
 
 ```bash
 # One-time build

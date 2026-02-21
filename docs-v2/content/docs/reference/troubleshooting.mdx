@@ -4,14 +4,6 @@ description: Solutions for common OpenTabs issues — connection problems, plugi
 lastUpdated: 2026-02-20
 ---
 
-When something isn't working, start with `opentabs doctor` — it runs a full diagnostic across your setup and identifies the most common issues automatically.
-
-```bash
-opentabs doctor
-```
-
-If the doctor output doesn't resolve your issue, find the specific symptom below.
-
 ## Extension not connecting
 
 **Symptom**: The Chrome extension side panel shows "Disconnected" or the `/health` endpoint reports `"extensionConnected": false`.
@@ -63,7 +55,7 @@ A plugin is **closed** when no Chrome tab matches its URL patterns. The extensio
 **Solutions**:
 
 1. **Open the target web app** — Navigate to the URL that matches the plugin's `urlPatterns` (e.g., open `https://app.slack.com` for the Slack plugin).
-2. **Check URL patterns** — Verify the plugin's `opentabs-plugin.json` has the correct `url_patterns`. The patterns use [Chrome match pattern syntax](https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns).
+2. **Check URL patterns** — Verify the plugin's `package.json` `opentabs.urlPatterns` field has the correct patterns. The patterns use [Chrome match pattern syntax](https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns).
 3. **Multiple windows** — The extension searches across all Chrome windows, not just the focused one.
 
 ## Tool dispatch timeout
@@ -136,7 +128,7 @@ The Chrome extension does **not** auto-reload. Unlike the MCP server (which uses
 
 **Symptom**: After modifying and rebuilding a plugin, the MCP server still serves the old tool definitions.
 
-The MCP server's file watcher monitors local plugin directories for changes to `opentabs-plugin.json` and `dist/adapter.iife.js`. On detection, it re-reads the files and sends a `plugin.update` to the extension.
+The MCP server's file watcher monitors local plugin directories for changes to `dist/tools.json` and `dist/adapter.iife.js`. On detection, it re-reads the files and sends a `plugin.update` to the extension.
 
 **If auto-detection fails**:
 
@@ -146,7 +138,7 @@ The MCP server's file watcher monitors local plugin directories for changes to `
    curl -s http://localhost:9515/health | jq .fileWatcher
    ```
    A `pollDetections` count greater than 0 indicates the file watcher fell back to polling (a sign that the native `fs.watch` went stale).
-3. **Verify the build** — Ensure the plugin build completed: check that `opentabs-plugin.json` and `dist/adapter.iife.js` exist in the plugin directory.
+3. **Verify the build** — Ensure the plugin build completed: check that `dist/tools.json` and `dist/adapter.iife.js` exist in the plugin directory.
 
 ## MCP client cannot connect
 

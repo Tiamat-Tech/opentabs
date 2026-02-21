@@ -4,12 +4,6 @@ description: Step-by-step guide to creating, building, and registering an OpenTa
 lastUpdated: 2026-02-20
 ---
 
-## Overview
-
-OpenTabs plugins are standalone npm packages that give AI agents access to web applications through the user's authenticated browser session. Each plugin targets a specific website, defines tools with Zod schemas, and runs in the browser page context.
-
-This guide walks through creating a plugin from scratch, building it, and testing it with an AI agent.
-
 ## Step 1: Scaffold a New Plugin
 
 The fastest way to create a plugin is with the scaffolding CLI:
@@ -313,7 +307,7 @@ bun run build
 This runs two steps:
 
 1. **`tsc`** — Compiles TypeScript to `dist/`
-2. **`opentabs build`** — Bundles `dist/adapter.iife.js` (browser-injectable IIFE) and generates `opentabs-plugin.json` (plugin manifest with JSON Schema tool definitions and adapter hash)
+2. **`opentabs build`** — Bundles `dist/adapter.iife.js` (browser-injectable IIFE) and generates `dist/tools.json` (tool definitions with JSON Schema input/output schemas)
 
 The build validates your plugin:
 
@@ -334,7 +328,7 @@ bun run dev
 
 This runs `tsc --watch` and `opentabs build --watch` in parallel. When you edit source files, TypeScript recompiles to `dist/`, and `opentabs build` detects the change and regenerates the adapter IIFE and manifest.
 
-The MCP server's file watcher picks up changes to `opentabs-plugin.json` and `dist/adapter.iife.js` and pushes updates to the Chrome extension automatically — no server restart or extension reload needed.
+The MCP server's file watcher picks up changes to `dist/tools.json` and `dist/adapter.iife.js` and pushes updates to the Chrome extension automatically — no server restart or extension reload needed.
 
 ## Step 6: Register the Plugin
 

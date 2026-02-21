@@ -4,32 +4,11 @@ description: How the MCP server, Chrome extension, and plugins work together to 
 lastUpdated: 2026-02-20
 ---
 
-OpenTabs has three core components: the **MCP server**, the **Chrome extension**, and **plugins**. They communicate over two protocols — MCP Streamable HTTP (AI agent ↔ server) and WebSocket with JSON-RPC 2.0 (server ↔ extension).
-
-```
-┌─────────────┐  Streamable HTTP  ┌─────────────┐  WebSocket  ┌──────────────────┐
-│  AI Agent   │ ←───────────────→ │ MCP Server  │ ←─────────→ │ Chrome Extension │
-│(Claude Code)│  POST /mcp        │ :9515       │  /ws        │   (Background)   │
-└─────────────┘                   └──────┬──────┘             └────────┬─────────┘
-                                         │                             │
-                                  ┌──────▼──────┐            ┌────────▼─────────┐
-                                  │   Plugin    │            │  Adapter IIFEs   │
-                                  │  Discovery  │            │  (per plugin,    │
-                                  │ (npm + local│            │   injected into  │
-                                  │  paths)     │            │   matching tabs) │
-                                  └─────────────┘            └────────┬─────────┘
-                                                                      │ MAIN world
-                                                             ┌────────▼─────────┐
-                                                             │   Web App DOM    │
-                                                             │ (user's session) │
-                                                             └──────────────────┘
-```
-
 ## MCP Server
 
 The MCP server (`platform/mcp-server`) runs on `localhost:9515` by default (configurable via the `PORT` environment variable). It has two main responsibilities:
 
-1. **Plugin discovery** — reads local plugin paths from `~/.opentabs/config.json` and scans `node_modules` for npm packages matching `opentabs-plugin-*`. For each plugin, it loads the `opentabs-plugin.json` manifest and the `dist/adapter.iife.js` bundle.
+1. **Plugin discovery** — reads local plugin paths from `~/.opentabs/config.json` and scans `node_modules` for npm packages matching `opentabs-plugin-*`. For each plugin, it loads metadata from `package.json` (the `opentabs` field), tool schemas from `dist/tools.json`, and the `dist/adapter.iife.js` adapter bundle.
 
 2. **Tool dispatch** — registers plugin tools as MCP tools (prefixed as `<plugin>_<tool>`) and dispatches tool calls to the Chrome extension via WebSocket. Input is validated against pre-compiled JSON Schema (Ajv) before dispatch.
 
@@ -88,7 +67,7 @@ The MCP server (`platform/mcp-server`) runs on `localhost:9515` by default (conf
 
 The server runs under `bun --hot`. When compiled files change, Bun re-evaluates all modules while the process stays alive. The server uses a `globalThis`-based state pattern (`HotState` on `globalThis.__opentabs_hot_state__`) so that the HTTP server instance is created once and reused across reloads, while handler logic is recreated with fresh closures on each reload.
 
-A file watcher monitors local plugin directories for changes to `opentabs-plugin.json` and `dist/adapter.iife.js`. When a change is detected, the server re-reads the files and sends a `plugin.update` notification to the extension — no server restart or extension reload needed.
+A file watcher monitors local plugin directories for changes to `dist/tools.json` and `dist/adapter.iife.js`. When a change is detected, the server re-reads the files and sends a `plugin.update` notification to the extension — no server restart or extension reload needed.
 
 ## Chrome Extension
 
@@ -297,7 +276,7 @@ Plugins are classified by source and the trust tier is prefixed to tool descript
     <Table.Row>
       <Table.Cell className="font-medium">Plugin adapters</Table.Cell>
       <Table.Cell>File watcher (automatic)</Table.Cell>
-      <Table.Cell>`opentabs-plugin.json` or `dist/adapter.iife.js` changes</Table.Cell>
+      <Table.Cell>`dist/tools.json` or `dist/adapter.iife.js` changes</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">Chrome extension</Table.Cell>
