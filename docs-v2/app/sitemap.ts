@@ -1,4 +1,4 @@
-import { allDocs } from "@/.contentlayer/generated";
+import { allDocs } from "content-collections";
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -11,7 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     ...allDocs.map((doc) => ({
       url: `https://opentabs.dev${doc.url}`,
-      lastModified: doc.lastUpdated,
+      lastModified: new Date(doc.lastUpdated),
     })),
   ];
 }

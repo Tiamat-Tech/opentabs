@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert, Badge, Card, Text } from "@/components/retroui";
-import { useMDXComponent } from "next-contentlayer/hooks";
+import { useMDXComponent } from "@content-collections/mdx/react";
 import React, { AnchorHTMLAttributes, HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 import { CodeBlock } from "./CodeBlock";

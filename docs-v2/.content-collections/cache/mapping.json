@@ -1,0 +1,43 @@
+{
+  "docs": {
+    "concepts/architecture": [
+      "c34a9346d7381814d8a777ab58294808c21a4fbb587e7a5e90b5a71389de3383"
+    ],
+    "concepts/browser-tools": [
+      "ef917d6207c70b557626ea7e1b92a516a5df485e9575e437386ee55f05636183"
+    ],
+    "concepts/plugin-system": [
+      "19ed787ad126729357d7c12bc0e3ece0a24fa7e1c9da5f13f66493ffc2adfd00"
+    ],
+    "concepts/tab-state-machine": [
+      "cdcb94250f40b34bc52bcbc8eb8d24c79edfc1d7d05f9c141b21d8c3e8c7a9d7"
+    ],
+    "index": [
+      "a627f8fa481cdaf7df7b502058f0954456620e7ab8e9e3689f846084314375af"
+    ],
+    "install": [
+      "bcd2bb520e589d16f1b58943ce1b067c5f1e2acf2e4d6740e91118b861fcd070"
+    ],
+    "plugins/creating-a-plugin": [
+      "460d5a7f54bac241e08d85c2d3ccb469d1daedfd846c43751c97b4d6a3dc79b6"
+    ],
+    "plugins/plugin-sdk": [
+      "74dc1a2934586d478db1ec809a23961ddae8c4c41888c9dd35d1c73ff752abec"
+    ],
+    "plugins/slack": [
+      "4d2b385d9da028ddc752515d6227f86a0742666895b35d1fc4d5aeffc0fa59cd"
+    ],
+    "reference/cli": [
+      "dc2d08c6eb3119eff2bb7be6165e0e14996a73057e607e652f439f088cd63aab"
+    ],
+    "reference/configuration": [
+      "73a2925fd04a1e499c27b8a44e33e1e6c47adf36d7e741787e904189bcdac359"
+    ],
+    "reference/mcp-server": [
+      "3af2d5f8e70f33a02c7224537483ff7f0869b23e98b3e23414ec6e7187df8b5a"
+    ],
+    "reference/troubleshooting": [
+      "64ed832ada23295b81602df62112bcc83476b3099ea9544751f526e9eb4e2181"
+    ]
+  }
+}
