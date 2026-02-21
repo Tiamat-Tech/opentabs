@@ -19,6 +19,7 @@
  *   /mixed-auth/        — Mixed auth: cookie session + CSRF meta/hidden + Bearer token from window global
  *   /websocket-app/     — WebSocket real-time connection with auth token in URL
  *   /spa-app/           — SPA with client-side pushState routing and simulated React globals
+ *   /suggestions-app/   — REST API app with forms and search for suggestion quality testing
  *
  * Start: `bun e2e/analyze-site-test-server.ts`
  * Default port: 0 (dynamic, override with PORT env var)
@@ -769,6 +770,83 @@ const SPA_HTML = `<!DOCTYPE html>
 </html>`;
 
 // ---------------------------------------------------------------------------
+// Suggestions quality scenario HTML
+// ---------------------------------------------------------------------------
+
+/**
+ * Simulates a REST API app designed to test suggestion generation quality:
+ * - GET /api/items — list items endpoint
+ * - POST /api/items — create item endpoint
+ * - GET /api/users — list users endpoint
+ * - A form with search functionality
+ * - A settings form with multiple fields
+ */
+const SUGGESTIONS_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Suggestions Quality Test App</title>
+</head>
+<body>
+  <div id="app">
+    <h1>Item Manager</h1>
+    <p id="status">Loading...</p>
+
+    <form action="/suggestions-app/api/search" method="GET">
+      <input type="text" name="query" placeholder="Search items..." />
+      <button type="submit">Search</button>
+    </form>
+
+    <form action="/suggestions-app/api/settings" method="POST">
+      <input type="text" name="display_name" placeholder="Display name" />
+      <input type="email" name="email" placeholder="Email" />
+      <select name="theme">
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+      <button type="submit">Save Settings</button>
+    </form>
+  </div>
+
+  <script>
+    // Delay API calls to allow the orchestrator to enable network capture
+    setTimeout(function() {
+      (async function() {
+        try {
+          // GET /api/items — list items
+          var itemsRes = await fetch('/suggestions-app/api/items', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          var items = await itemsRes.json();
+
+          // GET /api/users — list users
+          var usersRes = await fetch('/suggestions-app/api/users', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          var users = await usersRes.json();
+
+          document.getElementById('status').textContent =
+            'Loaded: ' + items.items.length + ' items, ' + users.users.length + ' users';
+
+          // POST /api/items — create item
+          await fetch('/suggestions-app/api/items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'New Item', description: 'Created via API', price: 9.99 })
+          });
+        } catch (e) {
+          document.getElementById('status').textContent = 'Error: ' + e.message;
+        }
+      })();
+    }, 1500);
+  </script>
+</body>
+</html>`;
+
+// ---------------------------------------------------------------------------
 // Server
 // ---------------------------------------------------------------------------
 
@@ -1379,6 +1457,91 @@ const server = Bun.serve({
         }),
         { headers: { 'Content-Type': 'application/json' } },
       );
+    }
+
+    // ===================================================================
+    // Suggestions quality scenario
+    // ===================================================================
+
+    // Page — serves HTML
+    if (path === '/suggestions-app/' || path === '/suggestions-app') {
+      return new Response(SUGGESTIONS_HTML, {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    }
+
+    // REST API — GET /suggestions-app/api/items
+    if (path === '/suggestions-app/api/items' && req.method === 'GET') {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          items: [
+            { id: 'item-1', name: 'Widget A', description: 'First widget', price: 9.99 },
+            { id: 'item-2', name: 'Widget B', description: 'Second widget', price: 19.99 },
+            { id: 'item-3', name: 'Widget C', description: 'Third widget', price: 29.99 },
+          ],
+          total: 3,
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // REST API — POST /suggestions-app/api/items
+    if (path === '/suggestions-app/api/items' && req.method === 'POST') {
+      let body: Record<string, unknown> = {};
+      try {
+        body = (await req.json()) as Record<string, unknown>;
+      } catch {
+        // ignore parse errors
+      }
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          item: {
+            id: 'item-new',
+            name: body.name ?? 'Unnamed',
+            description: body.description ?? '',
+            price: body.price ?? 0,
+          },
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // REST API — GET /suggestions-app/api/users
+    if (path === '/suggestions-app/api/users' && req.method === 'GET') {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          users: [
+            { id: 'user-1', name: 'Alice', email: 'alice@example.com', role: 'admin' },
+            { id: 'user-2', name: 'Bob', email: 'bob@example.com', role: 'member' },
+          ],
+          total: 2,
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // REST API — GET /suggestions-app/api/search
+    if (path === '/suggestions-app/api/search' && req.method === 'GET') {
+      const q = url.searchParams.get('query') ?? '';
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          query: q,
+          results: [{ id: 'item-1', name: 'Widget A', match: 0.9 }],
+          total: 1,
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // REST API — POST /suggestions-app/api/settings
+    if (path === '/suggestions-app/api/settings' && req.method === 'POST') {
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // ===================================================================

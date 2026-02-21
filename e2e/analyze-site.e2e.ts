@@ -568,3 +568,75 @@ test.describe('plugin_analyze_site — SPA with client-side routing', () => {
     expect(analysis.title).toBe('SPA React Test App');
   });
 });
+
+test.describe('plugin_analyze_site — suggestion generation quality', () => {
+  test('generates actionable REST API tool suggestions from detected endpoints', async ({
+    mcpServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    const siteUrl = `${analyzeSiteServer.url}/suggestions-app/`;
+    const analysis = await analyzeSite(mcpClient, siteUrl);
+
+    // --- Suggestions array has at least 3 entries ---
+    expect(analysis.suggestions.length).toBeGreaterThanOrEqual(3);
+
+    // --- Each suggestion has the required shape fields ---
+    for (const suggestion of analysis.suggestions) {
+      expect(suggestion.toolName).toBeTruthy();
+      expect(suggestion.description).toBeTruthy();
+      expect(suggestion.approach).toBeTruthy();
+      expect(suggestion.complexity).toBeTruthy();
+
+      // complexity must be one of the valid values
+      expect(['low', 'medium', 'high']).toContain(suggestion.complexity);
+    }
+
+    // --- REST endpoint GET /api/items → 'list_items' suggestion ---
+    const listItemsSuggestion = analysis.suggestions.find(s => s.toolName === 'list_items');
+    expect(listItemsSuggestion).toBeDefined();
+    if (listItemsSuggestion) {
+      // toolName follows snake_case convention
+      expect(listItemsSuggestion.toolName).toMatch(/^[a-z][a-z0-9_]*$/);
+      expect(listItemsSuggestion.approach).toContain('/api/items');
+      expect(listItemsSuggestion.complexity).toBe('low');
+    }
+
+    // --- REST endpoint POST /api/items → 'create_items' suggestion ---
+    const createItemsSuggestion = analysis.suggestions.find(s => s.toolName === 'create_items');
+    expect(createItemsSuggestion).toBeDefined();
+    if (createItemsSuggestion) {
+      expect(createItemsSuggestion.toolName).toMatch(/^[a-z][a-z0-9_]*$/);
+      expect(createItemsSuggestion.approach).toContain('/api/items');
+    }
+
+    // --- REST endpoint GET /api/users → 'list_users' suggestion ---
+    const listUsersSuggestion = analysis.suggestions.find(s => s.toolName === 'list_users');
+    expect(listUsersSuggestion).toBeDefined();
+    if (listUsersSuggestion) {
+      expect(listUsersSuggestion.toolName).toMatch(/^[a-z][a-z0-9_]*$/);
+      expect(listUsersSuggestion.approach).toContain('/api/users');
+      expect(listUsersSuggestion.complexity).toBe('low');
+    }
+
+    // --- Suggestions are relevant to detected APIs (approach mentions specific endpoints) ---
+    const restSuggestions = analysis.suggestions.filter(
+      s => s.toolName === 'list_items' || s.toolName === 'create_items' || s.toolName === 'list_users',
+    );
+    expect(restSuggestions.length).toBeGreaterThanOrEqual(3);
+    for (const s of restSuggestions) {
+      // Each REST suggestion's approach must reference the actual API endpoint
+      expect(s.approach).toMatch(/\/api\/(items|users)/);
+    }
+
+    // --- Form suggestions exist ---
+    const formSuggestions = analysis.suggestions.filter(s => s.toolName.startsWith('submit_'));
+    expect(formSuggestions.length).toBeGreaterThanOrEqual(1);
+
+    // --- Title ---
+    expect(analysis.title).toBe('Suggestions Quality Test App');
+  });
+});
