@@ -19,18 +19,18 @@ const pkgJson = JSON.parse(await Bun.file(join(cliDir, '..', 'package.json')).te
 
 const program = new Command('opentabs')
   .version(pkgJson.version, '-V, --version')
-  .description('OpenTabs CLI — develop, build, and manage plugins')
+  .description('OpenTabs — manage your MCP server and plugins')
   .option('--port <number>', 'MCP server port (env: OPENTABS_PORT, default: 9515)', parsePort)
   .action(() => {
     program.help();
   });
 
 registerStartCommand(program);
-registerConfigCommand(program);
-registerDoctorCommand(program);
-registerLogsCommand(program);
 registerStatusCommand(program);
+registerDoctorCommand(program);
 registerSetupCommand(program);
+registerLogsCommand(program);
 registerPluginCommand(program);
+registerConfigCommand(program);
 
 await program.parseAsync();
