@@ -34,10 +34,6 @@ NPM_USER=$(npm whoami 2>&1) || {
 echo "  Authenticated as: $NPM_USER"
 
 echo ""
-echo "==> Building platform packages..."
-bun run build
-
-echo ""
 echo "==> Bumping versions to $VERSION..."
 for pkg in platform/shared platform/plugin-sdk platform/plugin-tools platform/cli; do
   sed -i.bak "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$pkg/package.json" && rm "$pkg/package.json.bak"
