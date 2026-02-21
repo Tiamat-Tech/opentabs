@@ -72,7 +72,7 @@ describe('opentabs plugin commands', () => {
       expect(stdout).toContain('Added:');
 
       const config = await readTestConfig(configDir);
-      const plugins = config.plugins as string[];
+      const plugins = config.localPlugins as string[];
       expect(Array.isArray(plugins)).toBe(true);
 
       // The path should be stored relative to the config dir
@@ -96,7 +96,7 @@ describe('opentabs plugin commands', () => {
       expect(existsSync(join(configDir, 'config.json'))).toBe(true);
 
       const config = await readTestConfig(configDir);
-      expect(Array.isArray(config.plugins)).toBe(true);
+      expect(Array.isArray(config.localPlugins)).toBe(true);
       expect(typeof config.secret).toBe('string');
     });
 
@@ -118,7 +118,7 @@ describe('opentabs plugin commands', () => {
 
       // Verify only one entry in config
       const config = await readTestConfig(configDir);
-      const plugins = config.plugins as string[];
+      const plugins = config.localPlugins as string[];
       const expectedRelative = relative(configDir, pluginDir);
       const matchingEntries = plugins.filter(p => p === expectedRelative);
       expect(matchingEntries).toHaveLength(1);
@@ -136,7 +136,7 @@ describe('opentabs plugin commands', () => {
       expect(stderr).toContain('Warning');
 
       const config = await readTestConfig(configDir);
-      const plugins = config.plugins as string[];
+      const plugins = config.localPlugins as string[];
       expect(plugins.length).toBe(1);
     });
   });
@@ -150,7 +150,7 @@ describe('opentabs plugin commands', () => {
       // Create an empty config
       await Bun.write(
         join(configDir, 'config.json'),
-        JSON.stringify({ plugins: [], tools: {}, secret: 'test' }) + '\n',
+        JSON.stringify({ localPlugins: [], tools: {}, secret: 'test' }) + '\n',
       );
 
       const { exitCode, stdout } = runCli(['plugin', 'list'], {
@@ -232,10 +232,10 @@ describe('opentabs plugin commands', () => {
 
       // Verify it was added
       const configBefore = await readTestConfig(configDir);
-      expect((configBefore.plugins as string[]).length).toBe(1);
+      expect((configBefore.localPlugins as string[]).length).toBe(1);
 
       // Remove it using the relative path stored in config
-      const storedPath = (configBefore.plugins as string[])[0] as string;
+      const storedPath = (configBefore.localPlugins as string[])[0] as string;
       const { exitCode, stdout } = runCli(['plugin', 'remove', storedPath], {
         cwd: tmpDir,
         configDir,
@@ -246,7 +246,7 @@ describe('opentabs plugin commands', () => {
 
       // Verify it was removed
       const configAfter = await readTestConfig(configDir);
-      expect((configAfter.plugins as string[]).length).toBe(0);
+      expect((configAfter.localPlugins as string[]).length).toBe(0);
     });
 
     test('removes a plugin by directory name', async () => {
@@ -266,7 +266,7 @@ describe('opentabs plugin commands', () => {
       expect(stdout).toContain('Removed:');
 
       const config = await readTestConfig(configDir);
-      expect((config.plugins as string[]).length).toBe(0);
+      expect((config.localPlugins as string[]).length).toBe(0);
     });
 
     test('exits with code 1 when plugin is not found in config', () => {

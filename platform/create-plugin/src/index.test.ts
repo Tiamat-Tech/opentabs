@@ -105,11 +105,11 @@ describe('create-opentabs-plugin CLI', () => {
       const configPath = join(configDir, 'config.json');
       expect(existsSync(configPath)).toBe(true);
 
-      const config = (await Bun.file(configPath).json()) as { plugins: string[] };
-      expect(Array.isArray(config.plugins)).toBe(true);
-      expect(config.plugins.length).toBeGreaterThan(0);
+      const config = (await Bun.file(configPath).json()) as { localPlugins: string[] };
+      expect(Array.isArray(config.localPlugins)).toBe(true);
+      expect(config.localPlugins.length).toBeGreaterThan(0);
 
-      const hasPluginPath = config.plugins.some((p: string) => p.includes('my-plugin'));
+      const hasPluginPath = config.localPlugins.some((p: string) => p.includes('my-plugin'));
       expect(hasPluginPath).toBe(true);
     });
   });

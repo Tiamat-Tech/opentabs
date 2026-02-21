@@ -1,4 +1,4 @@
-import { getPluginsFromConfig, isConnectionRefused, readConfig, resolvePluginPath } from './config.js';
+import { getLocalPluginsFromConfig, isConnectionRefused, readConfig, resolvePluginPath } from './config.js';
 import { afterAll, afterEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -42,9 +42,9 @@ describe('readConfig', () => {
   });
 
   test('returns config object for valid JSON object', async () => {
-    await Bun.write(configPath, JSON.stringify({ plugins: [], tools: {}, secret: 'test' }));
+    await Bun.write(configPath, JSON.stringify({ localPlugins: [], tools: {}, secret: 'test' }));
     const result = await readConfig(configPath);
-    expect(result).toEqual({ plugins: [], tools: {}, secret: 'test' });
+    expect(result).toEqual({ localPlugins: [], tools: {}, secret: 'test' });
   });
 
   test('returns null for JSON array', async () => {
@@ -78,47 +78,47 @@ describe('readConfig', () => {
   });
 
   test('returns null for truncated JSON', async () => {
-    await Bun.write(configPath, '{"plugins": [');
+    await Bun.write(configPath, '{"localPlugins": [');
     const result = await readConfig(configPath);
     expect(result).toBeNull();
   });
 
   test('returns config with extra fields preserved', async () => {
-    await Bun.write(configPath, JSON.stringify({ plugins: [], custom: 'value' }));
+    await Bun.write(configPath, JSON.stringify({ localPlugins: [], custom: 'value' }));
     const result = await readConfig(configPath);
-    expect(result).toEqual({ plugins: [], custom: 'value' });
+    expect(result).toEqual({ localPlugins: [], custom: 'value' });
   });
 });
 
 // ---------------------------------------------------------------------------
-// getPluginsFromConfig
+// getLocalPluginsFromConfig
 // ---------------------------------------------------------------------------
 
-describe('getPluginsFromConfig', () => {
-  test('returns string array from plugins field', () => {
-    const config = { plugins: ['/path/a', '/path/b'] };
-    expect(getPluginsFromConfig(config)).toEqual(['/path/a', '/path/b']);
+describe('getLocalPluginsFromConfig', () => {
+  test('returns string array from localPlugins field', () => {
+    const config = { localPlugins: ['/path/a', '/path/b'] };
+    expect(getLocalPluginsFromConfig(config)).toEqual(['/path/a', '/path/b']);
   });
 
   test('filters non-string elements from mixed array', () => {
-    const config = { plugins: ['/valid', 123, null, true, '/also-valid', undefined] };
-    expect(getPluginsFromConfig(config)).toEqual(['/valid', '/also-valid']);
+    const config = { localPlugins: ['/valid', 123, null, true, '/also-valid', undefined] };
+    expect(getLocalPluginsFromConfig(config)).toEqual(['/valid', '/also-valid']);
   });
 
-  test('returns empty array when plugins key is missing', () => {
+  test('returns empty array when localPlugins key is missing', () => {
     const config = { tools: {} };
-    expect(getPluginsFromConfig(config)).toEqual([]);
+    expect(getLocalPluginsFromConfig(config)).toEqual([]);
   });
 
-  test('returns empty array when plugins is not an array', () => {
-    expect(getPluginsFromConfig({ plugins: 'not-an-array' })).toEqual([]);
-    expect(getPluginsFromConfig({ plugins: 42 })).toEqual([]);
-    expect(getPluginsFromConfig({ plugins: null })).toEqual([]);
-    expect(getPluginsFromConfig({ plugins: {} })).toEqual([]);
+  test('returns empty array when localPlugins is not an array', () => {
+    expect(getLocalPluginsFromConfig({ localPlugins: 'not-an-array' })).toEqual([]);
+    expect(getLocalPluginsFromConfig({ localPlugins: 42 })).toEqual([]);
+    expect(getLocalPluginsFromConfig({ localPlugins: null })).toEqual([]);
+    expect(getLocalPluginsFromConfig({ localPlugins: {} })).toEqual([]);
   });
 
-  test('returns empty array for empty plugins array', () => {
-    expect(getPluginsFromConfig({ plugins: [] })).toEqual([]);
+  test('returns empty array for empty localPlugins array', () => {
+    expect(getLocalPluginsFromConfig({ localPlugins: [] })).toEqual([]);
   });
 });
 

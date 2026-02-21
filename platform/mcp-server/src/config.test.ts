@@ -46,7 +46,7 @@ describe('loadConfig / saveConfig round-trip', () => {
 
     const config = await loadConfig();
 
-    expect(config.plugins).toEqual([]);
+    expect(config.localPlugins).toEqual([]);
     expect(config.tools).toEqual({});
     expect(typeof config.secret).toBe('string');
     expect(config.secret).toBeDefined();
@@ -59,37 +59,37 @@ describe('loadConfig / saveConfig round-trip', () => {
     await loadConfig();
 
     const custom: OpentabsConfig = {
-      plugins: ['/path/to/plugin-a', '/path/to/plugin-b'],
+      localPlugins: ['/path/to/plugin-a', '/path/to/plugin-b'],
       tools: { slack_send_message: false, slack_read_messages: true },
       secret: 'test-secret-123',
     };
     await saveConfigWrapped(custom);
 
     const loaded = await loadConfig();
-    expect(loaded.plugins).toEqual(custom.plugins);
+    expect(loaded.localPlugins).toEqual(custom.localPlugins);
     expect(loaded.tools).toEqual(custom.tools);
     expect(loaded.secret).toBe('test-secret-123');
   });
 
-  test('filters non-string elements from plugins array', async () => {
+  test('filters non-string elements from localPlugins array', async () => {
     await Bun.write(
       configPath,
       JSON.stringify({
-        plugins: ['/valid/path', 123, null, true, '/another/path'],
+        localPlugins: ['/valid/path', 123, null, true, '/another/path'],
         tools: {},
         secret: 'test-secret',
       }),
     );
 
     const config = await loadConfig();
-    expect(config.plugins).toEqual(['/valid/path', '/another/path']);
+    expect(config.localPlugins).toEqual(['/valid/path', '/another/path']);
   });
 
   test('filters non-boolean values from tools object', async () => {
     await Bun.write(
       configPath,
       JSON.stringify({
-        plugins: [],
+        localPlugins: [],
         tools: { valid_tool: false, bad_tool: 'yes', another_valid: true, numeric: 1 },
         secret: 'test-secret',
       }),
@@ -103,7 +103,7 @@ describe('loadConfig / saveConfig round-trip', () => {
     await Bun.write(
       configPath,
       JSON.stringify({
-        plugins: [],
+        localPlugins: [],
         tools: {},
       }),
     );
@@ -113,54 +113,72 @@ describe('loadConfig / saveConfig round-trip', () => {
     expect(config.secret).toBeDefined();
   });
 
-  test('migrates legacy npmPlugins into plugins array', async () => {
+  test('migrates local paths from legacy plugins array into localPlugins', async () => {
     await Bun.write(
       configPath,
       JSON.stringify({
-        plugins: ['/local/plugin'],
+        plugins: ['/local/plugin', './relative/plugin', 'opentabs-plugin-jira', '@myorg/opentabs-plugin-github'],
         tools: {},
         secret: 'test-secret-migrate',
+      }),
+    );
+
+    const config = await loadConfig();
+    // Local paths are migrated, npm package names are dropped
+    expect(config.localPlugins).toEqual(['/local/plugin', './relative/plugin']);
+    expect(config).not.toHaveProperty('plugins');
+  });
+
+  test('drops legacy npmPlugins entries with a log notice', async () => {
+    await Bun.write(
+      configPath,
+      JSON.stringify({
+        localPlugins: ['/existing/plugin'],
+        tools: {},
+        secret: 'test-secret',
         npmPlugins: ['opentabs-plugin-jira', '@myorg/opentabs-plugin-github'],
       }),
     );
 
     const config = await loadConfig();
-    expect(config.plugins).toEqual(['/local/plugin', 'opentabs-plugin-jira', '@myorg/opentabs-plugin-github']);
+    expect(config.localPlugins).toEqual(['/existing/plugin']);
     expect(config).not.toHaveProperty('npmPlugins');
   });
 
-  test('migration filters non-string elements from legacy npmPlugins', async () => {
+  test('migration deduplicates local paths from plugins into localPlugins', async () => {
     await Bun.write(
       configPath,
       JSON.stringify({
-        plugins: [],
-        tools: {},
-        secret: 'test-secret',
-        npmPlugins: ['valid-plugin', 123, null, true, 'another-plugin'],
-      }),
-    );
-
-    const config = await loadConfig();
-    expect(config.plugins).toEqual(['valid-plugin', 'another-plugin']);
-  });
-
-  test('ignores absent npmPlugins field without error', async () => {
-    await Bun.write(
-      configPath,
-      JSON.stringify({
-        plugins: ['/some/plugin'],
+        localPlugins: ['/already/here'],
+        plugins: ['/already/here', '/new/plugin'],
         tools: {},
         secret: 'test-secret',
       }),
     );
 
     const config = await loadConfig();
-    expect(config.plugins).toEqual(['/some/plugin']);
+    expect(config.localPlugins).toEqual(['/already/here', '/new/plugin']);
+  });
+
+  test('ignores absent plugins and npmPlugins fields without error', async () => {
+    await Bun.write(
+      configPath,
+      JSON.stringify({
+        localPlugins: ['/some/plugin'],
+        tools: {},
+        secret: 'test-secret',
+      }),
+    );
+
+    const config = await loadConfig();
+    expect(config.localPlugins).toEqual(['/some/plugin']);
+    expect(config).not.toHaveProperty('plugins');
     expect(config).not.toHaveProperty('npmPlugins');
   });
 
-  test('default config has no npmPlugins field', async () => {
+  test('default config has no plugins or npmPlugins field', async () => {
     const config = await loadConfig();
+    expect(config).not.toHaveProperty('plugins');
     expect(config).not.toHaveProperty('npmPlugins');
   });
 });
@@ -174,7 +192,7 @@ describe('tool config round-trip with isToolEnabled', () => {
     await loadConfig();
 
     const config: OpentabsConfig = {
-      plugins: [],
+      localPlugins: [],
       tools: { slack_send: false, slack_read: true },
       secret: 'test-secret-roundtrip',
     };
@@ -194,7 +212,7 @@ describe('tool config round-trip with isToolEnabled', () => {
     await loadConfig();
 
     const config: OpentabsConfig = {
-      plugins: [],
+      localPlugins: [],
       tools: { slack_send: false },
       secret: 'test-secret-absent',
     };

@@ -2,7 +2,13 @@
  * `opentabs plugin` command — manage plugins (list, add, remove, create).
  */
 
-import { atomicWriteConfig, getConfigPath, getPluginsFromConfig, readConfig, resolvePluginPath } from '../config.js';
+import {
+  atomicWriteConfig,
+  getConfigPath,
+  getLocalPluginsFromConfig,
+  readConfig,
+  resolvePluginPath,
+} from '../config.js';
 import { scaffoldPlugin, ScaffoldError } from '../scaffold.js';
 import pc from 'picocolors';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -49,7 +55,7 @@ const handlePluginList = async (options: PluginListOptions): Promise<void> => {
     process.exit(1);
   }
 
-  const plugins = getPluginsFromConfig(config);
+  const plugins = getLocalPluginsFromConfig(config);
 
   if (plugins.length === 0) {
     console.log('No plugins configured.');
@@ -111,11 +117,11 @@ const handlePluginAdd = async (pathArg: string): Promise<void> => {
     config = existing;
   } else {
     mkdirSync(configDir, { recursive: true });
-    config = { plugins: [], tools: {}, secret: crypto.randomUUID() };
+    config = { localPlugins: [], tools: {}, secret: crypto.randomUUID() };
   }
 
-  if (!Array.isArray(config.plugins)) config.plugins = [];
-  const plugins = config.plugins as string[];
+  if (!Array.isArray(config.localPlugins)) config.localPlugins = [];
+  const plugins = config.localPlugins as string[];
 
   // Resolve the new path to an absolute path (relative paths resolve against CWD)
   const resolvedNew = resolve(pathArg);
@@ -157,8 +163,8 @@ const handlePluginRemove = async (nameOrPath: string): Promise<void> => {
     process.exit(1);
   }
 
-  if (!Array.isArray(config.plugins)) config.plugins = [];
-  const plugins = config.plugins as string[];
+  if (!Array.isArray(config.localPlugins)) config.localPlugins = [];
+  const plugins = config.localPlugins as string[];
 
   const idx = plugins.findIndex(p => p === nameOrPath || p.endsWith('/' + nameOrPath) || p.endsWith('\\' + nameOrPath));
 

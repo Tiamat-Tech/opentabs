@@ -36,7 +36,7 @@ const handleConfigInit = async (options: ConfigInitOptions): Promise<void> => {
   const configDir = getConfigDir();
   mkdirSync(configDir, { recursive: true });
 
-  const config = { plugins: [], tools: {}, secret: crypto.randomUUID() };
+  const config = { localPlugins: [], tools: {}, secret: crypto.randomUUID() };
   await atomicWriteConfig(configPath, JSON.stringify(config, null, 2) + '\n');
 
   console.log(pc.green(`Config created at ${configPath}`));
@@ -66,8 +66,8 @@ const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
     console.log('');
 
     for (const [key, value] of Object.entries(redacted)) {
-      if (key === 'plugins' && Array.isArray(value)) {
-        console.log(`  ${pc.cyan('plugins')}`);
+      if (key === 'localPlugins' && Array.isArray(value)) {
+        console.log(`  ${pc.cyan('localPlugins')}`);
         if (value.length === 0) {
           console.log(`    ${pc.dim('(none)')}`);
         } else {

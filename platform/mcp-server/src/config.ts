@@ -18,14 +18,13 @@ import { join } from 'node:path';
 /**
  * Shape of ~/.opentabs/config.json
  *
- * The `plugins` array accepts both local filesystem paths and npm package names.
- * Local paths start with `./`, `../`, `/`, or `~/` and are resolved relative to
- * the config directory. Everything else is treated as an npm package specifier
- * and resolved via Bun's module resolution.
+ * `localPlugins` holds local filesystem paths to plugin directories. These paths
+ * start with `./`, `../`, `/`, or `~/` and are resolved relative to the config
+ * directory. npm plugins are auto-discovered from global node_modules.
  */
 interface OpentabsConfig {
-  /** Plugin specifiers — local paths or npm package names */
-  plugins: string[];
+  /** Local plugin directory paths (resolved relative to the config directory) */
+  localPlugins: string[];
   /** Tool enabled/disabled state: prefixed tool name → boolean. Absent = enabled (default). */
   tools: Record<string, boolean>;
   /** Shared secret for WebSocket authentication between MCP server and Chrome extension */
@@ -117,13 +116,17 @@ const readConfigWithRetry = async (
   return null;
 };
 
+/** Check whether a string looks like a local filesystem path. */
+const isLocalPathEntry = (s: string): boolean =>
+  s.startsWith('./') || s.startsWith('../') || s.startsWith('/') || s.startsWith('~/');
+
 /**
  * Parse a raw config record into an OpentabsConfig.
  * Validates and normalizes field types to prevent downstream errors.
  */
 const parseConfigRecord = (record: Record<string, unknown>): Omit<OpentabsConfig, 'secret'> & { secret?: string } => {
-  const plugins = Array.isArray(record.plugins)
-    ? (record.plugins as unknown[]).filter((p): p is string => typeof p === 'string')
+  const localPlugins = Array.isArray(record.localPlugins)
+    ? (record.localPlugins as unknown[]).filter((p): p is string => typeof p === 'string')
     : [];
   const tools: Record<string, boolean> = {};
   if (record.tools && typeof record.tools === 'object' && !Array.isArray(record.tools)) {
@@ -133,23 +136,51 @@ const parseConfigRecord = (record: Record<string, unknown>): Omit<OpentabsConfig
       }
     }
   }
-  // Migration: merge legacy npmPlugins into the unified plugins array.
-  // Old configs may have a separate npmPlugins field for npm package names.
-  // Concatenate them into plugins and log a notice so users can update their config.
+
+  // Migration: if the old `plugins` array exists, extract local paths into localPlugins
+  // and drop npm package names (they will be auto-discovered from global node_modules).
+  if (Array.isArray(record.plugins)) {
+    const legacyPlugins = (record.plugins as unknown[]).filter((p): p is string => typeof p === 'string');
+    const localPaths = legacyPlugins.filter(isLocalPathEntry);
+    const npmPackages = legacyPlugins.filter(p => !isLocalPathEntry(p));
+
+    if (localPaths.length > 0) {
+      // Merge into localPlugins, deduplicating
+      const existing = new Set(localPlugins);
+      for (const p of localPaths) {
+        if (!existing.has(p)) {
+          localPlugins.push(p);
+          existing.add(p);
+        }
+      }
+      log.info(
+        `Migrating ${localPaths.length} local path(s) from "plugins" to "localPlugins". ` +
+          'Update your config.json to use "localPlugins" for local plugin paths.',
+      );
+    }
+    if (npmPackages.length > 0) {
+      log.info(
+        `Dropping ${npmPackages.length} npm package name(s) from legacy "plugins" array. ` +
+          'npm plugins are now auto-discovered from global node_modules.',
+      );
+    }
+  }
+
+  // Migration: merge legacy npmPlugins — these are npm packages that will be auto-discovered,
+  // so they are dropped with a notice.
   if (Array.isArray(record.npmPlugins)) {
     const legacyNpm = (record.npmPlugins as unknown[]).filter((p): p is string => typeof p === 'string');
     if (legacyNpm.length > 0) {
       log.info(
-        `Migrating ${legacyNpm.length} npmPlugins entry/entries into plugins array. ` +
-          'Update your config.json to use a single "plugins" array for both local paths and npm packages.',
+        `Dropping ${legacyNpm.length} npmPlugins entry/entries. ` +
+          'npm plugins are now auto-discovered from global node_modules.',
       );
-      plugins.push(...legacyNpm);
     }
   }
 
   const secret = typeof record.secret === 'string' ? record.secret : undefined;
 
-  return { plugins, tools, secret };
+  return { localPlugins, tools, secret };
 };
 
 /**
@@ -170,7 +201,7 @@ const loadConfig = async (): Promise<OpentabsConfig> => {
   const configFile = Bun.file(configPath);
   if (!(await configFile.exists())) {
     // First run — create default config with a fresh shared secret
-    const config: OpentabsConfig = { plugins: [], tools: {}, secret: generateSecret() };
+    const config: OpentabsConfig = { localPlugins: [], tools: {}, secret: generateSecret() };
     await atomicWriteConfig(configPath, JSON.stringify(config, null, 2) + '\n');
     log.info(`Created default config at ${configPath}`);
     return config;
@@ -242,7 +273,7 @@ const saveToolConfig = async (
     await prev;
     await mkdir(configDir, { recursive: true, mode: 0o700 });
 
-    // Read current config from disk to preserve plugins and secret
+    // Read current config from disk to preserve localPlugins and secret
     const record = await readConfigWithRetry(configPath, 2, 50);
     if (!record) {
       log.warn('Cannot persist tool config — config file unreadable');
@@ -251,7 +282,7 @@ const saveToolConfig = async (
 
     const current = parseConfigRecord(record);
     const updated: OpentabsConfig = {
-      plugins: current.plugins,
+      localPlugins: current.localPlugins,
       tools,
       secret: current.secret,
     };

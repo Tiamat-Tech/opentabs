@@ -34,8 +34,10 @@ export const readConfig = async (configPath: string): Promise<Record<string, unk
   return parsed as Record<string, unknown>;
 };
 
-export const getPluginsFromConfig = (config: Record<string, unknown>): string[] =>
-  Array.isArray(config.plugins) ? (config.plugins as unknown[]).filter((p): p is string => typeof p === 'string') : [];
+export const getLocalPluginsFromConfig = (config: Record<string, unknown>): string[] =>
+  Array.isArray(config.localPlugins)
+    ? (config.localPlugins as unknown[]).filter((p): p is string => typeof p === 'string')
+    : [];
 
 export const resolvePluginPath = (pluginPath: string, configPath: string): string =>
   isAbsolute(pluginPath) ? pluginPath : resolve(dirname(configPath), pluginPath);

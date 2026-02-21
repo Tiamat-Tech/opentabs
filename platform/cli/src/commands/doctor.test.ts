@@ -78,12 +78,12 @@ afterAll(() => {
 
 describe('checkConfigFile', () => {
   test('returns pass when config file exists', async () => {
-    await Bun.write(join(TEST_BASE_DIR, 'config.json'), JSON.stringify({ plugins: [] }));
+    await Bun.write(join(TEST_BASE_DIR, 'config.json'), JSON.stringify({ localPlugins: [] }));
     const { result, config } = await checkConfigFile();
     expect(result.ok).toBe(true);
     expect(result.label).toBe('Config file');
     expect(result.detail).toContain(TEST_BASE_DIR);
-    expect(config).toEqual({ plugins: [] });
+    expect(config).toEqual({ localPlugins: [] });
   });
 
   test('returns warn when config file is missing', async () => {
@@ -120,7 +120,7 @@ describe('checkPlugins', () => {
   });
 
   test('returns warn when no plugins are configured', async () => {
-    const results = await checkPlugins({ plugins: [] });
+    const results = await checkPlugins({ localPlugins: [] });
     expect(results).toHaveLength(1);
     expect(results[0]?.ok).toBe(false);
     expect(results[0]?.fatal).toBe(false);
@@ -130,7 +130,7 @@ describe('checkPlugins', () => {
 
   test('returns fail when plugin directory does not exist', async () => {
     const nonexistentPath = join(TEST_BASE_DIR, 'nonexistent-plugin');
-    const config = { plugins: [nonexistentPath] };
+    const config = { localPlugins: [nonexistentPath] };
     const results = await checkPlugins(config);
     expect(results).toHaveLength(1);
     expect(results[0]?.ok).toBe(false);
@@ -141,7 +141,7 @@ describe('checkPlugins', () => {
   test('returns warn when tools.json is missing', async () => {
     const pluginDir = join(TEST_BASE_DIR, 'plugin-no-tools');
     mkdirSync(pluginDir, { recursive: true });
-    const config = { plugins: [pluginDir] };
+    const config = { localPlugins: [pluginDir] };
     const results = await checkPlugins(config);
     expect(results).toHaveLength(1);
     expect(results[0]?.ok).toBe(false);
@@ -154,7 +154,7 @@ describe('checkPlugins', () => {
     const pluginDir = join(TEST_BASE_DIR, 'plugin-no-iife');
     mkdirSync(join(pluginDir, 'dist'), { recursive: true });
     await Bun.write(join(pluginDir, 'dist', 'tools.json'), JSON.stringify([{ name: 'test' }]));
-    const config = { plugins: [pluginDir] };
+    const config = { localPlugins: [pluginDir] };
     const results = await checkPlugins(config);
     expect(results).toHaveLength(1);
     expect(results[0]?.ok).toBe(false);
@@ -172,7 +172,7 @@ describe('checkPlugins', () => {
     );
     await Bun.write(join(pluginDir, 'dist', 'tools.json'), JSON.stringify([{ name: 'test' }]));
     await Bun.write(join(pluginDir, 'dist', 'adapter.iife.js'), '(function(){})()');
-    const config = { plugins: [pluginDir] };
+    const config = { localPlugins: [pluginDir] };
     const results = await checkPlugins(config);
     expect(results).toHaveLength(1);
     expect(results[0]?.ok).toBe(true);
@@ -186,7 +186,7 @@ describe('checkPlugins', () => {
     await Bun.write(join(pluginDir, 'package.json'), 'not valid json');
     await Bun.write(join(pluginDir, 'dist', 'tools.json'), JSON.stringify([{ name: 'test' }]));
     await Bun.write(join(pluginDir, 'dist', 'adapter.iife.js'), '(function(){})()');
-    const config = { plugins: [pluginDir] };
+    const config = { localPlugins: [pluginDir] };
     const results = await checkPlugins(config);
     expect(results).toHaveLength(1);
     expect(results[0]?.ok).toBe(true);

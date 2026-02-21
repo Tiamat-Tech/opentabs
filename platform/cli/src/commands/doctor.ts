@@ -2,7 +2,7 @@
  * `opentabs doctor` command — diagnoses the entire OpenTabs setup.
  */
 
-import { getConfigPath, getPluginsFromConfig, readConfig, resolvePluginPath } from '../config.js';
+import { getConfigPath, getLocalPluginsFromConfig, readConfig, resolvePluginPath } from '../config.js';
 import { parsePort, resolvePort } from '../parse-port.js';
 import pc from 'picocolors';
 import { existsSync } from 'node:fs';
@@ -156,7 +156,7 @@ const checkPlugins = async (config: Record<string, unknown> | null): Promise<Che
   }
 
   const configPath = getConfigPath();
-  const pluginPaths = getPluginsFromConfig(config);
+  const pluginPaths = getLocalPluginsFromConfig(config);
 
   if (pluginPaths.length === 0) {
     return [warn('Plugins', 'none configured', 'Add a plugin with: opentabs plugin add <path>')];

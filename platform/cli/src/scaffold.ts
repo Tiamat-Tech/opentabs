@@ -339,11 +339,11 @@ const autoRegisterPlugin = async (projectDir: string): Promise<boolean> => {
   } else {
     const configDir = dirname(configPath);
     mkdirSync(configDir, { recursive: true });
-    config = { plugins: [], tools: {}, secret: crypto.randomUUID() };
+    config = { localPlugins: [], tools: {}, secret: crypto.randomUUID() };
   }
 
-  if (!Array.isArray(config.plugins)) config.plugins = [];
-  const plugins = config.plugins as string[];
+  if (!Array.isArray(config.localPlugins)) config.localPlugins = [];
+  const plugins = config.localPlugins as string[];
 
   const configDir = dirname(configPath);
   const pluginPath = relative(configDir, projectDir);

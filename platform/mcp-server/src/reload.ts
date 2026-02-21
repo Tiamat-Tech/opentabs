@@ -162,11 +162,11 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
   try {
     const config = await loadConfig();
     const configDir = getConfigDir();
-    const { registry, errors } = await discoverPlugins(config.plugins, configDir);
+    const { registry, errors } = await discoverPlugins(config.localPlugins, configDir);
 
     state.registry = registry;
     state.toolConfig = { ...config.tools };
-    state.pluginPaths = [...config.plugins];
+    state.pluginPaths = [...config.localPlugins];
     state.wsSecret = config.secret ?? null;
     state.discoveryErrors = errors;
 
@@ -178,7 +178,7 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
     }
 
     log.info(
-      `Config loaded: ${config.plugins.length} plugin path(s), ${Object.keys(config.tools).length} tool setting(s)`,
+      `Config loaded: ${config.localPlugins.length} local plugin path(s), ${Object.keys(config.tools).length} tool setting(s)`,
     );
 
     rebuildCachedBrowserTools(state);
