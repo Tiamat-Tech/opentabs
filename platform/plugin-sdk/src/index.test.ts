@@ -531,6 +531,35 @@ describe('definePrompt', () => {
     expect(userMsg.content.type).toBe('text');
   });
 
+  test('PromptMessage literal types infer without as const in render()', async () => {
+    const prompt = definePrompt({
+      name: 'literal_test',
+      render: () =>
+        // No 'as const' casts needed — contextual typing narrows literals
+        Promise.resolve([
+          { role: 'user', content: { type: 'text', text: 'question' } },
+          { role: 'assistant', content: { type: 'text', text: 'answer' } },
+        ]),
+    });
+    const messages = await prompt.render({});
+    expect(messages).toHaveLength(2);
+    expect(messages[0]?.role).toBe('user');
+    expect(messages[0]?.content.type).toBe('text');
+    expect(messages[1]?.role).toBe('assistant');
+  });
+
+  test('PromptMessage literal types infer without as const in typed render()', async () => {
+    const prompt = definePrompt({
+      name: 'typed_literal_test',
+      args: z.object({ name: z.string() }),
+      render: args =>
+        // No 'as const' casts needed with typed args either
+        Promise.resolve([{ role: 'user', content: { type: 'text', text: `Hello, ${args.name}!` } }]),
+    });
+    const messages = await prompt.render({ name: 'World' });
+    expect(messages).toEqual([{ role: 'user', content: { type: 'text', text: 'Hello, World!' } }]);
+  });
+
   test('definePrompt with args Zod schema provides typed render parameter', async () => {
     const argsSchema = z.object({
       name: z.string().describe('The name to greet'),

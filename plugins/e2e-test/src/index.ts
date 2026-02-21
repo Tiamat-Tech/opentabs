@@ -45,7 +45,7 @@ const testPrompt = definePrompt({
   async render(args) {
     const name = args['name'] ?? 'World';
     return [
-      { role: 'user' as const, content: { type: 'text' as const, text: `Hello, ${name}!` } },
+      { role: 'user', content: { type: 'text', text: `Hello, ${name}!` } },
     ];
   },
 });
