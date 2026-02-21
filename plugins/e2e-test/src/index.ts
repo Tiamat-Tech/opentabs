@@ -52,6 +52,32 @@ class E2eTestPlugin extends OpenTabsPlugin {
     g.__opentabs_teardown_evidence = true;
   }
 
+  override onActivate(): void {
+    (globalThis as Record<string, unknown>).__opentabs_onActivate_called = true;
+  }
+
+  override onDeactivate(): void {
+    (globalThis as Record<string, unknown>).__opentabs_onDeactivate_called = true;
+  }
+
+  override onNavigate(url: string): void {
+    const g = globalThis as Record<string, unknown>;
+    if (!Array.isArray(g.__opentabs_onNavigate_urls)) g.__opentabs_onNavigate_urls = [];
+    (g.__opentabs_onNavigate_urls as string[]).push(url);
+  }
+
+  override onToolInvocationStart(toolName: string): void {
+    const g = globalThis as Record<string, unknown>;
+    if (!Array.isArray(g.__opentabs_tool_invocation_start)) g.__opentabs_tool_invocation_start = [];
+    (g.__opentabs_tool_invocation_start as string[]).push(toolName);
+  }
+
+  override onToolInvocationEnd(toolName: string, success: boolean, durationMs: number): void {
+    const g = globalThis as Record<string, unknown>;
+    if (!Array.isArray(g.__opentabs_tool_invocation_end)) g.__opentabs_tool_invocation_end = [];
+    (g.__opentabs_tool_invocation_end as unknown[]).push({ toolName, success, durationMs });
+  }
+
   /**
    * Readiness probe — calls the test server's auth endpoint via same-origin
    * fetch, exactly like a real plugin (e.g., Slack calls /api/auth.test).
