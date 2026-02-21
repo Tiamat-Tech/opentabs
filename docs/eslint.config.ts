@@ -30,7 +30,7 @@ const config: Linter.Config[] = [
   },
   // Global ignores
   {
-    ignores: ['.next/', '.source/', 'out/', 'node_modules/', 'next-env.d.ts', '**/*.mjs'],
+    ignores: ['.next/', '.content-collections/', 'node_modules/', 'next-env.d.ts', '**/*.mjs'],
   },
   // Main TypeScript/TSX rules
   {
@@ -42,7 +42,7 @@ const config: Linter.Config[] = [
       parserOptions: {
         ecmaFeatures: { jsx: true },
         projectService: {
-          allowDefaultProject: ['eslint.config.ts', 'knip.ts'],
+          allowDefaultProject: ['eslint.config.ts', 'knip.config.ts'],
         },
       },
       globals: {

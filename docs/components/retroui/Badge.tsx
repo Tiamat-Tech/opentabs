@@ -3,7 +3,7 @@ import { cva } from 'class-variance-authority';
 import type { VariantProps } from 'class-variance-authority';
 import type { HTMLAttributes } from 'react';
 
-const badgeVariants = cva('font-semibold rounded inline-flex items-center', {
+const badgeVariants = cva('font-semibold rounded-(--radius) inline-flex items-center', {
   variants: {
     variant: {
       default: 'bg-muted text-muted-foreground',
@@ -23,7 +23,7 @@ const badgeVariants = cva('font-semibold rounded inline-flex items-center', {
   },
 });
 
-type ButtonProps = HTMLAttributes<HTMLSpanElement> & VariantProps<typeof badgeVariants>;
+interface ButtonProps extends HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
 
 export const Badge = ({ children, size = 'md', variant = 'default', className = '', ...props }: ButtonProps) => (
   <span className={cn(badgeVariants({ variant, size }), className)} {...props}>

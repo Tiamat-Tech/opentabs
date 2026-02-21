@@ -1,5 +1,4 @@
 .next
-.source
-out
+.content-collections
 node_modules
 bun.lock

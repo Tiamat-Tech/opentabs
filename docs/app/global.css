@@ -1,18 +1,10 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import 'fumadocs-ui/css/preset.css';
 
 @theme inline {
   --font-head: var(--font-head);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
   --radius: var(--radius);
-  --radius-sm: calc(var(--radius) - 0.125rem);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 0.125rem);
-  --radius-xl: calc(var(--radius) + 0.25rem);
-  --radius-2xl: calc(var(--radius) + 0.5rem);
-  --radius-3xl: calc(var(--radius) + 0.75rem);
   --shadow-xs: 1px 1px 0 0 var(--border);
   --shadow-sm: 2px 2px 0 0 var(--border);
   --shadow: 3px 3px 0 0 var(--border);
@@ -25,9 +17,9 @@
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-primary-hover: var(--primary-hover);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-primary-hover: var(--primary-hover);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-muted: var(--muted);
@@ -37,55 +29,13 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
-
-  /* Alias tokens for components that reference shadcn/ui defaults */
-  --color-input: var(--border);
-  --color-ring: var(--border);
-  --color-popover: var(--card);
-  --color-popover-foreground: var(--card-foreground);
-
-  /* Callout/alert status colors — theme-aware, light/dark via CSS variables */
-  --color-info: var(--info);
-  --color-info-foreground: var(--info-foreground);
-  --color-info-border: var(--info-border);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-warning-border: var(--warning-border);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-success-border: var(--success-border);
-
-  /* Fumadocs dynamic color tokens mapped to RetroUI variables */
-  --color-fd-background: var(--background);
-  --color-fd-foreground: var(--foreground);
-  --color-fd-primary: var(--primary);
-  --color-fd-primary-foreground: var(--primary-foreground);
-  --color-fd-border: var(--border);
-  --color-fd-card: var(--card);
-  --color-fd-card-foreground: var(--card-foreground);
-  --color-fd-muted: var(--muted);
-  --color-fd-muted-foreground: var(--muted-foreground);
-  --color-fd-accent: var(--accent);
-  --color-fd-accent-foreground: var(--accent-foreground);
-  --color-fd-secondary: var(--secondary);
-  --color-fd-secondary-foreground: var(--secondary-foreground);
-  --color-fd-ring: var(--border);
-  --color-fd-popover: var(--card);
-  --color-fd-popover-foreground: var(--card-foreground);
-  --color-fd-overlay: var(--overlay);
-}
-
-/* Fumadocs static color tokens — used by shiki.css diff highlighting and callout icons */
-@theme static {
-  --color-fd-info: oklch(62.3% 0.214 259.815);
-  --color-fd-warning: oklch(76.9% 0.188 70.08);
-  --color-fd-error: oklch(63.7% 0.237 25.331);
-  --color-fd-success: oklch(72.3% 0.219 149.579);
-  --color-fd-idea: oklch(70.5% 0.209 60.849);
-  --color-fd-diff-remove: rgba(200, 10, 100, 0.12);
-  --color-fd-diff-remove-symbol: rgb(230, 10, 100);
-  --color-fd-diff-add: rgba(14, 180, 100, 0.1);
-  --color-fd-diff-add-symbol: rgb(10, 200, 100);
+  --color-code-bg: var(--code-bg);
+  --background-image: var(--background-image);
+  --chart-1: var(--chart-1);
+  --chart-2: var(--chart-2);
+  --chart-3: var(--chart-3);
+  --chart-4: var(--chart-4);
+  --chart-5: var(--chart-5);
 }
 
 :root {
@@ -106,16 +56,13 @@
   --destructive: #e63946;
   --destructive-foreground: #fff;
   --border: #000;
-  --info: #bfdbfe;
-  --info-foreground: #1e3a5f;
-  --info-border: #1e40af;
-  --warning: #fde68a;
-  --warning-foreground: #713f12;
-  --warning-border: #92400e;
-  --success: #bbf7d0;
-  --success-foreground: #14532d;
-  --success-border: #166534;
-  --overlay: rgba(0, 0, 0, 0.8);
+  --code-bg: #282a36;
+  --background-image: url('/images/banner_void_2.svg');
+  --chart-1: #c4a1ff;
+  --chart-2: #01ffcc;
+  --chart-3: #e7f192;
+  --chart-4: #000;
+  --chart-5: #ff30cd;
 }
 
 .dark {
@@ -135,424 +82,374 @@
   --destructive: #e63946;
   --destructive-foreground: #fff;
   --border: #5c5c5c;
-  --info: rgba(30, 64, 175, 0.4);
-  --info-foreground: #93c5fd;
-  --info-border: #3b82f6;
-  --warning: rgba(146, 64, 14, 0.4);
-  --warning-foreground: #fde68a;
-  --warning-border: #f59e0b;
-  --success: rgba(22, 101, 52, 0.4);
-  --success-foreground: #86efac;
-  --success-border: #22c55e;
-  --overlay: rgba(0, 0, 0, 0.8);
+  --code-bg: #1e1e2e;
+  --background-image: url('/images/bg_void_3.svg');
+  --chart-1: #ffdb33;
+  --chart-2: #000;
+  --chart-3: #aeaeae;
+  --chart-4: #fae583;
+  --chart-5: #e63946;
+}
+
+.theme-purple {
+  --background: #f5f5f5;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #f5f5f5;
+  --primary: #5f4fe6;
+  --primary-hover: #4938c2;
+  --primary-foreground: #fff;
+  --secondary: #3a3a3a;
+  --secondary-foreground: #f5f5f5;
+  --muted: #cfccea;
+  --muted-foreground: #5b5686;
+  --accent: #fed13b;
+  --accent-foreground: #000000;
+  --destructive: #ef4444;
+  --destructive-foreground: #fff;
+  --border: #3a3a3a;
+  --background-image: url('/images/bg_void_3.svg');
+  --chart-1: #ffdb33;
+  --chart-2: #000;
+  --chart-3: #aeaeae;
+  --chart-4: #fae583;
+  --chart-5: #e63946;
+}
+
+.dark .theme-purple {
+  --background: #0f0f12;
+  --foreground: #f5f5f5;
+  --card: #1a1a1d;
+  --card-foreground: #eaeaea;
+  --primary: #7b6df5;
+  --primary-hover: #5f4fe6;
+  --primary-foreground: #fff;
+  --secondary: #2a2a2e;
+  --secondary-foreground: #eaeaea;
+  --muted: #3d395a;
+  --muted-foreground: #a49fce;
+  --accent: #fed13b;
+  --accent-foreground: #000;
+  --destructive: #ef4444;
+  --destructive-foreground: #fff;
+  --border: #2e2e32;
+}
+
+.theme-lime {
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --border: #000000;
+  --primary: #aafc3d;
+  --primary-hover: #97f819;
+  --primary-foreground: #000000;
+  --secondary: #000000;
+  --secondary-foreground: #ffffff;
+  --muted: #f3f3f3;
+  --muted-foreground: #444444;
+  --accent: #ff4fd8;
+  --accent-foreground: #000000;
+  --destructive: #ff0033;
+  --destructive-foreground: #ffffff;
+}
+
+.dark .theme-lime {
+  --background: #0f0f0f;
+  --foreground: #f5f5f5;
+  --card: #1a1a1a;
+  --card-foreground: #ffffff;
+  --border: #333333;
+  --primary: #aafc3d;
+  --primary-hover: #97f819;
+  --primary-foreground: #000000;
+  --secondary: #ffffff;
+  --secondary-foreground: #000000;
+  --muted: #2a2a2a;
+  --muted-foreground: #aaaaaa;
+  --accent: #ff4fd8;
+  --accent-foreground: #000000;
+  --destructive: #ff0033;
+  --destructive-foreground: #ffffff;
+}
+
+.theme-red {
+  --background: #fcffe7;
+  --foreground: #000000;
+  --muted: #efd0d5;
+  --muted-foreground: #a42439;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --border: #000000;
+  --primary: #ea435f;
+  --primary-hover: #d00000;
+  --primary-foreground: #ffffff;
+  --secondary: #ffda5c;
+  --secondary-foreground: #000000;
+  --accent: #ceebfc;
+  --accent-foreground: #000000;
+  --destructive: #d00000;
+  --destructive-foreground: #ffffff;
+}
+
+.dark .theme-red {
+  --background: #0f0f0f;
+  --foreground: #f5f5f5;
+  --muted: #3a1f24;
+  --muted-foreground: #f2a7b2;
+  --card: #1a1a1a;
+  --card-foreground: #ffffff;
+  --border: #2a2a2a;
+  --primary: #ea435f;
+  --primary-hover: #d00000;
+  --primary-foreground: #ffffff;
+  --secondary: #ffda5c;
+  --secondary-foreground: #000000;
+  --accent: #2a3b45;
+  --accent-foreground: #ceebfc;
+  --destructive: #d00000;
+  --destructive-foreground: #ffffff;
+}
+
+.theme-lavender {
+  --background: #f9f5f2;
+  --foreground: #000000;
+  --muted: #ede3ff;
+  --muted-foreground: #5b3b98;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --border: #000000;
+  --primary: #c4a1ff;
+  --primary-hover: #9678ff;
+  --primary-foreground: #000000;
+  --secondary: #e7f193;
+  --secondary-foreground: #000000;
+  --accent: #fe91e9;
+  --accent-foreground: #000000;
+  --destructive: #fe3b3b;
+  --destructive-foreground: #ffffff;
+}
+
+.dark .theme-lavender {
+  --background: #121014;
+  --foreground: #f5f5f5;
+  --muted: #2d2440;
+  --muted-foreground: #c7b6f3;
+  --card: #1a1820;
+  --card-foreground: #ffffff;
+  --border: #2a2a2e;
+  --primary: #c4a1ff;
+  --primary-hover: #9678ff;
+  --primary-foreground: #000000;
+  --secondary: #e7f193;
+  --secondary-foreground: #000000;
+  --accent: #fe91e9;
+  --accent-foreground: #000000;
+  --destructive: #fe3b3b;
+  --destructive-foreground: #ffffff;
+}
+
+.theme-orange {
+  --background: #ffffff;
+  --foreground: #000000;
+  --muted: #ffe1c7;
+  --muted-foreground: #8c3d00;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --border: #000000;
+  --primary: #f07200;
+  --primary-hover: #ff8011;
+  --primary-foreground: #fdead9;
+  --secondary: #ef8c27;
+  --secondary-foreground: #000000;
+  --accent: #ff6b6b;
+  --accent-foreground: #000000;
+  --destructive: #fe3b3b;
+  --destructive-foreground: #ffffff;
+}
+
+.dark .theme-orange {
+  --background: #12100e;
+  --foreground: #f5f5f5;
+  --muted: #3a2617;
+  --muted-foreground: #ffb679;
+  --card: #1a1a1a;
+  --card-foreground: #ffffff;
+  --border: #2a2a2a;
+  --primary: #f07200;
+  --primary-hover: #ff8011;
+  --primary-foreground: #fdead9;
+  --secondary: #ef8c27;
+  --secondary-foreground: #000000;
+  --accent: #ff6b6b;
+  --accent-foreground: #000000;
+  --destructive: #fe3b3b;
+  --destructive-foreground: #ffffff;
+}
+
+.theme-green {
+  --background: #ffffff;
+  --foreground: #000000;
+  --muted: #cbe9d8;
+  --muted-foreground: #1f7751;
+  --card: #f9f5f2;
+  --card-foreground: #000000;
+  --border: #000000;
+  --primary: #599d77;
+  --primary-hover: #39654c;
+  --primary-foreground: #ffffff;
+  --secondary: #a3d9b1;
+  --secondary-foreground: #000000;
+  --accent: #ffe75a;
+  --accent-foreground: #000000;
+  --destructive: #f05d5d;
+  --destructive-foreground: #ffffff;
+}
+
+.dark .theme-green {
+  --background: #0f1210;
+  --foreground: #f5f5f5;
+  --muted: #1f3a2d;
+  --muted-foreground: #9cd9b8;
+  --card: #181c19;
+  --card-foreground: #ffffff;
+  --border: #2a2e2b;
+  --primary: #599d77;
+  --primary-hover: #39654c;
+  --primary-foreground: #ffffff;
+  --secondary: #3a6f52;
+  --secondary-foreground: #ffffff;
+  --accent: #ffe75a;
+  --accent-foreground: #000000;
+  --destructive: #f05d5d;
+  --destructive-foreground: #ffffff;
 }
 
 body {
   font-family: var(--font-sans);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* RetroUI prose link styling — applies to all links in docs content */
-.prose a,
-.nd-prose a {
-  font-family: var(--font-sans);
-  text-decoration-color: var(--primary);
-  text-underline-offset: 2px;
+/* Firefox scrollbar */
+html {
+  scrollbar-width: auto;
+  scrollbar-color: var(--muted) var(--foreground);
 }
 
-.prose a:hover,
-.nd-prose a:hover {
-  text-decoration: underline;
+.bg-image {
+  background-image: var(--background-image);
+  background-size: cover;
+  background-position: center;
 }
 
-/* ===== GlobalHeader — docs layout grid integration ===== */
-
-/* Inside the DocsLayout grid (#nd-docs-layout), the GlobalHeader occupies the full-width
- * "header" grid area (row 1, all 5 columns). The grid template is overridden in
- * app/docs/layout.tsx to give the header its own dedicated row above the sidebar. */
-#nd-global-header {
-  padding-left: max(1rem, env(safe-area-inset-left, 1rem));
-  padding-right: max(1rem, env(safe-area-inset-right, 1rem));
+.text-outlined {
+  letter-spacing: 2px;
+  text-shadow:
+    0px 0px 0 var(--primary),
+    0px 0px 0 var(--primary),
+    4px 4px 0 var(--primary),
+    4px 4px 0 var(--primary);
 }
 
-#nd-docs-layout > #nd-global-header {
-  grid-area: header;
+/* Syntax Highlighting stuff */
+
+pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 1em;
 }
 
-/* Allocate 56px (h-14) for the global header row so sidebar and content offset below it.
- * --fd-header-height feeds into --fd-docs-row-2 = --fd-docs-row-1 + --fd-header-height.
- * Fumadocs sticks sidebar/TOC at --fd-docs-row-1 (banner only), but our custom grid puts
- * the header in its own row above the sidebar, so sidebar/TOC must stick below the header. */
-#nd-docs-layout {
-  --fd-header-height: 3.5rem;
+code.hljs {
+  padding: 3px 5px;
 }
 
-/* The sidebar placeholder ([data-sidebar-placeholder]) is the actual sticky element —
- * #nd-sidebar is position:absolute inside it. Target both the placeholder and the TOC. */
-#nd-docs-layout [data-sidebar-placeholder],
-#nd-docs-layout #nd-toc {
-  top: var(--fd-docs-row-2);
-  height: calc(var(--fd-docs-height) - var(--fd-docs-row-2));
+.hljs {
+  background: var(--code-bg);
+  color: var(--muted-foreground);
 }
 
-/* ===== RetroUI Navbar / Sidebar Overrides ===== */
-
-/* Desktop sidebar: 2px right border, solid bg-background (override fd-card) */
-#nd-sidebar aside {
-  border-right-width: 2px;
-  background-color: var(--background);
+.hljs-subst {
+  color: var(--muted-foreground);
 }
 
-/* Sidebar header area: with search toggle and collapse button disabled, the Fumadocs
- * sidebar header (div.p-4.pb-2 containing title + search + collapse) is empty but still
- * occupies space. Collapse it entirely so the page tree starts at the top. */
-#nd-sidebar aside > div > div:first-child {
-  padding: 0;
-  gap: 0;
-}
-
-#nd-sidebar aside > div > div:first-child > * {
-  display: none;
-}
-
-/* Active sidebar link: full primary yellow bg with black text (RetroUI active state).
- * Overrides Fumadocs' default bg-fd-primary/10 + text-fd-primary (light tint).
- * Applies to both desktop sidebar (#nd-sidebar) and mobile drawer (#nd-sidebar-mobile). */
-#nd-sidebar [data-active='true'],
-#nd-sidebar-mobile [data-active='true'] {
-  background-color: var(--primary);
-  color: var(--primary-foreground);
-  font-weight: 600;
-  border-left: 4px solid var(--primary-foreground);
-}
-
-/* Sidebar section dividers: 2px border lines */
-#nd-sidebar .border-t {
-  border-top-width: 2px;
-}
-
-/* Sidebar section headers (SidebarSeparator renders as <p>): font-head uppercase.
- * Applies to both desktop sidebar and mobile drawer. */
-#nd-sidebar p,
-#nd-sidebar-mobile p {
-  font-family: var(--font-head);
-  font-size: 0.8125rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: 1rem;
-  margin-bottom: 0.25rem;
-}
-
-/* Mobile drawer: border-l-2 on the left side, safe area insets for notch devices,
- * overscroll containment to prevent scroll chaining to the body, and momentum
- * scrolling for smooth touch interaction on iOS. */
-#nd-sidebar-mobile {
-  border-left-width: 2px;
-  padding-right: env(safe-area-inset-right, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Sidebar folder content left border line: border-border color already set via fd mapping,
- * but ensure the pseudo-element uses border-border */
-#nd-sidebar [data-radix-collapsible-content]::before {
-  background-color: var(--border);
-}
-
-/* ===== RetroUI Table of Contents Overrides ===== */
-
-/* TOC container: left border separates it from page content.
- * Reduce Fumadocs' default pt-12 (48px) to match the sidebar and content area. */
-#nd-toc {
-  border-left: 2px solid var(--border);
-  padding-top: 1.25rem;
-}
-
-/* TOC title ("On this page"): Archivo Black, uppercase */
-#toc-title {
-  font-family: var(--font-head);
-  font-size: 0.875rem;
-  font-weight: 400;
-  color: var(--foreground);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.75rem;
-}
-
-/* TOC items container: 2px border instead of default thin border */
-#nd-toc .border-s {
-  border-inline-start-width: 2px;
-  border-inline-start-color: var(--border);
-}
-
-/* TOC links: smooth transition on hover/active state changes */
-#nd-toc a {
-  transition:
-    color 150ms,
-    background-color 150ms,
-    padding-left 150ms;
-}
-
-/* Active TOC headings: foreground text on primary tint, bold left border accent.
- * Multiple items can be active simultaneously (visible headings). Group-rounding:
- * only the first active item in a consecutive run gets top-radius, only the last
- * gets bottom-radius. A single active item gets full radius. */
-#nd-toc [data-active='true'] {
-  color: var(--foreground);
-  font-weight: 600;
-  background-color: color-mix(in srgb, var(--primary) 20%, transparent);
-  border-inline-start-color: var(--primary);
-}
-
-/* First in a consecutive active group: round top corners */
-#nd-toc [data-active='true']:not([data-active='true'] + [data-active='true']) {
-  border-top-left-radius: var(--radius);
-  border-top-right-radius: var(--radius);
-}
-
-/* Last in a consecutive active group: round bottom corners */
-#nd-toc [data-active='true']:not(:has(+ [data-active='true'])) {
-  border-bottom-left-radius: var(--radius);
-  border-bottom-right-radius: var(--radius);
-}
-
-/* Inactive TOC headings: hover to foreground */
-#nd-toc a:not([data-active='true']):hover {
+.hljs-section {
   color: var(--foreground);
 }
 
-/* ===== RetroUI Search Dialog Overrides ===== */
-
-/* Content container: rounded corners, 2px border, flat offset shadow.
- * Targets the Radix DialogContent element which has role="dialog" + data-state. */
-[role='dialog'][data-state] {
-  border-radius: var(--radius-xl);
-  border-width: 2px;
-  box-shadow: var(--shadow-lg);
+.hljs-comment,
+.hljs-quote,
+.hljs-meta {
+  color: var(--muted);
 }
 
-/* Child element separators: 2px bottom border (override Fumadocs *:border-b = 1px) */
-[role='dialog'][data-state] > * {
-  border-bottom-width: 2px;
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-regexp {
+  color: var(--primary);
 }
 
-/* Search result items: rounded corners, primary yellow active state.
- * Fumadocs sets aria-selected on active items and uses JS onPointerMove to activate on hover. */
-[role='dialog'] button[aria-selected] {
-  border-radius: var(--radius);
+.hljs-number,
+.hljs-addition {
+  color: var(--accent-foreground);
 }
 
-[role='dialog'] button[aria-selected='true'] {
-  background-color: var(--primary);
-  color: var(--primary-foreground);
+.hljs-built_in,
+.hljs-literal,
+.hljs-type,
+.hljs-template-variable,
+.hljs-attribute,
+.hljs-link {
+  color: var(--foreground);
 }
 
-/* Close (ESC) button: RetroUI outline button press effect.
- * Selector targets button that is a direct child of the header div (direct child of the dialog). */
-[role='dialog'] > div > button[type='button'] {
-  border-radius: var(--radius);
-  border-width: 2px;
-  box-shadow: var(--shadow-sm);
-  transition-property: box-shadow, transform;
-  transition-duration: 150ms;
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--accent);
 }
 
-[role='dialog'] > div > button[type='button']:hover {
-  box-shadow: none;
-  transform: translateY(2px);
+.hljs-title,
+.hljs-variable,
+.hljs-deletion,
+.hljs-template-tag {
+  color: var(--destructive);
 }
 
-/* ===== RetroUI Final Polish ===== */
-
-/* Reduce top padding on docs page content area. Fumadocs defaults to py-6 / md:pt-8 / xl:pt-14,
- * which creates a large blank gap between the header and the breadcrumb. Use a consistent
- * compact top padding so the breadcrumb sits close to the header border. */
-#nd-page {
-  padding-top: 1.25rem;
-}
-
-/* DocsTitle (page.data.title rendered by DocsPage): enforce font-head since this h1 is outside
- * the MDX prose context and doesn't receive the getMDXComponents() h1 override. */
-#nd-page > h1 {
-  font-family: var(--font-head);
-}
-
-/* Sidebar and mobile drawer: rounded corners on all interactive elements. */
-#nd-sidebar a,
-#nd-sidebar button,
-#nd-sidebar-mobile a,
-#nd-sidebar-mobile button {
-  border-radius: var(--radius);
-}
-
-/* Page tree nav links/buttons: transparent left border reserve (prevents layout shift when
- * active state adds a solid left border). Scoped to the scroll viewport so the search bar
- * and theme toggle buttons outside the page tree keep their full border. */
-#nd-sidebar [data-radix-scroll-area-viewport] a,
-#nd-sidebar [data-radix-scroll-area-viewport] button,
-#nd-sidebar-mobile a,
-#nd-sidebar-mobile button {
-  border-left: 4px solid transparent;
-}
-
-/* Sidebar collapsed panel: rounded corners */
-[data-sidebar-panel] > * {
-  border-radius: var(--radius-lg);
-}
-
-/* Mobile TOC popover header: 2px border, no blur */
-[data-toc-popover] header {
-  border-bottom-width: 2px;
-  backdrop-filter: none;
-  background-color: var(--background);
-}
-
-/* Code blocks ejected from Fumadocs: ensure font-mono is used */
-pre,
-code {
-  font-family: var(--font-mono);
-}
-
-/* ===== RetroUI Tabs — horizontal scroll with hidden scrollbar on mobile ===== */
-.retro-tabs-list {
-  scrollbar-width: none;
-}
-
-.retro-tabs-list::-webkit-scrollbar {
-  display: none;
-}
-
-/* ===== RetroUI Steps component — CSS counter-based step numbering */
-.retro-steps {
-  counter-reset: retro-step;
-}
-
-.retro-step {
-  counter-increment: retro-step;
-}
-
-/*
- * Step number indicator: a square box centered on the container's left border line.
- *
- * Mobile (< md): ml-2 (8px) + border-l-2 (2px) + pl-7 (28px).
- *   left = -(28px + 2px + 16px) = -46px = -2.875rem.
- *
- * Desktop (md+): ml-4 (16px) + border-l-2 (2px) + pl-10 (40px).
- *   left = -(40px + 2px + 16px) = -58px = -3.625rem.
- */
-.retro-step::before {
-  content: counter(retro-step);
-  position: absolute;
-  left: -2.875rem;
-  top: 2rem;
-  width: 2rem;
-  height: 2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--primary);
-  color: var(--primary-foreground);
-  border: 2px solid var(--border);
-  font-family: var(--font-head);
+.hljs-section,
+.hljs-doctag,
+.hljs-strong {
   font-weight: bold;
-  font-size: 0.875rem;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+/* Custom scrollbar for sidebar */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+.sidebar-scroll:hover {
+  scrollbar-color: var(--color-primary) transparent;
+}
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 2px;
+  height: 2px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
   border-radius: var(--radius);
-}
-
-@media (min-width: 768px) {
-  .retro-step::before {
-    left: -3.625rem;
-  }
-}
-
-/* ===== Mobile-specific overrides ===== */
-
-/* Search dialog: reduce shadow offset on small screens so it doesn't consume extra space.
- * On mobile the 6px RetroUI shadow-lg offset crowds narrow viewports. Use shadow-sm (2px)
- * instead. Also ensure touch-friendly padding for search results. */
-@media (max-width: 639px) {
-  [role='dialog'][data-state] {
-    box-shadow: var(--shadow-sm);
-  }
-
-  /* Search result items: taller tap targets for touch */
-  [role='dialog'] button[aria-selected] {
-    min-height: 2.75rem;
-  }
-
-  /* Search input: 16px minimum prevents iOS Safari auto-zoom on focus.
-   * Fumadocs uses text-lg (18px) by default, but this guard ensures the
-   * behavior is preserved regardless of upstream class changes. */
-  [role='dialog'] input {
-    font-size: 16px;
-  }
-
-  /* Search results scroll area: contain scroll so reaching the end of results
-   * doesn't chain into the page body behind the dialog overlay. The scrollable
-   * div is the direct child of the [data-empty] container in SearchDialogList. */
-  [role='dialog'] [data-empty] > div {
-    overscroll-behavior: contain;
-  }
-
-  /* Tab scroll fade: horizontal gradient mask hints at offscreen tabs.
-   * The 2rem transparent→opaque zones at each edge fade content that
-   * overflows, signaling more tabs are available by scrolling. On lists
-   * that fit without overflow the gradient edges fall outside the visible
-   * content area, so nothing is clipped. */
-  .retro-tabs-list {
-    -webkit-mask-image: linear-gradient(to right, transparent, black 2rem, black calc(100% - 2rem), transparent);
-    mask-image: linear-gradient(to right, transparent, black 2rem, black calc(100% - 2rem), transparent);
-  }
-}
-
-/* Mobile TOC popover container: 2px border to match RetroUI styling */
-[data-toc-popover] {
-  border-bottom-width: 2px;
-}
-
-/* TOC popover trigger: 40px minimum height for touch-friendly tap target */
-[data-toc-popover-trigger] {
-  min-height: 2.5rem;
-}
-
-/* TOC popover content: cap height to prevent full-screen takeover, contain
- * overscroll so scrolling to the end of the TOC list doesn't chain into
- * the page body underneath. */
-[data-toc-popover-content] {
-  max-height: 50vh;
-  overscroll-behavior: contain;
-}
-
-/* TOC popover: safe area insets for notch devices (mobile only, where px-4 = 1rem).
- * On md+ screens Fumadocs uses px-6 (1.5rem) which already exceeds typical safe areas. */
-@media (max-width: 767px) {
-  [data-toc-popover-trigger],
-  [data-toc-popover-content] {
-    padding-left: max(1rem, env(safe-area-inset-left, 0px));
-    padding-right: max(1rem, env(safe-area-inset-right, 0px));
-  }
-
-  /* Prevent pull-to-refresh gesture on mobile docs pages. Desktop retains
-   * normal overscroll behavior (elastic bounce, history navigation). */
-  body {
-    overscroll-behavior-y: none;
-  }
-
-  /* Docs grid: collapse gutter columns so the content area fills the full viewport width.
-   * The default grid has 5 columns: gutter | sidebar | content | toc | gutter. On desktop
-   * the gutter columns (minmax(min-content, 1fr)) center the layout. On mobile the sidebar
-   * and TOC are hidden, but the gutter columns can still claim space via their 1fr max,
-   * preventing the content from stretching edge-to-edge. Override to 0 0 1fr 0 0 so the
-   * content column (grid-area: main) absorbs all available width. */
-  #nd-docs-layout {
-    grid-template-columns: 0 0 1fr 0 0 !important;
-  }
-
-  /* Safe-area insets for the main content area on landscape mobile.
-   * Prevents content from being hidden behind notch/sensor housing. */
-  #nd-page {
-    padding-left: max(1rem, env(safe-area-inset-left, 0px));
-    padding-right: max(1rem, env(safe-area-inset-right, 0px));
-  }
+  transition: background 0.3s ease;
 }
