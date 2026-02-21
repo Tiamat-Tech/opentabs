@@ -3,14 +3,12 @@
 # Publish @opentabs-dev platform packages to npm (private).
 #
 # Requires:
-#   - ~/.npmrc          — session token (from `npm login`) for reading
-#   - ~/.npmrc.publish  — granular token for publishing (bypass 2FA)
+#   - ~/.npmrc with a token that has read+write access to @opentabs-dev packages.
 #
 # Setup (one-time):
-#   1. Run `npm login --scope=@opentabs-dev` to create ~/.npmrc with session token
-#   2. Create a granular access token at https://www.npmjs.com/settings/tokens/create
+#   1. Create a granular access token at https://www.npmjs.com/settings/tokens/create
 #      - Permissions: Read and Write, Packages: @opentabs-dev/*, Bypass 2FA enabled
-#   3. Save it: echo '//registry.npmjs.org/:_authToken=<TOKEN>' > ~/.npmrc.publish
+#   2. Save it: echo '//registry.npmjs.org/:_authToken=<TOKEN>' > ~/.npmrc
 #
 # Usage:
 #   ./scripts/publish.sh <version>
@@ -25,22 +23,17 @@ if [ -z "$VERSION" ]; then
   exit 1
 fi
 
-PUBLISH_NPMRC="$HOME/.npmrc.publish"
-SESSION_NPMRC="$HOME/.npmrc"
-
-if [ ! -f "$PUBLISH_NPMRC" ]; then
-  echo "Error: $PUBLISH_NPMRC not found."
+echo "==> Verifying npm authentication..."
+NPM_USER=$(npm whoami 2>&1) || {
+  echo "Error: npm authentication failed."
   echo ""
-  echo "Create it with your granular access token:"
-  echo "  echo '//registry.npmjs.org/:_authToken=<YOUR_TOKEN>' > ~/.npmrc.publish"
+  echo "Ensure ~/.npmrc has a valid token with read+write access."
+  echo "Run 'npm login --scope=@opentabs-dev' or add a granular token to ~/.npmrc."
   exit 1
-fi
+}
+echo "  Authenticated as: $NPM_USER"
 
-if [ ! -f "$SESSION_NPMRC" ]; then
-  echo "Error: $SESSION_NPMRC not found. Run 'npm login --scope=@opentabs-dev' first."
-  exit 1
-fi
-
+echo ""
 echo "==> Building platform packages..."
 bun run build
 
@@ -65,17 +58,6 @@ echo "==> Rebuilding with new versions..."
 bun run build
 
 echo ""
-echo "==> Switching to publish token..."
-cp "$SESSION_NPMRC" "$SESSION_NPMRC.bak"
-cp "$PUBLISH_NPMRC" "$SESSION_NPMRC"
-
-cleanup() {
-  echo "==> Restoring session token..."
-  cp "$SESSION_NPMRC.bak" "$SESSION_NPMRC"
-  rm -f "$SESSION_NPMRC.bak"
-}
-trap cleanup EXIT
-
 echo "==> Publishing packages (dependency order)..."
 echo ""
 
