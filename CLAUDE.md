@@ -29,7 +29,11 @@
 
 **Chrome Extension** (`platform/browser-extension`): Receives plugin definitions from the MCP server via `sync.full`, dynamically registers content scripts for URL patterns, injects adapter IIFEs into matching tabs, and dispatches tool calls to the correct tab's adapter. The `debugger` permission in the manifest is required for network capture via the Chrome DevTools Protocol (`chrome.debugger.attach`, `Network.enable`, `Runtime.enable`) in `network-capture.ts`.
 
-**Plugin SDK** (`platform/plugin-sdk`): Provides the `OpenTabsPlugin` base class, `defineTool` factory, and `opentabs build` CLI. Plugins extend `OpenTabsPlugin` and define tools with Zod schemas; the CLI bundles the adapter into an IIFE and generates `dist/tools.json`.
+**Plugin SDK** (`platform/plugin-sdk`): Provides the `OpenTabsPlugin` base class and `defineTool` factory. Plugins extend `OpenTabsPlugin` and define tools with Zod schemas.
+
+**Plugin Tools** (`platform/plugin-tools`): Plugin developer CLI (`opentabs-plugin`). The `opentabs-plugin build` command bundles the plugin adapter into an IIFE and generates `dist/tools.json`. Supports `--watch` mode for development.
+
+**CLI** (`platform/cli`): User-facing CLI (`opentabs`). Commands: `start`, `status`, `doctor`, `setup`, `logs`, `plugin`, `config`. The `opentabs start` command launches the MCP server in production mode.
 
 **create-plugin** (`platform/create-plugin`): Scaffolding CLI (`create-opentabs-plugin`) for new plugin projects.
 
@@ -70,8 +74,15 @@ opentabs/
 │   │   └── build-side-panel.ts    # Bun.build script for side panel
 │   ├── plugin-sdk/                # Plugin authoring SDK
 │   │   └── src/
-│   │       ├── index.ts           # OpenTabsPlugin, defineTool exports
-│   │       └── cli.ts             # `opentabs build` CLI
+│   │       └── index.ts           # OpenTabsPlugin, defineTool exports
+│   ├── plugin-tools/              # Plugin developer CLI (opentabs-plugin)
+│   │   └── src/
+│   │       ├── cli.ts             # Entry point — `opentabs-plugin` binary
+│   │       └── commands/build.ts  # `opentabs-plugin build` command
+│   ├── cli/                       # User-facing CLI (opentabs)
+│   │   └── src/
+│   │       ├── cli.ts             # Entry point — `opentabs` binary
+│   │       └── commands/          # start, status, doctor, setup, logs, plugin, config
 │   └── create-plugin/             # Plugin scaffolding CLI
 │       └── src/
 │           └── index.ts           # `create-opentabs-plugin` CLI
@@ -143,7 +154,8 @@ The Chrome extension does NOT auto-reload. After building (`bun run build`), the
 **Production mode** (default) — static plugin discovery, restart to reload:
 
 ```bash
-bun platform/mcp-server/dist/index.js
+opentabs start
+# or directly: bun platform/mcp-server/dist/index.js
 ```
 
 **Dev mode** — file watchers, config watching, hot reload, `POST /reload` endpoint:
@@ -161,7 +173,7 @@ Each plugin follows the same pattern:
 1. **Create the plugin** (`plugins/<name>/`): Extend `OpenTabsPlugin` from `@opentabs-dev/plugin-sdk`
 2. **Configure `package.json`**: Add an `opentabs` field with `displayName`, `description`, and `urlPatterns`; set `main` to `dist/adapter.iife.js`
 3. **Define tools** (`plugins/<name>/src/tools/`): One file per tool using `defineTool()` with Zod schemas
-4. **Build**: `cd plugins/<name> && bun install && bun run build` (runs `tsc` then `opentabs build`, which produces `dist/adapter.iife.js` and `dist/tools.json`)
+4. **Build**: `cd plugins/<name> && bun install && bun run build` (runs `tsc` then `opentabs-plugin build`, which produces `dist/adapter.iife.js` and `dist/tools.json`)
 5. **Register**: Add the plugin path or npm package name to the `plugins` array in `~/.opentabs/config.json`
 
 ### Plugin Isolation
@@ -174,11 +186,11 @@ Plugins in `plugins/` are **fully standalone projects** — exactly as if create
 - Are **excluded** from root `eslint`, `prettier`, `knip`, and `tsc --build`
 - Must build and type-check independently: `cd plugins/<name> && bun run build`
 
-The root tooling (`bun run build`, `bun run lint`, etc.) does NOT cover plugins. When changing platform packages that plugins depend on (`shared`, `plugin-sdk`, `cli`), publish new versions to npm and update plugin dependencies.
+The root tooling (`bun run build`, `bun run lint`, etc.) does NOT cover plugins. When changing platform packages that plugins depend on (`shared`, `plugin-sdk`, `plugin-tools`), publish new versions to npm and update plugin dependencies.
 
 ### Publishing Platform Packages
 
-The platform packages `@opentabs-dev/shared`, `@opentabs-dev/plugin-sdk`, and `@opentabs-dev/cli` are published as private packages to the npm registry under the `@opentabs-dev` org.
+The platform packages `@opentabs-dev/shared`, `@opentabs-dev/plugin-sdk`, `@opentabs-dev/plugin-tools`, and `@opentabs-dev/cli` are published as private packages to the npm registry under the `@opentabs-dev` org. Publish order follows the dependency graph: shared → plugin-sdk → plugin-tools → cli.
 
 **Authentication**: npm requires two separate tokens:
 
