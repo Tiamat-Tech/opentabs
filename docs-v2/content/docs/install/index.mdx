@@ -36,14 +36,26 @@ The extension installs a service worker, side panel, and offscreen document. You
 
 ## Step 3: Start the MCP Server
 
+For everyday use, start the server in **production mode** (the default):
+
 ```bash
-bun --hot platform/mcp-server/dist/index.js
+bun platform/mcp-server/dist/index.js
 ```
+
+The server discovers plugins once at startup and serves them with no background file watchers. Restart the server after installing or removing plugins.
+
+If you are **developing plugins**, start in **dev mode** for automatic reload on plugin changes:
+
+```bash
+bun --hot platform/mcp-server/dist/index.js --dev
+```
+
+Dev mode enables file watchers for local plugins, config watching, and the `POST /reload` endpoint. The `--hot` flag enables hot reload — when you rebuild the server, Bun re-evaluates modules without restarting the process.
 
 The server starts on `http://localhost:9515` by default. You can change the port with the `PORT` environment variable:
 
 ```bash
-PORT=8080 bun --hot platform/mcp-server/dist/index.js
+PORT=8080 bun platform/mcp-server/dist/index.js
 ```
 
 Alternatively, use the CLI:
@@ -52,7 +64,7 @@ Alternatively, use the CLI:
 opentabs dev
 ```
 
-The `--hot` flag enables hot reload — when you rebuild, the server reinitializes without restarting the process.
+See the [Configuration reference](/docs/reference/configuration#dev-vs-production-mode) for details on dev vs production mode.
 
 ## Step 4: Connect Your AI Agent
 

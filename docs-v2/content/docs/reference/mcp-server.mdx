@@ -4,9 +4,9 @@ description: HTTP endpoints, WebSocket protocol, authentication, and MCP client 
 lastUpdated: 2026-02-20
 ---
 
-The OpenTabs MCP server runs on `localhost:9515` by default and exposes HTTP endpoints for MCP clients (AI agents), a WebSocket endpoint for the Chrome extension, and admin endpoints for server management.
+## HTTP Endpoints
 
-## HTTP endpoints
+The server runs on port 9515 by default (override with the `PORT` environment variable).
 
 <Table>
   <Table.Header>
@@ -20,37 +20,37 @@ The OpenTabs MCP server runs on `localhost:9515` by default and exposes HTTP end
   <Table.Body>
     <Table.Row>
       <Table.Cell className="font-medium">`/mcp`</Table.Cell>
-      <Table.Cell>`POST`, `GET`, `DELETE`</Table.Cell>
+      <Table.Cell>POST, GET, DELETE</Table.Cell>
       <Table.Cell>Bearer token</Table.Cell>
       <Table.Cell>MCP Streamable HTTP transport — AI clients connect here.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`/ws`</Table.Cell>
       <Table.Cell>WebSocket upgrade</Table.Cell>
-      <Table.Cell>`Sec-WebSocket-Protocol`</Table.Cell>
+      <Table.Cell>Sec-WebSocket-Protocol</Table.Cell>
       <Table.Cell>Chrome extension connection (full-duplex JSON-RPC).</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`/ws-info`</Table.Cell>
-      <Table.Cell>`GET`</Table.Cell>
+      <Table.Cell>GET</Table.Cell>
       <Table.Cell>Bearer token or rate-limited</Table.Cell>
       <Table.Cell>Returns WebSocket URL and auth secret for extension bootstrap.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`/health`</Table.Cell>
-      <Table.Cell>`GET`</Table.Cell>
+      <Table.Cell>GET</Table.Cell>
       <Table.Cell>None</Table.Cell>
       <Table.Cell>Server health, plugin status, and metrics.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`/reload`</Table.Cell>
-      <Table.Cell>`POST`</Table.Cell>
+      <Table.Cell>POST</Table.Cell>
       <Table.Cell>Bearer token, rate-limited</Table.Cell>
-      <Table.Cell>Trigger config reload and plugin re-discovery.</Table.Cell>
+      <Table.Cell>Trigger config reload and plugin re-discovery. **Dev mode only.**</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`/extension/reload`</Table.Cell>
-      <Table.Cell>`POST`</Table.Cell>
+      <Table.Cell>POST</Table.Cell>
       <Table.Cell>Bearer token, rate-limited</Table.Cell>
       <Table.Cell>Signal the Chrome extension to reload.</Table.Cell>
     </Table.Row>
@@ -60,12 +60,6 @@ The OpenTabs MCP server runs on `localhost:9515` by default and exposes HTTP end
 ## /mcp — MCP Streamable HTTP
 
 The primary endpoint for MCP clients. Implements the [MCP Streamable HTTP transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http).
-
-- **POST**: Send an MCP request (initialize, tools/list, tools/call, etc.)
-- **GET**: Retrieve from an existing session (server-sent events)
-- **DELETE**: Close a session
-
-### Headers
 
 <Table>
   <Table.Header>
@@ -79,140 +73,63 @@ The primary endpoint for MCP clients. Implements the [MCP Streamable HTTP transp
     <Table.Row>
       <Table.Cell className="font-medium">`Authorization`</Table.Cell>
       <Table.Cell>Yes (if secret configured)</Table.Cell>
-      <Table.Cell>`Bearer <secret>` where `<secret>` is the 64-char hex token from `~/.opentabs/config.json`.</Table.Cell>
+      <Table.Cell>`Bearer <secret>` — the 64-char hex token from `~/.opentabs/config.json`.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`mcp-session-id`</Table.Cell>
       <Table.Cell>After initialization</Table.Cell>
-      <Table.Cell>Session UUID returned by the server on the initial `initialize` request.</Table.Cell>
+      <Table.Cell>Session UUID returned on the initial initialize request. Include in all subsequent requests.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
 
-### Session lifecycle
-
-1. Client sends a `POST` with an `initialize` request body (no session ID)
-2. Server creates a new session and returns an `mcp-session-id` header
-3. Subsequent requests include the `mcp-session-id` header
-4. Each session has its own tool list and state
-5. `DELETE` closes the session
-
-Multiple concurrent MCP clients are supported — each gets an independent session.
+Multiple concurrent MCP clients are supported — each gets an independent session. DELETE closes a session.
 
 ## /ws — WebSocket
 
 The Chrome extension connects here for full-duplex JSON-RPC 2.0 communication. Only one active extension connection is allowed — a new connection replaces the previous one.
 
-### Authentication
-
-The extension authenticates via the `Sec-WebSocket-Protocol` header (not URL parameters, to keep secrets out of logs):
+The extension authenticates via the `Sec-WebSocket-Protocol` header:
 
 ```
 Sec-WebSocket-Protocol: opentabs, <secret>
 ```
 
-The server echoes `opentabs` as the accepted subprotocol.
-
-### Limits
-
-<Table>
-  <Table.Header>
-    <Table.Row>
-      <Table.Head>Setting</Table.Head>
-      <Table.Head>Value</Table.Head>
-    </Table.Row>
-  </Table.Header>
-  <Table.Body>
-    <Table.Row>
-      <Table.Cell className="font-medium">Max payload</Table.Cell>
-      <Table.Cell>10 MB</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">Concurrent connections</Table.Cell>
-      <Table.Cell>1 (new replaces old)</Table.Cell>
-    </Table.Row>
-  </Table.Body>
-</Table>
-
-## /ws-info — WebSocket bootstrap
-
-Returns the WebSocket URL and auth secret so the extension can connect. Used by the extension's side panel during initial setup.
-
-```json
-{
-  "wsUrl": "ws://localhost:9515/ws",
-  "wsSecret": "a1b2c3d4..."
-}
-```
-
-The `wsSecret` field is only included if a secret is configured. Rate-limited to 10 requests/minute as a fallback when Bearer auth fails.
+Max payload: 10 MB.
 
 ## /health — Health check
 
-Returns server status, plugin details, and metrics. No authentication required.
+Returns server status, plugin details, and metrics. No authentication required. Includes a `mode` field (`"dev"` or `"production"`) indicating which mode the server is running in.
 
 ```json
 {
   "status": "ok",
   "version": "0.0.4",
+  "mode": "dev",
   "extensionConnected": true,
   "mcpClients": 1,
   "plugins": 1,
-  "pluginDetails": [
-    {
-      "name": "slack",
-      "displayName": "Slack",
-      "toolCount": 22,
-      "tabState": "ready"
-    }
-  ],
-  "failedPlugins": [],
+  "pluginDetails": [{ "name": "slack", "displayName": "Slack", "toolCount": 22, "tabState": "ready" }],
   "toolCount": 58,
   "uptime": 3600,
-  "reloadCount": 2,
-  "lastReloadTimestamp": 1740000000000,
-  "lastReloadDurationMs": 45,
-  "stateSchemaVersion": 1,
-  "fileWatcher": {
-    "watchedPlugins": 1,
-    "pendingPlugins": 0,
-    "lastPollAt": 1740000000000,
-    "pollDetections": 0
-  }
+  "reloadCount": 2
 }
 ```
 
-## /reload — Config reload
+## /reload and /extension/reload
 
-Triggers a full config reload and plugin re-discovery. Requires Bearer token authentication. Rate-limited to 10 requests/minute.
-
-```bash
-curl -X POST http://localhost:9515/reload \
-  -H "Authorization: Bearer <secret>"
-```
-
-Returns:
-
-```json
-{
-  "ok": true,
-  "plugins": 1,
-  "durationMs": 45
-}
-```
-
-## /extension/reload — Extension reload signal
-
-Sends a reload signal to the connected Chrome extension. Requires Bearer token authentication. Rate-limited to 10 requests/minute. Returns 503 if the extension is not connected.
+Both require Bearer token authentication and are rate-limited to 10 requests/minute. **`/reload` is only available in dev mode** — it returns 405 in production mode (restart the server to pick up plugin changes instead).
 
 ```bash
-curl -X POST http://localhost:9515/extension/reload \
-  -H "Authorization: Bearer <secret>"
+curl -X POST http://localhost:9515/reload -H "Authorization: Bearer <secret>"
+curl -X POST http://localhost:9515/extension/reload -H "Authorization: Bearer <secret>"
 ```
+
+`/extension/reload` returns 503 if the extension is not connected.
 
 ## Authentication
 
-All authenticated endpoints use the same shared secret from `~/.opentabs/config.json` (the `secret` field — a 64-char hex string auto-generated on first server run).
+All authenticated endpoints use the same `secret` from `~/.opentabs/config.json`.
 
 <Table>
   <Table.Header>
@@ -223,16 +140,12 @@ All authenticated endpoints use the same shared secret from `~/.opentabs/config.
   </Table.Header>
   <Table.Body>
     <Table.Row>
-      <Table.Cell className="font-medium">HTTP endpoints (`/mcp`, `/reload`, `/extension/reload`)</Table.Cell>
+      <Table.Cell className="font-medium">HTTP endpoints</Table.Cell>
       <Table.Cell>`Authorization: Bearer <secret>` header</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">WebSocket (`/ws`)</Table.Cell>
       <Table.Cell>`Sec-WebSocket-Protocol: opentabs, <secret>` header</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">`/ws-info`</Table.Cell>
-      <Table.Cell>Bearer token, or rate-limited access (10 req/min)</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`/health`</Table.Cell>
@@ -241,19 +154,17 @@ All authenticated endpoints use the same shared secret from `~/.opentabs/config.
   </Table.Body>
 </Table>
 
-When no secret is configured (field missing or null), authentication checks are skipped and all endpoints are open.
+When no secret is configured, authentication checks are skipped.
 
 ## CORS
 
-The server rejects all HTTP requests that include a browser `Origin` header, except those from `chrome-extension://` origins. MCP clients (Claude Code, Cursor) run as native processes and don't send Origin headers, so this blocks browser-based requests without affecting legitimate clients. This prevents DNS rebinding attacks on the localhost server.
+The server rejects all HTTP requests with a browser `Origin` header, except those from `chrome-extension://` origins. MCP clients (Claude Code, Cursor) run as native processes and don't send Origin headers. This prevents DNS rebinding attacks on the localhost server.
 
-## Rate limiting
+## Rate Limiting
 
-Admin endpoints (`/ws-info`, `/reload`, `/extension/reload`) are rate-limited to **10 requests per minute** using a sliding window. When the limit is exceeded, the server returns HTTP 429 with a `Retry-After: 60` header.
+Admin endpoints (`/ws-info`, `/reload`, `/extension/reload`) are rate-limited to 10 requests/minute. Exceeding the limit returns HTTP 429 with `Retry-After: 60`.
 
-## WebSocket protocol
-
-The extension and server communicate over JSON-RPC 2.0. Key message types:
+## WebSocket Protocol
 
 ### Server → Extension
 
@@ -279,7 +190,7 @@ The extension and server communicate over JSON-RPC 2.0. Key message types:
     <Table.Row>
       <Table.Cell className="font-medium">`plugin.uninstall`</Table.Cell>
       <Table.Cell>Notification</Table.Cell>
-      <Table.Cell>Plugin removed from discovery — extension cleans up the adapter.</Table.Cell>
+      <Table.Cell>Plugin removed — extension cleans up the adapter.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`tool.dispatch`</Table.Cell>
@@ -289,17 +200,12 @@ The extension and server communicate over JSON-RPC 2.0. Key message types:
     <Table.Row>
       <Table.Cell className="font-medium">`tool.invocationStart`</Table.Cell>
       <Table.Cell>Notification</Table.Cell>
-      <Table.Cell>Tool execution started (for side panel UI animation).</Table.Cell>
+      <Table.Cell>Tool execution started (side panel animation).</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`tool.invocationEnd`</Table.Cell>
       <Table.Cell>Notification</Table.Cell>
-      <Table.Cell>Tool execution completed (for side panel UI animation).</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">`extension.reload`</Table.Cell>
-      <Table.Cell>Request</Table.Cell>
-      <Table.Cell>Signal the extension to reload.</Table.Cell>
+      <Table.Cell>Tool execution completed (side panel animation).</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`pong`</Table.Cell>
@@ -341,11 +247,6 @@ The extension and server communicate over JSON-RPC 2.0. Key message types:
       <Table.Cell>Enable or disable a single tool.</Table.Cell>
     </Table.Row>
     <Table.Row>
-      <Table.Cell className="font-medium">`config.setAllToolsEnabled`</Table.Cell>
-      <Table.Cell>Request</Table.Cell>
-      <Table.Cell>Enable or disable all tools for a plugin.</Table.Cell>
-    </Table.Row>
-    <Table.Row>
       <Table.Cell className="font-medium">`ping`</Table.Cell>
       <Table.Cell>Notification</Table.Cell>
       <Table.Cell>Keepalive ping.</Table.Cell>
@@ -353,49 +254,19 @@ The extension and server communicate over JSON-RPC 2.0. Key message types:
   </Table.Body>
 </Table>
 
-## Tool dispatch
+## Tool Dispatch
 
-When an MCP client calls a tool:
-
-1. Server validates the input against the tool's JSON Schema (pre-compiled with Ajv)
-2. Server sends a `tool.dispatch` JSON-RPC request over WebSocket
+1. Server validates input against the tool's JSON Schema (pre-compiled with Ajv)
+2. Server sends a `tool.dispatch` request over WebSocket
 3. Extension finds the best matching tab by URL pattern and ranking
-4. Extension executes the adapter's `handle()` function via `chrome.scripting.executeScript` in MAIN world
+4. Extension executes `handle()` via `chrome.scripting.executeScript` in MAIN world
 5. Result flows back: Extension → WebSocket → MCP Server → MCP Client
 
-### Timeouts
+Timeouts: 30 seconds server-side, 25 seconds extension-side (deliberately shorter to guarantee a response). Up to 5 concurrent tool calls per plugin; additional calls are queued.
 
-<Table>
-  <Table.Header>
-    <Table.Row>
-      <Table.Head>Stage</Table.Head>
-      <Table.Head>Timeout</Table.Head>
-      <Table.Head>Description</Table.Head>
-    </Table.Row>
-  </Table.Header>
-  <Table.Body>
-    <Table.Row>
-      <Table.Cell className="font-medium">Server dispatch</Table.Cell>
-      <Table.Cell>30 seconds</Table.Cell>
-      <Table.Cell>Server rejects the tool call if no response from extension.</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">Extension script execution</Table.Cell>
-      <Table.Cell>25 seconds</Table.Cell>
-      <Table.Cell>Extension kills the script — deliberately shorter than server timeout to guarantee a response.</Table.Cell>
-    </Table.Row>
-  </Table.Body>
-</Table>
-
-### Concurrency
-
-Up to 5 tool calls can run concurrently per plugin. Additional calls are queued.
-
-## MCP client configuration
+## MCP Client Configuration
 
 ### Claude Code
-
-Add to your project's `.mcp.json` or `~/.claude.json`:
 
 ```json
 {
@@ -403,51 +274,23 @@ Add to your project's `.mcp.json` or `~/.claude.json`:
     "opentabs": {
       "type": "streamable-http",
       "url": "http://localhost:9515/mcp",
-      "headers": {
-        "Authorization": "Bearer <secret>"
-      }
+      "headers": { "Authorization": "Bearer <secret>" }
     }
   }
 }
 ```
 
-Replace `<secret>` with the value from `~/.opentabs/config.json`.
-
 ### Cursor
-
-Add to your MCP settings:
 
 ```json
 {
   "mcpServers": {
     "opentabs": {
       "url": "http://localhost:9515/mcp",
-      "headers": {
-        "Authorization": "Bearer <secret>"
-      }
+      "headers": { "Authorization": "Bearer <secret>" }
     }
   }
 }
 ```
 
-### Generic MCP client
-
-Any MCP client that supports Streamable HTTP can connect:
-
-- **URL**: `http://localhost:PORT/mcp` (default port 9515)
-- **Auth**: `Authorization: Bearer <secret>` header
-- **Transport**: Streamable HTTP (POST/GET/DELETE)
-
-## Default port
-
-The server listens on port **9515** by default. Override with the `PORT` environment variable:
-
-```bash
-PORT=3000 bun --hot platform/mcp-server/dist/index.js
-```
-
-Or use the CLI:
-
-```bash
-opentabs dev --port 3000
-```
+Replace `<secret>` with the value from `~/.opentabs/config.json`.

@@ -6,19 +6,11 @@ lastUpdated: 2026-02-20
 
 ## Config file location
 
-The default config file path is:
-
 ```
 ~/.opentabs/config.json
 ```
 
-Override the config directory with the `OPENTABS_CONFIG_DIR` environment variable:
-
-```bash
-OPENTABS_CONFIG_DIR=/tmp/my-opentabs bun --hot platform/mcp-server/dist/index.js
-```
-
-The config file is created automatically on first server run with sensible defaults. The directory is created with `0700` permissions and the file with `0600` permissions.
+Override the config directory with the `OPENTABS_CONFIG_DIR` environment variable. The file is created automatically on first server run with `0600` permissions.
 
 ## Config fields
 
@@ -36,19 +28,19 @@ The config file is created automatically on first server run with sensible defau
       <Table.Cell className="font-medium">`plugins`</Table.Cell>
       <Table.Cell className="*:text-xs">`string[]`</Table.Cell>
       <Table.Cell className="*:text-xs">`[]`</Table.Cell>
-      <Table.Cell>Plugin specifiers — local directory paths (starting with `./`, `../`, `/`, or `~/`) or npm package names. A single unified array for all plugin sources.</Table.Cell>
+      <Table.Cell>Plugin specifiers — local paths (starting with `./`, `../`, `/`, `~/`) or npm package names. All sources in one array.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`tools`</Table.Cell>
       <Table.Cell className="*:text-xs">`Record<string, boolean>`</Table.Cell>
       <Table.Cell className="*:text-xs">`{}`</Table.Cell>
-      <Table.Cell>Per-tool enable/disable overrides. Keys are prefixed tool names (e.g., `slack_send_message`). Absent keys default to enabled. Set to `false` to disable a tool.</Table.Cell>
+      <Table.Cell>Per-tool enable/disable overrides. Keys are prefixed tool names (e.g., `slack_send_message`). Absent keys default to enabled.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`secret`</Table.Cell>
       <Table.Cell className="*:text-xs">`string`</Table.Cell>
       <Table.Cell className="*:text-xs">_(auto-generated)_</Table.Cell>
-      <Table.Cell>64-character hex string (256-bit) used for authentication. Shared between the MCP server and Chrome extension. Auto-generated on first run if missing.</Table.Cell>
+      <Table.Cell>64-character hex string for authentication. Shared between the MCP server and Chrome extension. Auto-generated on first run.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
@@ -73,21 +65,13 @@ The config file is created automatically on first server run with sensible defau
 
 ### plugins
 
-A unified array of plugin specifiers. Each entry is either a **local directory path** or an **npm package name**. The server determines the type based on the prefix:
+A unified array of plugin specifiers. Local paths start with `./`, `../`, `/`, or `~/`; anything else is treated as an npm package name resolved via `node_modules`.
 
-- **Local paths** start with `./`, `../`, `/`, or `~/` — they point to a plugin directory containing `package.json` (with an `opentabs` metadata field), `dist/tools.json`, and `dist/adapter.iife.js`
-- **npm package names** are everything else (e.g., `opentabs-plugin-jira`, `@myorg/opentabs-plugin-linear`) — resolved via `Bun.resolveSync` from the server's `node_modules`
-
-**Local path resolution:**
-
-- **Relative paths** are resolved from the config directory (`~/.opentabs/` by default)
-- **Absolute paths** and `~/` paths are used as-is (with `~/` expanded to `$HOME`)
-- **Security**: paths are validated with `realpath()` to resolve symlinks, then checked against `$HOME` and `$TMPDIR` — plugins outside these directories are rejected
-- The `create-opentabs-plugin` scaffolder and `opentabs plugin add` command both auto-register plugins in this array
+Local paths are resolved from the config directory (`~/.opentabs/` by default). Symlinks are resolved via `realpath()` and paths outside `$HOME` or `$TMPDIR` are rejected.
 
 ### tools
 
-A map of prefixed tool names to booleans. This lets you disable specific tools without removing the plugin:
+Disable specific tools without removing the plugin:
 
 ```json
 {
@@ -98,19 +82,16 @@ A map of prefixed tool names to booleans. This lets you disable specific tools w
 }
 ```
 
-- **Absent keys** default to enabled — you only need entries for tools you want to disable
-- **Tool names** use the `<plugin>_<tool>` format (e.g., `slack_send_message`, `browser_screenshot_tab`)
-- Changes are persisted atomically via a read-modify-write pattern with a mutex to prevent races
+Only include entries for tools you want to disable — absent keys default to enabled.
 
 ### secret
 
-A 64-character hex string (256-bit cryptographic random) used for authentication:
+Used for authentication across all transports:
 
-- **MCP endpoint** (`/mcp`): sent as `Authorization: Bearer <secret>` header
-- **WebSocket** (`/ws`): sent via the `Sec-WebSocket-Protocol` header (keeps secrets out of URL/logs)
-- **Admin endpoints** (`/reload`, `/extension/reload`): require the same Bearer token
+- **`/mcp`** and admin endpoints: `Authorization: Bearer <secret>` header
+- **`/ws`**: `Sec-WebSocket-Protocol` header (keeps the secret out of URLs and logs)
 
-Auto-generated on first server run. If the field is missing from an existing config (e.g., after upgrading), the server generates a new secret and writes it back.
+Auto-generated on first server run. If missing from an existing config, the server generates a new one and writes it back.
 
 ## Environment variables
 
@@ -126,35 +107,69 @@ Auto-generated on first server run. If the field is missing from an existing con
     <Table.Row>
       <Table.Cell className="font-medium">`PORT`</Table.Cell>
       <Table.Cell>`9515`</Table.Cell>
-      <Table.Cell>HTTP server port for the MCP server.</Table.Cell>
+      <Table.Cell>HTTP server port.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`OPENTABS_CONFIG_DIR`</Table.Cell>
       <Table.Cell>`~/.opentabs`</Table.Cell>
-      <Table.Cell>Override the config directory path. Useful for running multiple server instances or isolated test environments.</Table.Cell>
+      <Table.Cell>Override the config directory. Useful for multiple server instances or isolated test environments.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`OPENTABS_DEV`</Table.Cell>
+      <Table.Cell>_(unset)_</Table.Cell>
+      <Table.Cell>Set to `1` or `true` to enable dev mode. Equivalent to the `--dev` CLI flag.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
 
-## Config directory structure
+## Dev vs production mode
 
-The `~/.opentabs/` directory contains more than just the config file:
+The MCP server runs in **production mode** by default and optionally in **dev mode** for plugin developers.
+
+### Production mode (default)
+
+```bash
+bun platform/mcp-server/dist/index.js
+```
+
+- Discovers plugins from the `plugins` array once at startup
+- No file watchers — no background filesystem activity
+- `POST /reload` returns 405 — restart the server to pick up plugin changes
+
+### Dev mode
+
+```bash
+bun --hot platform/mcp-server/dist/index.js --dev
+```
+
+Or with the environment variable:
+
+```bash
+OPENTABS_DEV=1 bun --hot platform/mcp-server/dist/index.js
+```
+
+- **File watchers** monitor local plugin `dist/` directories — the server auto-reloads plugins when you rebuild them
+- **Config watching** detects changes to `config.json` and re-discovers plugins
+- **`POST /reload`** endpoint is available for manual reload triggers
+- **`bun --hot`** enables hot reload — rebuilt server files are picked up without restarting the process
+
+The `/health` endpoint includes a `mode` field (`"dev"` or `"production"`) so you can verify which mode the server is running in.
+
+## Config directory structure
 
 ```
 ~/.opentabs/
-├── config.json              # Configuration file
-├── extension/               # Managed Chrome extension install
-│   ├── manifest.json        # Extension manifest
-│   ├── background.js        # Service worker
-│   ├── adapters/            # Plugin adapter IIFEs
+├── config.json
+├── extension/
+│   ├── manifest.json
+│   ├── background.js
+│   ├── adapters/
 │   │   ├── slack.js
 │   │   └── ...
-│   └── .opentabs-version    # Version marker
-└── logs/                    # Server logs
+│   └── .opentabs-version
+└── logs/
 ```
 
-The `extension/` directory is managed by `opentabs setup` and `bun run build`. Load this directory as an unpacked extension in `chrome://extensions`.
+The `extension/` directory is managed by `opentabs setup` and `bun run build`. Load it as an unpacked extension in `chrome://extensions`.
 
-## Atomic writes
-
-Config changes (from the server, CLI commands, or the `/reload` endpoint) use an atomic write pattern: content is written to a temporary file with `0600` permissions, then renamed over the target. This prevents readers from seeing partially-written files. A mutex serializes concurrent write operations.
+Config writes use an atomic pattern: content is written to a temp file then renamed over the target. A mutex serializes concurrent writes.
