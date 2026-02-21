@@ -8,8 +8,29 @@
  * - Server restart reconnect → tab state re-synced via tab.syncAll
  */
 
-import { test, expect } from './fixtures.js';
-import { openTestAppTab, setupToolTest, waitForToolResult } from './helpers.js';
+import {
+  test,
+  expect,
+  startMcpServer,
+  startTestServer,
+  createMcpClient,
+  cleanupTestConfigDir,
+  writeTestConfig,
+  readPluginToolNames,
+  launchExtensionContext,
+  E2E_TEST_PLUGIN_DIR,
+} from './fixtures.js';
+import {
+  openTestAppTab,
+  setupToolTest,
+  waitForToolResult,
+  waitForExtensionConnected,
+  waitForLog,
+  setupAdapterSymlink,
+} from './helpers.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 // ---------------------------------------------------------------------------
 // US-003: Navigate away → closed transition
@@ -208,5 +229,119 @@ test.describe('Tab state sync — rapid close and reopen', () => {
     expect(result.content).toContain('hello from new tab');
 
     await page2.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// US-006: Tab state sync after server restart (reconnect)
+// ---------------------------------------------------------------------------
+
+test.describe('Tab state sync — server restart reconnect', () => {
+  test('tab state is re-synced via tab.syncAll after server restart', async () => {
+    // Manual setup (not fixtures) — we need to kill and restart the server mid-test.
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const prefixedToolNames = readPluginToolNames();
+    const tools: Record<string, boolean> = {};
+    for (const t of prefixedToolNames) {
+      tools[t] = true;
+    }
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-reconnect-'));
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
+
+    const server1 = await startMcpServer(configDir, true);
+    const serverPort = server1.port;
+    const testServer = await startTestServer();
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server1.port);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    try {
+      // 1. Wait for extension to connect and initial sync
+      await waitForExtensionConnected(server1);
+      await waitForLog(server1, 'tab.syncAll received', 15_000);
+
+      // 2. Open a matching tab and wait for 'ready' state
+      const appTab = await context.newPage();
+      await appTab.goto(testServer.url, { waitUntil: 'load' });
+
+      await expect
+        .poll(
+          async () => {
+            const res = await fetch(`http://localhost:${serverPort}/health`);
+            const body = (await res.json()) as {
+              pluginDetails?: Array<{ name: string; tabState: string }>;
+            };
+            return body.pluginDetails?.find(p => p.name === 'e2e-test')?.tabState;
+          },
+          { timeout: 30_000, message: 'Server tab state for e2e-test did not become ready' },
+        )
+        .toBe('ready');
+
+      // 3. Kill the MCP server
+      await server1.kill();
+
+      // 4. Wait a moment for the extension to detect the disconnection.
+      // The offscreen document's pong timeout is 5s, so we wait enough time
+      // for the WebSocket close to be detected.
+      await new Promise(r => setTimeout(r, 8_000));
+
+      // 5. Restart the MCP server on the same port — the extension's offscreen
+      // document reconnect logic will find the new server at the same URL.
+      const server2 = await startMcpServer(configDir, true, serverPort);
+
+      try {
+        // 6. Wait for the extension to reconnect and send tab.syncAll
+        await waitForExtensionConnected(server2, 45_000);
+        await waitForLog(server2, 'tab.syncAll received', 30_000);
+
+        // 7. Verify the server reports 'ready' state for the e2e-test plugin
+        // after the reconnect sync — the matching tab is still open.
+        await expect
+          .poll(
+            async () => {
+              const res = await fetch(`http://localhost:${serverPort}/health`);
+              const body = (await res.json()) as {
+                pluginDetails?: Array<{ name: string; tabState: string }>;
+              };
+              return body.pluginDetails?.find(p => p.name === 'e2e-test')?.tabState;
+            },
+            {
+              timeout: 30_000,
+              message: 'Server tab state for e2e-test did not become ready after reconnect',
+            },
+          )
+          .toBe('ready');
+
+        // 8. Verify tool dispatch still works through the reconnected pipeline.
+        // Create a new MCP client for server2 (the old session is gone).
+        const mcpClient2 = createMcpClient(serverPort, server2.secret);
+        try {
+          await mcpClient2.initialize();
+          await waitForToolResult(
+            mcpClient2,
+            'e2e-test_echo',
+            { message: 'after restart' },
+            { isError: false },
+            15_000,
+          );
+
+          const result = await mcpClient2.callTool('e2e-test_echo', { message: 'reconnected' });
+          expect(result.isError).toBe(false);
+          expect(result.content).toContain('reconnected');
+        } finally {
+          await mcpClient2.close();
+        }
+      } finally {
+        await server2.kill();
+      }
+
+      await appTab.close();
+    } finally {
+      await context.close();
+      await server1.kill();
+      await testServer.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
   });
 });
