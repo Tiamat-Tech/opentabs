@@ -27,7 +27,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { McpCallbacks } from './extension-protocol.js';
 import type { McpServerInstance } from './mcp-setup.js';
-import type { ServerState } from './state.js';
+import type { AuditEntry, ServerState } from './state.js';
 import type { WsHandle } from '@opentabs-dev/shared';
 
 /** Opaque HotState accessor — index.ts injects the getter */
@@ -99,6 +99,51 @@ const checkEndpointRateLimit = (endpoint: string, maxPerMinute: number): boolean
   timestamps.push(now);
   endpointCallTimestamps.set(endpoint, timestamps);
   return true;
+};
+
+/** Compute aggregate audit statistics from the audit log buffer */
+const computeAuditSummary = (auditLog: AuditEntry[]) => {
+  const totalInvocations = auditLog.length;
+  let successCount = 0;
+  let failureCount = 0;
+  let totalDurationMs = 0;
+  let last24hTotal = 0;
+  let last24hSuccess = 0;
+  let last24hFailure = 0;
+
+  const cutoff = Date.now() - 86_400_000;
+
+  for (const entry of auditLog) {
+    if (entry.success) {
+      successCount++;
+    } else {
+      failureCount++;
+    }
+    totalDurationMs += entry.durationMs;
+
+    if (new Date(entry.timestamp).getTime() >= cutoff) {
+      last24hTotal++;
+      if (entry.success) {
+        last24hSuccess++;
+      } else {
+        last24hFailure++;
+      }
+    }
+  }
+
+  const avgDurationMs = totalInvocations > 0 ? Math.round((totalDurationMs / totalInvocations) * 10) / 10 : 0;
+
+  return {
+    totalInvocations,
+    successCount,
+    failureCount,
+    last24h: {
+      total: last24hTotal,
+      success: last24hSuccess,
+      failure: last24hFailure,
+    },
+    avgDurationMs,
+  };
 };
 
 const createHandleFetch =
@@ -199,6 +244,8 @@ const createHandleFetch =
       const pendingPlugins = state.fileWatcherEntries.filter(e => e.pluginName.startsWith('(pending:')).length;
       const watchedPlugins = state.fileWatcherEntries.length - pendingPlugins;
 
+      const auditSummary = computeAuditSummary(state.auditLog);
+
       return Response.json({
         status: 'ok',
         version,
@@ -222,6 +269,7 @@ const createHandleFetch =
           lastPollAt: state.mtimeLastPollAt,
           pollDetections: state.mtimePollDetections,
         },
+        auditSummary,
       });
     }
 
