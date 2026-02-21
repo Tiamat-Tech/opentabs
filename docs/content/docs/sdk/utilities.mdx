@@ -1,0 +1,510 @@
+---
+title: Utilities
+description: API reference for all SDK utility functions — DOM, Fetch, Storage, Page State, and Timing helpers for plugin authors.
+lastUpdated: 2026-02-21
+---
+
+The plugin SDK ships utility functions that run in the browser page context, reducing boilerplate for common plugin operations. All utilities are exported from `@opentabs-dev/plugin-sdk`.
+
+```typescript
+import {
+  waitForSelector, waitForSelectorRemoval, querySelectorAll, getTextContent, observeDOM,
+  fetchFromPage, fetchJSON, postJSON,
+  getLocalStorage, setLocalStorage, getSessionStorage, getCookie,
+  getPageGlobal, getCurrentUrl, getPageTitle,
+  retry, sleep, waitUntil,
+  log,
+} from '@opentabs-dev/plugin-sdk';
+```
+
+---
+
+## DOM Utilities
+
+Functions for waiting on elements, querying the DOM, and observing mutations.
+
+### `waitForSelector(selector, opts?)`
+
+Waits for an element matching `selector` to appear in the DOM. Uses MutationObserver for efficient detection, with an immediate querySelector check for elements already present.
+
+```typescript
+function waitForSelector(selector: string, opts?: WaitForSelectorOptions): Promise<Element>;
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Option</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Default</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`timeout`</Table.Cell>
+      <Table.Cell>`number`</Table.Cell>
+      <Table.Cell>`10000`</Table.Cell>
+      <Table.Cell>Timeout in milliseconds. Throws an `Error` if the element does not appear within this time.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+```typescript
+// Wait for the dashboard to load before interacting
+const dashboard = await waitForSelector('.dashboard-loaded');
+
+// Short timeout for elements that should appear quickly
+const header = await waitForSelector('#app-header', { timeout: 3000 });
+```
+
+### `waitForSelectorRemoval(selector, opts?)`
+
+Waits for an element matching `selector` to be removed from the DOM. Resolves immediately if no matching element exists.
+
+```typescript
+function waitForSelectorRemoval(selector: string, opts?: WaitForSelectorOptions): Promise<void>;
+```
+
+Takes the same `timeout` option as `waitForSelector` (default: 10000ms).
+
+```typescript
+// Wait for a loading spinner to disappear
+await waitForSelectorRemoval('.loading-spinner');
+
+// Then interact with the loaded content
+const items = querySelectorAll('.list-item');
+```
+
+### `querySelectorAll(selector)`
+
+Typed wrapper around `document.querySelectorAll` that returns a real array instead of a NodeList.
+
+```typescript
+function querySelectorAll<T extends Element = Element>(selector: string): T[];
+```
+
+```typescript
+// Returns a real array — use .map(), .filter(), .find() directly
+const rows = querySelectorAll<HTMLTableRowElement>('table tbody tr');
+const names = rows.map(row => row.cells[0]?.textContent?.trim() ?? '');
+```
+
+### `getTextContent(selector)`
+
+Returns the trimmed `textContent` of the first element matching `selector`, or `null` if no element is found.
+
+```typescript
+function getTextContent(selector: string): string | null;
+```
+
+```typescript
+const username = getTextContent('.profile-name');
+const count = getTextContent('.notification-badge');
+```
+
+### `observeDOM(selector, callback, options?)`
+
+Sets up a MutationObserver on the element matching `selector`. Returns a cleanup function that disconnects the observer. Throws if no element matches the selector.
+
+```typescript
+function observeDOM(
+  selector: string,
+  callback: (mutations: MutationRecord[], observer: MutationObserver) => void,
+  options?: ObserveDOMOptions,
+): () => void;
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Option</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Default</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`childList`</Table.Cell>
+      <Table.Cell>`boolean`</Table.Cell>
+      <Table.Cell>`true`</Table.Cell>
+      <Table.Cell>Watch for added/removed child nodes.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`attributes`</Table.Cell>
+      <Table.Cell>`boolean`</Table.Cell>
+      <Table.Cell>`false`</Table.Cell>
+      <Table.Cell>Watch for attribute changes.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`subtree`</Table.Cell>
+      <Table.Cell>`boolean`</Table.Cell>
+      <Table.Cell>`true`</Table.Cell>
+      <Table.Cell>Watch the entire subtree.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+```typescript
+// Watch for new messages in a chat container
+const cleanup = observeDOM('#message-list', (mutations) => {
+  for (const mutation of mutations) {
+    for (const node of mutation.addedNodes) {
+      if (node instanceof HTMLElement && node.classList.contains('message')) {
+        // Handle new message
+      }
+    }
+  }
+});
+
+// Later: disconnect the observer
+cleanup();
+```
+
+---
+
+## Fetch Utilities
+
+Functions for making HTTP requests using the page's authenticated session. All fetch utilities use `credentials: 'include'` to send session cookies automatically.
+
+### `fetchFromPage(url, init?)`
+
+Fetches a URL using the page's session cookies. Provides built-in timeout and throws a `ToolError` on non-ok HTTP status codes.
+
+```typescript
+function fetchFromPage(url: string, init?: FetchFromPageOptions): Promise<Response>;
+```
+
+`FetchFromPageOptions` extends the standard `RequestInit` with:
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Option</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Default</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`timeout`</Table.Cell>
+      <Table.Cell>`number`</Table.Cell>
+      <Table.Cell>`30000`</Table.Cell>
+      <Table.Cell>Request timeout in milliseconds. Throws a `ToolError` with code `'timeout'` on expiry.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+If you pass a `signal` in `init`, it is combined with the timeout signal via `AbortSignal.any()` — either can cancel the request.
+
+```typescript
+// GET request with page cookies
+const response = await fetchFromPage('/api/users');
+const users = await response.json();
+
+// POST with custom timeout
+const response = await fetchFromPage('/api/export', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ format: 'csv' }),
+  timeout: 60_000,
+});
+```
+
+### `fetchJSON(url, init?)`
+
+Fetches a URL and parses the response as JSON. Uses the page's session cookies and provides timeout + error handling.
+
+```typescript
+function fetchJSON<T>(url: string, init?: FetchFromPageOptions): Promise<T>;
+```
+
+Throws a `ToolError` with code `'json_parse_error'` if the response is not valid JSON.
+
+```typescript
+interface Channel { id: string; name: string }
+const channels = await fetchJSON<Channel[]>('/api/channels');
+```
+
+### `postJSON(url, body, init?)`
+
+Convenience wrapper for POST requests with a JSON body. Sets `Content-Type: application/json`, stringifies the body, and parses the JSON response.
+
+```typescript
+function postJSON<T>(url: string, body: unknown, init?: FetchFromPageOptions): Promise<T>;
+```
+
+```typescript
+const result = await postJSON<{ ok: boolean }>('/api/messages', {
+  channel: 'general',
+  text: 'Hello from OpenTabs!',
+});
+```
+
+---
+
+## Storage Utilities
+
+Safe wrappers around browser storage APIs that handle `SecurityError` exceptions in sandboxed iframes.
+
+### `getLocalStorage(key)`
+
+Reads a value from `localStorage`. Returns `null` if the key is not found or if storage access throws.
+
+```typescript
+function getLocalStorage(key: string): string | null;
+```
+
+### `setLocalStorage(key, value)`
+
+Writes a value to `localStorage`. Silently fails if storage access throws (SecurityError or QuotaExceededError).
+
+```typescript
+function setLocalStorage(key: string, value: string): void;
+```
+
+### `getSessionStorage(key)`
+
+Reads a value from `sessionStorage`. Returns `null` if the key is not found or if storage access throws.
+
+```typescript
+function getSessionStorage(key: string): string | null;
+```
+
+### `getCookie(name)`
+
+Reads a cookie by name from `document.cookie`. Handles URI-encoded values. Returns `null` if the cookie is not found.
+
+```typescript
+function getCookie(name: string): string | null;
+```
+
+```typescript
+// Check for an auth token stored in different locations
+const token =
+  getLocalStorage('auth_token') ??
+  getSessionStorage('auth_token') ??
+  getCookie('auth_token');
+```
+
+---
+
+## Page State Utilities
+
+Functions for reading global state and metadata from the current page.
+
+### `getPageGlobal(path)`
+
+Safe deep property access on `globalThis` using dot-notation. Returns `undefined` if any segment in the path is missing or if a getter throws.
+
+```typescript
+function getPageGlobal(path: string): unknown;
+```
+
+```typescript
+// Access deeply nested page globals safely
+const token = getPageGlobal('TS.boot_data.api_token') as string | undefined;
+const userId = getPageGlobal('App.currentUser.id') as number | undefined;
+const config = getPageGlobal('__APP_CONFIG__.features') as Record<string, boolean> | undefined;
+```
+
+### `getCurrentUrl()`
+
+Returns the current page URL (`window.location.href`).
+
+```typescript
+function getCurrentUrl(): string;
+```
+
+### `getPageTitle()`
+
+Returns the current page title (`document.title`).
+
+```typescript
+function getPageTitle(): string;
+```
+
+---
+
+## Timing Utilities
+
+Functions for retrying operations, sleeping, and polling conditions.
+
+### `retry(fn, opts?)`
+
+Retries `fn` on failure up to `maxAttempts` times. Waits `delay` ms between attempts (doubled each time when `backoff` is true). Re-throws the last error after all attempts are exhausted.
+
+```typescript
+function retry<T>(fn: () => Promise<T>, opts?: RetryOptions): Promise<T>;
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Option</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Default</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`maxAttempts`</Table.Cell>
+      <Table.Cell>`number`</Table.Cell>
+      <Table.Cell>`3`</Table.Cell>
+      <Table.Cell>Maximum number of attempts (including the first call).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`delay`</Table.Cell>
+      <Table.Cell>`number`</Table.Cell>
+      <Table.Cell>`1000`</Table.Cell>
+      <Table.Cell>Delay between attempts in milliseconds.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`backoff`</Table.Cell>
+      <Table.Cell>`boolean`</Table.Cell>
+      <Table.Cell>`false`</Table.Cell>
+      <Table.Cell>Use exponential backoff — doubles the delay after each attempt (1s, 2s, 4s, ...).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`signal`</Table.Cell>
+      <Table.Cell>`AbortSignal`</Table.Cell>
+      <Table.Cell>—</Table.Cell>
+      <Table.Cell>Cancel retries early. Checks before each attempt and before each delay.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+```typescript
+// Retry a flaky API call with exponential backoff
+const data = await retry(
+  () => fetchJSON<UserData>('/api/user/profile'),
+  { maxAttempts: 5, delay: 500, backoff: true },
+);
+
+// Retry with cancellation
+const controller = new AbortController();
+const data = await retry(
+  () => fetchJSON<SearchResults>('/api/search?q=test'),
+  { maxAttempts: 3, signal: controller.signal },
+);
+```
+
+### `sleep(ms)`
+
+Returns a promise that resolves after `ms` milliseconds.
+
+```typescript
+function sleep(ms: number): Promise<void>;
+```
+
+```typescript
+// Wait 2 seconds between operations
+await doFirstThing();
+await sleep(2000);
+await doSecondThing();
+```
+
+### `waitUntil(predicate, opts?)`
+
+Polls `predicate` at a regular interval until it returns `true`. Rejects on timeout. The predicate can be sync or async — errors thrown by the predicate are caught and treated as `false`.
+
+```typescript
+function waitUntil(
+  predicate: () => boolean | Promise<boolean>,
+  opts?: WaitUntilOptions,
+): Promise<void>;
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Option</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Default</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`interval`</Table.Cell>
+      <Table.Cell>`number`</Table.Cell>
+      <Table.Cell>`200`</Table.Cell>
+      <Table.Cell>Polling interval in milliseconds.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`timeout`</Table.Cell>
+      <Table.Cell>`number`</Table.Cell>
+      <Table.Cell>`10000`</Table.Cell>
+      <Table.Cell>Timeout in milliseconds. Throws an `Error` if the predicate doesn't return `true` in time.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+```typescript
+// Wait for a page global to be set
+await waitUntil(() => getPageGlobal('App.ready') === true);
+
+// Wait for an element to have specific content
+await waitUntil(
+  () => getTextContent('.status-badge') === 'Connected',
+  { interval: 500, timeout: 15_000 },
+);
+```
+
+---
+
+## Logging
+
+The `log` namespace provides structured logging that routes entries to the MCP server when running inside the adapter runtime, or to the browser console in standalone contexts (unit tests, etc.).
+
+```typescript
+import { log } from '@opentabs-dev/plugin-sdk';
+```
+
+### Methods
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Method</Table.Head>
+      <Table.Head>MCP Level</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`log.debug(message, ...args)`</Table.Cell>
+      <Table.Cell>`debug`</Table.Cell>
+      <Table.Cell>Verbose details for debugging. Not shown by default in most MCP clients.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`log.info(message, ...args)`</Table.Cell>
+      <Table.Cell>`info`</Table.Cell>
+      <Table.Cell>Normal operational messages.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`log.warn(message, ...args)`</Table.Cell>
+      <Table.Cell>`warning`</Table.Cell>
+      <Table.Cell>Recoverable issues that don't prevent the operation from completing.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`log.error(message, ...args)`</Table.Cell>
+      <Table.Cell>`error`</Table.Cell>
+      <Table.Cell>Errors that cause the operation to fail.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Arguments are safely serialized before transport — circular references, DOM nodes, functions, symbols, bigints, and errors are all handled without throwing. Strings are truncated at 4096 characters, and a maximum of 10 arguments are accepted per call.
+
+```typescript
+log.info('Fetching channels', { workspaceId: 'T12345' });
+log.warn('Rate limited, retrying', { retryAfterMs: 2000 });
+log.error('Failed to send message', error);
+log.debug('Raw API response', { status: 200, body: responseData });
+```
+
+The `log` object is frozen — it cannot be reassigned or extended. See the [Logging & Debugging](/docs/guides/logging-debugging) guide for the full transport pipeline and debugging workflows.

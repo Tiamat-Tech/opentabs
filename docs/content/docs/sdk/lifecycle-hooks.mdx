@@ -1,0 +1,277 @@
+---
+title: Lifecycle Hooks
+description: API reference for plugin lifecycle hooks — onActivate, onDeactivate, onNavigate, onToolInvocationStart, onToolInvocationEnd.
+lastUpdated: 2026-02-21
+---
+
+Lifecycle hooks let plugins respond to adapter registration, navigation, and tool execution events. All hooks are optional methods on the `OpenTabsPlugin` base class — implement only the ones you need.
+
+## Import
+
+```typescript
+import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
+```
+
+## Hook Lifecycle
+
+Hooks fire at specific points in the adapter's lifetime. Here's the order:
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Phase</Table.Head>
+      <Table.Head>Hook</Table.Head>
+      <Table.Head>When it fires</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">Registration</Table.Cell>
+      <Table.Cell>`onActivate()`</Table.Cell>
+      <Table.Cell>Once, after the adapter is registered on `globalThis.__openTabs.adapters`.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Navigation</Table.Cell>
+      <Table.Cell>`onNavigate(url)`</Table.Cell>
+      <Table.Cell>On in-page URL changes (pushState, replaceState, popstate, hashchange).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Tool start</Table.Cell>
+      <Table.Cell>`onToolInvocationStart(toolName)`</Table.Cell>
+      <Table.Cell>Before each `tool.handle()` execution.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Tool end</Table.Cell>
+      <Table.Cell>`onToolInvocationEnd(toolName, success, durationMs)`</Table.Cell>
+      <Table.Cell>After each `tool.handle()` completes (success or failure).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Removal</Table.Cell>
+      <Table.Cell>`onDeactivate()`</Table.Cell>
+      <Table.Cell>When the adapter is being removed. Fires before `teardown()`.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+All hooks run in the page context. Errors in hooks are caught and logged — they never prevent adapter registration or tool execution.
+
+---
+
+## `onActivate()`
+
+Called once after the adapter is successfully registered. Use it to set up page-level event listeners, observers, or other resources that should exist for the adapter's lifetime.
+
+```typescript
+onActivate?(): void;
+```
+
+```typescript
+class MyPlugin extends OpenTabsPlugin {
+  private cleanup?: () => void;
+
+  onActivate() {
+    // Set up a keyboard shortcut listener
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Handle escape key
+      }
+    };
+    document.addEventListener('keydown', handler);
+    this.cleanup = () => document.removeEventListener('keydown', handler);
+  }
+
+  onDeactivate() {
+    this.cleanup?.();
+  }
+
+  // ... abstract properties and methods
+}
+```
+
+## `onDeactivate()`
+
+Called when the adapter is being removed — either before `teardown()` on plugin update, or when the tab navigates away from a matching URL. Use it to clean up resources set up in `onActivate()`.
+
+```typescript
+onDeactivate?(): void;
+```
+
+When both `onDeactivate` and `teardown` are defined, `onDeactivate` fires first.
+
+## `onNavigate(url)`
+
+Called on in-page URL changes — pushState, replaceState, popstate, and hashchange events. Not called on full page loads (the adapter is re-injected on full navigation). If the plugin does not implement this method, no navigation listeners are set up.
+
+```typescript
+onNavigate?(url: string): void;
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Parameter</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`url`</Table.Cell>
+      <Table.Cell>`string`</Table.Cell>
+      <Table.Cell>The new URL after navigation (`window.location.href`).</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+```typescript
+class MyPlugin extends OpenTabsPlugin {
+  private currentProjectId: string | null = null;
+
+  onNavigate(url: string) {
+    // Track which project the user is viewing
+    const match = url.match(/\/projects\/(\w+)/);
+    this.currentProjectId = match?.[1] ?? null;
+  }
+
+  // ... abstract properties and methods
+}
+```
+
+## `onToolInvocationStart(toolName)`
+
+Called before each `tool.handle()` execution. Receives the unprefixed tool name (e.g., `'send_message'`, not `'slack_send_message'`).
+
+```typescript
+onToolInvocationStart?(toolName: string): void;
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Parameter</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`toolName`</Table.Cell>
+      <Table.Cell>`string`</Table.Cell>
+      <Table.Cell>The unprefixed tool name.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+```typescript
+class MyPlugin extends OpenTabsPlugin {
+  onToolInvocationStart(toolName: string) {
+    log.info(`Starting tool: ${toolName}`);
+  }
+
+  // ... abstract properties and methods
+}
+```
+
+## `onToolInvocationEnd(toolName, success, durationMs)`
+
+Called after each `tool.handle()` completes, whether it succeeded or threw. Receives the tool name, a success boolean, and the wall-clock duration in milliseconds.
+
+```typescript
+onToolInvocationEnd?(toolName: string, success: boolean, durationMs: number): void;
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Parameter</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`toolName`</Table.Cell>
+      <Table.Cell>`string`</Table.Cell>
+      <Table.Cell>The unprefixed tool name.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`success`</Table.Cell>
+      <Table.Cell>`boolean`</Table.Cell>
+      <Table.Cell>`true` if `handle()` resolved, `false` if it threw.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`durationMs`</Table.Cell>
+      <Table.Cell>`number`</Table.Cell>
+      <Table.Cell>Wall-clock time of `tool.handle()` in milliseconds.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+```typescript
+class MyPlugin extends OpenTabsPlugin {
+  onToolInvocationEnd(toolName: string, success: boolean, durationMs: number) {
+    if (!success) {
+      log.warn(`Tool ${toolName} failed after ${durationMs}ms`);
+    } else if (durationMs > 5000) {
+      log.warn(`Tool ${toolName} took ${durationMs}ms — consider adding progress reporting`);
+    }
+  }
+
+  // ... abstract properties and methods
+}
+```
+
+## Full Example
+
+A plugin that uses all lifecycle hooks to track state and log telemetry:
+
+```typescript
+import { OpenTabsPlugin, log } from '@opentabs-dev/plugin-sdk';
+import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
+
+class AnalyticsPlugin extends OpenTabsPlugin {
+  readonly name = 'analytics';
+  readonly version = '1.0.0';
+  readonly description = 'Analytics dashboard tools';
+  readonly displayName = 'Analytics';
+  readonly urlPatterns = ['*://analytics.example.com/*'];
+  readonly tools: ToolDefinition[] = [/* ... */];
+
+  private currentPage: string | null = null;
+  private toolCount = 0;
+
+  async isReady() {
+    return document.querySelector('.app-loaded') !== null;
+  }
+
+  onActivate() {
+    log.info('Analytics adapter activated');
+    this.currentPage = window.location.pathname;
+  }
+
+  onDeactivate() {
+    log.info('Analytics adapter deactivated', {
+      totalToolCalls: this.toolCount,
+    });
+  }
+
+  onNavigate(url: string) {
+    const path = new URL(url).pathname;
+    log.debug('Navigated', { from: this.currentPage, to: path });
+    this.currentPage = path;
+  }
+
+  onToolInvocationStart(toolName: string) {
+    log.debug(`Tool starting: ${toolName}`, { page: this.currentPage });
+  }
+
+  onToolInvocationEnd(toolName: string, success: boolean, durationMs: number) {
+    this.toolCount++;
+    log.info(`Tool completed: ${toolName}`, { success, durationMs });
+  }
+}
+```
+
+## Wiring
+
+Lifecycle hooks are wired automatically by the `opentabs-plugin build` command in the generated adapter IIFE. Plugin authors only need to implement the methods on their `OpenTabsPlugin` subclass — no manual registration is required.

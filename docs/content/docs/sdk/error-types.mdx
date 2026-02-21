@@ -1,0 +1,302 @@
+---
+title: Error Types
+description: API reference for ToolError — structured errors with categories, retry hints, and factory methods for AI-agent-friendly error responses.
+lastUpdated: 2026-02-21
+---
+
+`ToolError` is the structured error type for tool handlers. When a tool throws a `ToolError`, the platform propagates its metadata (code, category, retryable, retryAfterMs) all the way to the AI agent, enabling intelligent retry decisions.
+
+## Import
+
+```typescript
+import { ToolError } from '@opentabs-dev/plugin-sdk';
+import type { ErrorCategory, ToolErrorOptions } from '@opentabs-dev/plugin-sdk';
+```
+
+## `ToolError`
+
+Extends the standard `Error` class with machine-readable metadata.
+
+```typescript
+class ToolError extends Error {
+  readonly code: string;
+  readonly retryable: boolean;
+  readonly retryAfterMs: number | undefined;
+  readonly category: ErrorCategory | undefined;
+
+  constructor(message: string, code: string, opts?: ToolErrorOptions);
+
+  static auth(message: string): ToolError;
+  static notFound(message: string, code?: string): ToolError;
+  static rateLimited(message: string, retryAfterMs?: number): ToolError;
+  static validation(message: string): ToolError;
+  static timeout(message: string): ToolError;
+  static internal(message: string): ToolError;
+}
+```
+
+### Constructor
+
+```typescript
+new ToolError(message: string, code: string, opts?: ToolErrorOptions)
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Parameter</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Required</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`message`</Table.Cell>
+      <Table.Cell>`string`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+      <Table.Cell>Human-readable error message.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`code`</Table.Cell>
+      <Table.Cell>`string`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+      <Table.Cell>Machine-readable error code (e.g., `'CHANNEL_NOT_FOUND'`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`opts`</Table.Cell>
+      <Table.Cell>`ToolErrorOptions`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Structured metadata (see below).</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+### `ToolErrorOptions`
+
+```typescript
+interface ToolErrorOptions {
+  retryable?: boolean;     // Default: false
+  retryAfterMs?: number;   // Suggested retry delay in milliseconds
+  category?: ErrorCategory;
+}
+```
+
+### Properties
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Property</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`code`</Table.Cell>
+      <Table.Cell>`string`</Table.Cell>
+      <Table.Cell>Machine-readable error code. Factory methods set this automatically.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`retryable`</Table.Cell>
+      <Table.Cell>`boolean`</Table.Cell>
+      <Table.Cell>Whether the AI agent should retry. Defaults to `false`.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`retryAfterMs`</Table.Cell>
+      <Table.Cell>`number \| undefined`</Table.Cell>
+      <Table.Cell>Suggested delay before retrying, in milliseconds.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`category`</Table.Cell>
+      <Table.Cell>`ErrorCategory \| undefined`</Table.Cell>
+      <Table.Cell>Error classification. One of: `'auth'`, `'rate_limit'`, `'not_found'`, `'validation'`, `'internal'`, `'timeout'`.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+---
+
+## Factory Methods
+
+Prefer factory methods over the constructor — they set the correct code, category, and retryable values automatically.
+
+### `ToolError.auth(message)`
+
+Authentication or authorization error. Not retryable — the user needs to log in or fix permissions.
+
+```typescript
+static auth(message: string): ToolError;
+// Sets: code='AUTH_ERROR', category='auth', retryable=false
+```
+
+```typescript
+throw ToolError.auth('Not logged in — open the app and sign in first');
+```
+
+### `ToolError.notFound(message, code?)`
+
+Resource not found. Not retryable — the item doesn't exist. Accepts an optional domain-specific code (defaults to `'NOT_FOUND'`).
+
+```typescript
+static notFound(message: string, code?: string): ToolError;
+// Sets: code=code??'NOT_FOUND', category='not_found', retryable=false
+```
+
+```typescript
+throw ToolError.notFound(`Channel "${name}" not found`);
+throw ToolError.notFound(`User "${id}" not found`, 'USER_NOT_FOUND');
+```
+
+### `ToolError.rateLimited(message, retryAfterMs?)`
+
+Rate limited by the target API. Retryable — the agent should wait and try again. If you know the retry delay, pass `retryAfterMs` so the agent waits the right amount of time.
+
+```typescript
+static rateLimited(message: string, retryAfterMs?: number): ToolError;
+// Sets: code='RATE_LIMITED', category='rate_limit', retryable=true
+```
+
+```typescript
+throw ToolError.rateLimited('Too many requests');
+throw ToolError.rateLimited('Rate limited by Slack API', 2000);
+```
+
+### `ToolError.validation(message)`
+
+Input validation error. Not retryable — the agent needs to fix its input.
+
+```typescript
+static validation(message: string): ToolError;
+// Sets: code='VALIDATION_ERROR', category='validation', retryable=false
+```
+
+```typescript
+throw ToolError.validation('Channel name cannot be empty');
+```
+
+### `ToolError.timeout(message)`
+
+Operation timed out. Retryable — the operation may succeed on the next attempt.
+
+```typescript
+static timeout(message: string): ToolError;
+// Sets: code='TIMEOUT', category='timeout', retryable=true
+```
+
+```typescript
+throw ToolError.timeout('Dashboard took too long to load');
+```
+
+### `ToolError.internal(message)`
+
+Internal or unexpected error. Not retryable — this indicates a bug in the plugin.
+
+```typescript
+static internal(message: string): ToolError;
+// Sets: code='INTERNAL_ERROR', category='internal', retryable=false
+```
+
+```typescript
+throw ToolError.internal('Unexpected response format from API');
+```
+
+---
+
+## Factory Summary
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Factory</Table.Head>
+      <Table.Head>Code</Table.Head>
+      <Table.Head>Category</Table.Head>
+      <Table.Head>Retryable</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ToolError.auth()`</Table.Cell>
+      <Table.Cell>`AUTH_ERROR`</Table.Cell>
+      <Table.Cell>`auth`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ToolError.notFound()`</Table.Cell>
+      <Table.Cell>`NOT_FOUND`</Table.Cell>
+      <Table.Cell>`not_found`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ToolError.rateLimited()`</Table.Cell>
+      <Table.Cell>`RATE_LIMITED`</Table.Cell>
+      <Table.Cell>`rate_limit`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ToolError.validation()`</Table.Cell>
+      <Table.Cell>`VALIDATION_ERROR`</Table.Cell>
+      <Table.Cell>`validation`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ToolError.timeout()`</Table.Cell>
+      <Table.Cell>`TIMEOUT`</Table.Cell>
+      <Table.Cell>`timeout`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ToolError.internal()`</Table.Cell>
+      <Table.Cell>`INTERNAL_ERROR`</Table.Cell>
+      <Table.Cell>`internal`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+---
+
+## `ErrorCategory`
+
+The six standard error categories:
+
+```typescript
+type ErrorCategory = 'auth' | 'rate_limit' | 'not_found' | 'validation' | 'internal' | 'timeout';
+```
+
+---
+
+## Propagation
+
+When a tool handler throws a `ToolError`, the structured metadata propagates through the entire dispatch chain:
+
+1. **Tool handler** throws `ToolError` in the page context
+2. **Adapter IIFE** serializes the error fields (`code`, `category`, `retryable`, `retryAfterMs`) into the dispatch response
+3. **Chrome extension** relays the structured error over WebSocket to the MCP server
+4. **MCP server** formats the error response with both a human-readable prefix and a machine-readable JSON block
+
+The AI agent receives an error response like:
+
+```
+[ERROR code=RATE_LIMITED category=rate_limit retryable=true retryAfterMs=2000] Too many requests
+
+---
+{"code":"RATE_LIMITED","retryable":true,"retryAfterMs":2000,"category":"rate_limit"}
+```
+
+The first line is human-readable. The JSON block after `---` is machine-parseable, enabling AI agents to programmatically decide whether to retry, how long to wait, and what kind of error occurred.
+
+## Custom Error Codes
+
+Use the constructor directly when the factory methods don't fit your use case:
+
+```typescript
+throw new ToolError(
+  'Export exceeds 10,000 row limit',
+  'EXPORT_TOO_LARGE',
+  { category: 'validation', retryable: false },
+);
+```
+
+For most cases, prefer the factory methods — they ensure consistent codes and categories across the ecosystem. See the [Error Handling](/docs/guides/error-handling) guide for best practices and patterns.
