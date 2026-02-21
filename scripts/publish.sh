@@ -23,6 +23,12 @@ if [ -z "$VERSION" ]; then
   exit 1
 fi
 
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Warning: git working directory has uncommitted changes."
+  read -p "Continue anyway? [y/N] " confirm
+  [[ "$confirm" == [yY] ]] || exit 1
+fi
+
 echo "==> Verifying npm authentication..."
 NPM_USER=$(npm whoami 2>&1) || {
   echo "Error: npm authentication failed."
@@ -71,8 +77,17 @@ npm publish --access restricted -w platform/cli
 
 echo ""
 echo "==> Published all packages at v$VERSION"
+
+echo ""
+echo "==> Creating release commit and tag..."
+git add platform/shared/package.json platform/plugin-sdk/package.json platform/plugin-tools/package.json platform/cli/package.json
+git commit -m "release: v$VERSION"
+git tag "v$VERSION"
+
+echo ""
+echo "==> Release v$VERSION committed and tagged."
 echo ""
 echo "Next steps:"
-echo "  1. Update plugin dependencies: sed -i.bak 's/\"\\^[0-9.]*\"/\"^$VERSION\"/' plugins/*/package.json && rm plugins/*/package.json.bak"
-echo "  2. Rebuild plugins: cd plugins/slack && bun install && bun run build"
-echo "  3. Commit the version bump"
+echo "  1. git push && git push --tags"
+echo "  2. Update plugin dependencies: sed -i.bak 's/\"\\^[0-9.]*\"/\"^$VERSION\"/' plugins/*/package.json && rm plugins/*/package.json.bak"
+echo "  3. Rebuild plugins: cd plugins/<name> && bun install && bun run build"
