@@ -46,16 +46,19 @@ bun run build
 
 echo ""
 echo "==> Bumping versions to $VERSION..."
-for pkg in platform/shared platform/plugin-sdk platform/cli; do
+for pkg in platform/shared platform/plugin-sdk platform/plugin-tools platform/cli; do
   sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$pkg/package.json"
   echo "  $pkg/package.json → $VERSION"
 done
 
 # Update cross-references to new version
-for pkg in platform/plugin-sdk platform/cli; do
+for pkg in platform/plugin-sdk platform/plugin-tools platform/cli; do
   sed -i '' "s/\"@opentabs-dev\/shared\": \"\\^[^\"]*\"/\"@opentabs-dev\/shared\": \"^$VERSION\"/" "$pkg/package.json"
 done
-sed -i '' "s/\"@opentabs-dev\/plugin-sdk\": \"\\^[^\"]*\"/\"@opentabs-dev\/plugin-sdk\": \"^$VERSION\"/" platform/cli/package.json
+for pkg in platform/plugin-tools platform/cli; do
+  sed -i '' "s/\"@opentabs-dev\/plugin-sdk\": \"\\^[^\"]*\"/\"@opentabs-dev\/plugin-sdk\": \"^$VERSION\"/" "$pkg/package.json"
+done
+sed -i '' "s/\"@opentabs-dev\/plugin-tools\": \"\\^[^\"]*\"/\"@opentabs-dev\/plugin-tools\": \"^$VERSION\"/" platform/cli/package.json
 
 echo ""
 echo "==> Rebuilding with new versions..."
@@ -81,6 +84,9 @@ npm publish --access restricted -w platform/shared
 
 echo "  Publishing @opentabs-dev/plugin-sdk@$VERSION..."
 npm publish --access restricted -w platform/plugin-sdk
+
+echo "  Publishing @opentabs-dev/plugin-tools@$VERSION..."
+npm publish --access restricted -w platform/plugin-tools
 
 echo "  Publishing @opentabs-dev/cli@$VERSION..."
 npm publish --access restricted -w platform/cli
