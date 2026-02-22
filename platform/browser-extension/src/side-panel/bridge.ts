@@ -122,6 +122,22 @@ const setToolEnabled = (plugin: string, tool: string, enabled: boolean): Promise
 const setAllToolsEnabled = (plugin: string, enabled: boolean): Promise<unknown> =>
   sendRequest('config.setAllToolsEnabled', { plugin, enabled });
 
+/** Send a confirmation response to the MCP server via the background script (fire-and-forget) */
+const sendConfirmationResponse = (
+  id: string,
+  decision: 'allow_once' | 'allow_always' | 'deny',
+  scope?: 'tool_domain' | 'tool_all' | 'domain_all',
+): void => {
+  chrome.runtime
+    .sendMessage({
+      type: 'sp:confirmationResponse' as const,
+      data: { id, decision, ...(scope ? { scope } : {}) },
+    })
+    .catch((err: unknown) => {
+      console.warn('[opentabs:side-panel] Failed to send confirmation response:', err);
+    });
+};
+
 export type { FailedPluginState, PluginState };
 export {
   getConnectionState,
@@ -130,4 +146,5 @@ export {
   setAllToolsEnabled,
   handleServerResponse,
   rejectAllPending,
+  sendConfirmationResponse,
 };

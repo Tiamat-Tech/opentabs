@@ -1,7 +1,7 @@
 import { bgLogCollector } from './bg-log-state.js';
 import { KEEPALIVE_ALARM, KEEPALIVE_INTERVAL_MINUTES, PLUGINS_META_KEY, WS_CONNECTED_KEY } from './constants.js';
 import { injectPluginsIntoTab, reinjectStoredPlugins } from './iife-injection.js';
-import { handleServerMessage } from './message-router.js';
+import { handleServerMessage, clearConfirmationBadge, clearAllConfirmationBadges } from './message-router.js';
 import { forwardToSidePanel, sendToServer } from './messaging.js';
 import { invalidatePluginCache } from './plugin-storage.js';
 import { checkTabStateChanges, clearTabStateCache, sendTabSyncAll } from './tab-state.js';
@@ -192,6 +192,7 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
       }
       if (!nowConnected && wasConnected) {
         clearTabStateCache();
+        clearAllConfirmationBadges();
       }
       sendResponse({ ok: true });
       return true;
@@ -273,6 +274,7 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
           params: message.data,
         });
       }
+      clearConfirmationBadge();
       sendResponse({ ok: true });
       return true;
     }

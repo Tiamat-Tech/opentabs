@@ -1,4 +1,11 @@
-import { getConnectionState, fetchConfigState, handleServerResponse, rejectAllPending } from './bridge.js';
+import {
+  getConnectionState,
+  fetchConfigState,
+  handleServerResponse,
+  rejectAllPending,
+  sendConfirmationResponse,
+} from './bridge.js';
+import { ConfirmationDialog } from './components/ConfirmationDialog.js';
 import { DisconnectedState, LoadingState } from './components/EmptyStates.js';
 import { Footer } from './components/Footer.js';
 import { OnboardingState } from './components/OnboardingState.js';
@@ -12,6 +19,7 @@ import { Search, X } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FailedPluginState, PluginState } from './bridge.js';
 import type { InternalMessage } from '../types.js';
+import type { ConfirmationData } from './components/ConfirmationDialog.js';
 import type { TabState } from '@opentabs-dev/shared';
 
 const STORAGE_KEY_HAS_EVER_HAD_PLUGINS = 'hasEverHadPlugins';
@@ -27,6 +35,7 @@ const App = () => {
   const [versionMismatch, setVersionMismatch] = useState(false);
   const [toolFilter, setToolFilter] = useState('');
   const [hasEverHadPlugins, setHasEverHadPlugins] = useState<boolean | null>(null);
+  const [pendingConfirmations, setPendingConfirmations] = useState<ConfirmationData[]>([]);
 
   const lastFetchRef = useRef(0);
   const pendingTabStates = useRef<Map<string, TabState>>(new Map());
@@ -90,6 +99,27 @@ const App = () => {
     });
 
     const handleNotification = (data: Record<string, unknown>): void => {
+      if (data.method === 'confirmation.request' && data.params) {
+        const params = data.params as Record<string, unknown>;
+        if (typeof params.id === 'string' && typeof params.tool === 'string' && typeof params.timeoutMs === 'number') {
+          const confirmation: ConfirmationData = {
+            id: params.id,
+            tool: params.tool,
+            domain: typeof params.domain === 'string' ? params.domain : null,
+            tabId: typeof params.tabId === 'number' ? params.tabId : undefined,
+            paramsPreview: typeof params.paramsPreview === 'string' ? params.paramsPreview : '',
+            timeoutMs: params.timeoutMs,
+            receivedAt: Date.now(),
+          };
+          setPendingConfirmations(prev => [...prev, confirmation]);
+          // Auto-remove when the server-side timeout expires (plus a small buffer)
+          const removeDelay = params.timeoutMs + 1000;
+          setTimeout(() => {
+            setPendingConfirmations(prev => prev.filter(c => c.id !== confirmation.id));
+          }, removeDelay);
+        }
+      }
+
       if (data.method === 'tab.stateChanged' && data.params) {
         const params = data.params as Record<string, unknown>;
         if (
@@ -171,6 +201,7 @@ const App = () => {
           setFailedPlugins([]);
           setActiveTools(new Set());
           setVersionMismatch(false);
+          setPendingConfirmations([]);
           rejectAllPending();
         }
         sendResponse({ ok: true });
@@ -211,6 +242,25 @@ const App = () => {
     return () => chrome.runtime.onMessage.removeListener(listener);
   }, [loadPlugins]);
 
+  const handleConfirmationRespond = useCallback(
+    (
+      id: string,
+      decision: 'allow_once' | 'allow_always' | 'deny',
+      scope?: 'tool_domain' | 'tool_all' | 'domain_all',
+    ) => {
+      sendConfirmationResponse(id, decision, scope);
+      setPendingConfirmations(prev => prev.filter(c => c.id !== id));
+    },
+    [],
+  );
+
+  const handleDenyAll = useCallback(() => {
+    for (const c of pendingConfirmations) {
+      sendConfirmationResponse(c.id, 'deny');
+    }
+    setPendingConfirmations([]);
+  }, [pendingConfirmations]);
+
   const totalTools = plugins.reduce((sum, p) => sum + p.tools.length, 0);
   const hasContent = plugins.length > 0 || failedPlugins.length > 0;
   const showPlugins = !loading && connected && hasContent;
@@ -218,6 +268,13 @@ const App = () => {
   return (
     <div className="text-foreground flex min-h-screen flex-col">
       {versionMismatch && <VersionMismatchBanner />}
+      {connected && pendingConfirmations.length > 0 && (
+        <ConfirmationDialog
+          confirmations={pendingConfirmations}
+          onRespond={handleConfirmationRespond}
+          onDenyAll={handleDenyAll}
+        />
+      )}
       {connected && !loading && totalTools > 5 && (
         <div className="px-3 py-2">
           <div className="relative">

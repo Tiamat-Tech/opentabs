@@ -194,6 +194,19 @@ await mock.module('./browser-commands.js', () => ({
   },
   windows: {
     getLastFocused: mock(() => Promise.resolve({ id: 1 })),
+    getCurrent: mock(() => Promise.resolve({ id: 1 })),
+  },
+  action: {
+    setBadgeText: mock(() => Promise.resolve()),
+    setBadgeBackgroundColor: mock(() => Promise.resolve()),
+  },
+  notifications: {
+    create: mock(() => Promise.resolve('')),
+    clear: mock(() => Promise.resolve(true)),
+    onClicked: { addListener: mock() },
+  },
+  sidePanel: {
+    open: mock(() => Promise.resolve()),
   },
 };
 

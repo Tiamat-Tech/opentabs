@@ -446,6 +446,12 @@ const handleServerMessage = (message: Record<string, unknown>): void => {
     forwardToSidePanel({ type: 'sp:serverMessage', data: message });
   }
 
+  // Badge and notification for confirmation requests — alerts the user when a
+  // browser tool needs approval, especially when the side panel is closed.
+  if (method === 'confirmation.request') {
+    notifyConfirmationRequest(params);
+  }
+
   if (!method) return;
 
   const handler = methodHandlers.get(method);
@@ -475,8 +481,77 @@ const handleServerMessage = (message: Record<string, unknown>): void => {
   }
 };
 
+/** Pending confirmation count for badge tracking */
+let pendingConfirmationCount = 0;
+
+/** Update the extension badge to show pending confirmation count */
+const updateConfirmationBadge = (): void => {
+  if (pendingConfirmationCount > 0) {
+    chrome.action.setBadgeText({ text: String(pendingConfirmationCount) }).catch(() => {});
+    chrome.action.setBadgeBackgroundColor({ color: '#ffdb33' }).catch(() => {});
+  } else {
+    chrome.action.setBadgeText({ text: '' }).catch(() => {});
+  }
+};
+
+/**
+ * Show badge and Chrome notification when a confirmation request arrives.
+ * The badge count persists until confirmations are resolved via clearConfirmationBadge().
+ */
+const notifyConfirmationRequest = (params: Record<string, unknown>): void => {
+  pendingConfirmationCount++;
+  updateConfirmationBadge();
+
+  const tool = typeof params.tool === 'string' ? params.tool : 'unknown tool';
+  const domain = typeof params.domain === 'string' ? params.domain : 'unknown domain';
+
+  chrome.notifications
+    .create(`opentabs-confirm-${typeof params.id === 'string' ? params.id : Date.now()}`, {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
+      title: 'OpenTabs: Approval Required',
+      message: `${tool} on ${domain} — Click to open side panel`,
+      priority: 2,
+      requireInteraction: true,
+    })
+    .catch(() => {});
+};
+
+/** Decrement pending confirmation count and update badge */
+const clearConfirmationBadge = (): void => {
+  pendingConfirmationCount = Math.max(0, pendingConfirmationCount - 1);
+  updateConfirmationBadge();
+};
+
+/** Reset all pending confirmation tracking (e.g., on disconnect) */
+const clearAllConfirmationBadges = (): void => {
+  pendingConfirmationCount = 0;
+  updateConfirmationBadge();
+};
+
+// Open the side panel when the user clicks a confirmation notification
+chrome.notifications.onClicked.addListener(notificationId => {
+  if (notificationId.startsWith('opentabs-confirm-')) {
+    chrome.windows
+      .getCurrent()
+      .then(w => {
+        if (w.id !== undefined) {
+          chrome.sidePanel.open({ windowId: w.id }).catch(() => {});
+        }
+      })
+      .catch(() => {});
+    chrome.notifications.clear(notificationId).catch(() => {});
+  }
+});
+
 /** Method names registered in the dispatch table, exported for test verification */
 const methodHandlerNames = Array.from(methodHandlers.keys());
 
-export { handleServerMessage, methodHandlerNames, validatePluginPayload };
+export {
+  handleServerMessage,
+  methodHandlerNames,
+  validatePluginPayload,
+  clearConfirmationBadge,
+  clearAllConfirmationBadges,
+};
 export type { ValidatedPluginPayload };

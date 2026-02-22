@@ -23,6 +23,16 @@
   "side_panel": {
     "default_path": "side-panel/side-panel.html"
   },
-  "permissions": ["offscreen", "storage", "alarms", "tabs", "scripting", "sidePanel", "cookies", "debugger"],
+  "permissions": [
+    "offscreen",
+    "storage",
+    "alarms",
+    "tabs",
+    "scripting",
+    "sidePanel",
+    "cookies",
+    "debugger",
+    "notifications"
+  ],
   "host_permissions": ["<all_urls>"]
 }
