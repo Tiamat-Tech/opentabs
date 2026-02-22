@@ -310,6 +310,7 @@ const createHandleFetch =
         source: p.source,
         sdkVersion: p.sdkVersion ?? null,
         logBufferSize: getLogCount(p.name),
+        ...(p.iconSvg ? { iconSvg: p.iconSvg } : {}),
       }));
 
       const toolCount = state.registry.toolLookup.size + state.cachedBrowserTools.length;

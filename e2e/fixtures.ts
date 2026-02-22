@@ -82,6 +82,7 @@ interface PluginDetail {
   source: string;
   sdkVersion: string | null;
   logBufferSize: number;
+  iconSvg?: string;
 }
 
 interface HealthResponse {
