@@ -7,7 +7,7 @@ description: 'Plan work and generate ralph task files for autonomous execution. 
 
 Plan work and generate PRD files in `.ralph/` for autonomous execution by the Ralph daemon.
 
-Ralph is a bash script (`.ralph/ralph.sh`) that runs as a long-lived daemon, polling `.ralph/` for ready PRD files and processing them in timestamp order. Each PRD file drives a loop of AI coding iterations — one per user story. This skill creates the PRD file that the daemon picks up automatically.
+Ralph is a bash script (`.ralph/ralph.sh`) that runs as a long-lived daemon with parallel workers (default 3). It polls `.ralph/` for ready PRD files, dispatches them to workers by timestamp order, and each worker runs in its own **git worktree** for full isolation — no type-check, lint, or build conflicts between concurrent agents. Each PRD file drives a loop of AI coding iterations — one per user story. This skill creates the PRD file that the daemon picks up automatically.
 
 ---
 
@@ -90,12 +90,12 @@ All file paths in story notes must be relative to the repo root (e.g., `docs/mdx
 ```
 prd-objective~draft.json                       — being written (this skill), ralph ignores
 prd-YYYY-MM-DD-HHMMSS-objective.json           — ready for pickup by ralph daemon (timestamp added at publish time)
-prd-YYYY-MM-DD-HHMMSS-objective~running.json   — currently being executed by ralph
+prd-YYYY-MM-DD-HHMMSS-objective~running.json   — currently being executed by a worker
 prd-YYYY-MM-DD-HHMMSS-objective~done.json      — completed, pending archive
 archived to .ralph/archive/                     — final resting place
 ```
 
-This skill writes with `~draft` (no timestamp). At publish time, a **shell command** generates the real timestamp and renames the file. This ensures correct ordering — the timestamp reflects when the PRD was actually ready, not when writing started.
+Multiple PRDs can be `~running` simultaneously (one per worker). This skill writes with `~draft` (no timestamp). At publish time, a **shell command** generates the real timestamp and renames the file. This ensures correct ordering — the timestamp reflects when the PRD was actually ready, not when writing started.
 
 ---
 
@@ -201,7 +201,7 @@ Keep the objective slug to 3-5 words max.
 **Fields:**
 
 - `workingDirectory` (optional): The subdirectory containing the target project, relative to the repo root (e.g., `"docs"`, `"plugins/slack"`). Omit for root monorepo work. The ralph agent uses this to know which project's conventions and CLAUDE.md to read.
-- `qualityChecks` (optional): A shell command string that overrides the default verification suite. Must match the target project's available scripts. Omit for root monorepo work — the ralph agent defaults to `bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e`.
+- `qualityChecks` (optional): A shell command string that overrides the default verification suite. Must match the target project's available scripts. Omit for root monorepo work — the ralph agent uses two-phase verification: fast checks (`build`, `type-check`, `lint`, `knip`, `test`) during iteration, then the full suite including `test:e2e` before committing.
 - `passes`: MUST be the boolean `false`, not `null` or omitted. Ralph checks `passes == false` to find incomplete stories.
 
 ---
@@ -259,6 +259,16 @@ Stories execute in priority order (1 = first). Earlier stories must not depend o
 3. Frontend / UI changes
 4. Tests and documentation
 
+### Minimize Merge Conflicts Across PRDs
+
+Ralph runs workers in parallel. When two workers finish, their branches are merged sequentially into main. If both touched the same files, the second merge will conflict. Ralph preserves the conflicting branch for manual resolution and moves on.
+
+**To reduce conflicts:**
+
+- **Avoid overlapping file changes across PRDs.** If two PRDs both need to edit `platform/mcp-server/src/index.ts`, put those stories in the SAME PRD so one agent handles both.
+- **Split by module boundary.** PRD-A touches `plugin-sdk/`, PRD-B touches `mcp-server/` — zero conflict risk.
+- **If overlap is unavoidable**, order the PRDs by dependency — put the foundational changes first (lower timestamp = dispatched first = merged first).
+
 ### Acceptance Criteria: Must Be Verifiable
 
 Each criterion must be something the agent can CHECK, not something vague.
@@ -292,7 +302,9 @@ After publishing the PRD file, tell the user:
    - **Watch ralph daemon:** `tail -f .ralph/ralph.log`
    - **Check PRD state:** `ls -la .ralph/prd-*.json` (look for `~running` suffix)
    - **Check progress:** `cat .ralph/progress-*.txt`
-   - **Start ralph daemon** (if not running): `nohup .ralph/ralph.sh &`
+   - **Check worktrees:** `git worktree list`
+   - **Start ralph daemon** (if not running): `nohup bash .ralph/ralph.sh --workers 3 &`
+   - **Start for a single batch:** `nohup bash .ralph/ralph.sh --workers 3 --once &`
 
 ---
 

@@ -847,16 +847,16 @@ if [ -n "$RUNNING_PRDS" ]; then
   while IFS= read -r rprd; do
     [ -z "$rprd" ] && continue
     echo -e "$(ts) ${YELLOW}  - $(basename "$rprd")${RESET}"
+    # dispatch_prd expects a non-running file and calls mark_running itself,
+    # so rename ~running back to ready. If a slot is free, dispatch now;
+    # otherwise the main loop will pick it up when a slot opens.
+    local_ready="${rprd/\~running.json/.json}"
+    mv "$rprd" "$local_ready" 2>/dev/null || true
     SLOT=$(find_free_slot)
     if [ -n "$SLOT" ]; then
-      # The PRD is already ~running, dispatch it directly.
-      # dispatch_prd expects a non-running file and calls mark_running itself,
-      # so we temporarily rename it back to ready for dispatch.
-      local_ready="${rprd/\~running.json/.json}"
-      mv "$rprd" "$local_ready"
       dispatch_prd "$local_ready" "$SLOT" || true
     else
-      echo -e "$(ts) ${YELLOW}  (no free slots, will retry later)${RESET}"
+      echo -e "$(ts) ${YELLOW}  (no free slots — will dispatch when a slot opens)${RESET}"
     fi
   done <<< "$RUNNING_PRDS"
 fi
