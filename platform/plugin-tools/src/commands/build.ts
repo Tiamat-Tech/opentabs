@@ -5,6 +5,7 @@
  * With `--watch`, rebuilds automatically when tsc output in `dist/` changes.
  */
 
+import { generateInactiveIcon, validateIconSvg, validateInactiveIconColors } from '../validate-icon.js';
 import { validatePluginName, validateUrlPattern, LUCIDE_ICON_NAMES } from '@opentabs-dev/plugin-sdk';
 import { parsePluginPackageJson } from '@opentabs-dev/shared';
 import pc from 'picocolors';
@@ -287,9 +288,87 @@ const convertToolSchemas = (tool: ToolDefinition) => {
   return { inputSchema, outputSchema };
 };
 
+/**
+ * Minify an SVG string by removing XML comments, collapsing whitespace
+ * between tags to a single space, and trimming leading/trailing whitespace.
+ */
+const minifySvg = (svg: string): string =>
+  svg
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/>\s+</g, '> <')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+/** Result of reading and validating icon files from a plugin directory */
+interface IconResult {
+  iconSvg?: string;
+  iconInactiveSvg?: string;
+}
+
+/**
+ * Read, validate, and optionally auto-generate icon files for a plugin.
+ * Throws on validation failure or invalid file combinations.
+ * Returns the minified SVG strings if icons are present.
+ */
+const readAndValidateIcons = async (projectDir: string): Promise<IconResult> => {
+  const iconPath = join(projectDir, 'icon.svg');
+  const inactivePath = join(projectDir, 'icon-inactive.svg');
+
+  const hasIcon = await Bun.file(iconPath).exists();
+  const hasInactive = await Bun.file(inactivePath).exists();
+
+  // No icons — nothing to do
+  if (!hasIcon && !hasInactive) {
+    console.log(pc.dim('Plugin icon: none (using letter avatar)'));
+    return {};
+  }
+
+  // icon-inactive.svg without icon.svg is an error
+  if (!hasIcon && hasInactive) {
+    throw new Error(
+      'icon-inactive.svg requires icon.svg to also be present. Add an icon.svg or remove icon-inactive.svg.',
+    );
+  }
+
+  // Read and validate icon.svg
+  const iconContent = await Bun.file(iconPath).text();
+  const iconValidation = validateIconSvg(iconContent, 'icon.svg');
+  if (!iconValidation.valid) {
+    throw new Error(`icon.svg validation failed:\n${iconValidation.errors.map(e => `  - ${e}`).join('\n')}`);
+  }
+
+  const minifiedIcon = minifySvg(iconContent);
+
+  if (hasInactive) {
+    // Manual override: read and validate icon-inactive.svg
+    const inactiveContent = await Bun.file(inactivePath).text();
+    const inactiveStructValidation = validateIconSvg(inactiveContent, 'icon-inactive.svg');
+    if (!inactiveStructValidation.valid) {
+      throw new Error(
+        `icon-inactive.svg validation failed:\n${inactiveStructValidation.errors.map(e => `  - ${e}`).join('\n')}`,
+      );
+    }
+    const inactiveColorValidation = validateInactiveIconColors(inactiveContent);
+    if (!inactiveColorValidation.valid) {
+      throw new Error(
+        `icon-inactive.svg color validation failed:\n${inactiveColorValidation.errors.map(e => `  - ${e}`).join('\n')}`,
+      );
+    }
+    console.log(pc.dim('Plugin icon: icon.svg + icon-inactive.svg found (manual override)'));
+    return { iconSvg: minifiedIcon, iconInactiveSvg: minifySvg(inactiveContent) };
+  }
+
+  // Auto-generate inactive variant
+  const inactiveGenerated = generateInactiveIcon(iconContent);
+  console.log(pc.dim('Plugin icon: icon.svg found, auto-generating inactive variant'));
+  return { iconSvg: minifiedIcon, iconInactiveSvg: minifySvg(inactiveGenerated) };
+};
+
 /** Full manifest shape written to dist/tools.json */
 interface PluginManifestOutput {
   sdkVersion: string;
+  iconSvg?: string;
+  iconInactiveSvg?: string;
   tools: ManifestTool[];
   resources: ManifestResource[];
   prompts: ManifestPrompt[];
@@ -395,8 +474,10 @@ const resolveSdkVersion = async (projectDir: string): Promise<string> => {
 };
 
 /** Generate the full manifest (tools + resources + prompts) for dist/tools.json */
-const generateManifest = (plugin: OpenTabsPlugin, sdkVersion: string): PluginManifestOutput => ({
+const generateManifest = (plugin: OpenTabsPlugin, sdkVersion: string, icons?: IconResult): PluginManifestOutput => ({
   sdkVersion,
+  ...(icons?.iconSvg ? { iconSvg: icons.iconSvg } : {}),
+  ...(icons?.iconInactiveSvg ? { iconInactiveSvg: icons.iconInactiveSvg } : {}),
   tools: generateToolsManifest(plugin),
   resources: generateResourcesManifest(plugin.resources ?? []),
   prompts: generatePromptsManifest(plugin.prompts ?? []),
@@ -634,6 +715,9 @@ const runBuild = async (projectDir: string): Promise<void> => {
   console.log(pc.dim('Validating package.json opentabs field...'));
   const pkgJson = validatePackageJson(pkgJsonRaw, projectDir);
 
+  // Step 1b: Read and validate icon files (if present)
+  const icons = await readAndValidateIcons(projectDir);
+
   // Determine entry point — look for compiled output in dist/
   const entryPoint = resolve(projectDir, 'dist', 'index.js');
   const sourceEntry = resolve(projectDir, 'src', 'index.ts');
@@ -711,9 +795,9 @@ const runBuild = async (projectDir: string): Promise<void> => {
   console.log(pc.dim('Resolving SDK version...'));
   const sdkVersion = await resolveSdkVersion(projectDir);
 
-  // Step 6: Generate dist/tools.json (tool schemas + resource/prompt metadata)
+  // Step 6: Generate dist/tools.json (tool schemas + resource/prompt metadata + icons)
   console.log(pc.dim('Generating tools.json...'));
-  const manifest = generateManifest(plugin, sdkVersion);
+  const manifest = generateManifest(plugin, sdkVersion, icons);
   const toolsJsonPath = join(distDir, 'tools.json');
   await Bun.write(toolsJsonPath, JSON.stringify(manifest, null, 2) + '\n');
   const toolCount = manifest.tools.length;
@@ -856,7 +940,9 @@ export {
   generatePromptsManifest,
   generateResourcesManifest,
   generateToolsManifest,
+  minifySvg,
   notifyServer,
+  readAndValidateIcons,
   registerBuildCommand,
   registerInConfig,
   resolveSdkVersion,

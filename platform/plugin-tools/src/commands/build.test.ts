@@ -7,10 +7,15 @@ import {
   generatePromptsManifest,
   generateResourcesManifest,
   generateToolsManifest,
+  minifySvg,
+  readAndValidateIcons,
   validatePlugin,
 } from './build.js';
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { z } from 'zod';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type {
   LucideIconName,
   OpenTabsPlugin,
@@ -18,6 +23,11 @@ import type {
   ResourceDefinition,
   ToolDefinition,
 } from '@opentabs-dev/plugin-sdk';
+
+/** Write a file to the temp directory, awaiting the result. */
+const writeFile = async (path: string, content: string): Promise<void> => {
+  await Bun.write(path, content);
+};
 
 /**
  * Creates a minimal valid plugin for testing. Override fields as needed.
@@ -741,5 +751,183 @@ describe('generateManifest', () => {
     const manifest = generateManifest(plugin, '0.0.10');
     expect(manifest.resources).toEqual([]);
     expect(manifest.prompts).toEqual([]);
+  });
+
+  test('includes iconSvg and iconInactiveSvg when icons are provided', () => {
+    const plugin = makePlugin({ tools: [makeRealTool()] });
+    const icons = {
+      iconSvg: '<svg viewBox="0 0 32 32"><circle/></svg>',
+      iconInactiveSvg: '<svg viewBox="0 0 32 32"><circle fill="#808080"/></svg>',
+    };
+    const manifest = generateManifest(plugin, '0.0.10', icons);
+    expect(manifest.iconSvg).toBe(icons.iconSvg);
+    expect(manifest.iconInactiveSvg).toBe(icons.iconInactiveSvg);
+  });
+
+  test('omits icon fields when no icons are provided', () => {
+    const plugin = makePlugin({ tools: [makeRealTool()] });
+    const manifest = generateManifest(plugin, '0.0.10');
+    expect(manifest).not.toHaveProperty('iconSvg');
+    expect(manifest).not.toHaveProperty('iconInactiveSvg');
+  });
+
+  test('omits icon fields when icons object has no values', () => {
+    const plugin = makePlugin({ tools: [makeRealTool()] });
+    const manifest = generateManifest(plugin, '0.0.10', {});
+    expect(manifest).not.toHaveProperty('iconSvg');
+    expect(manifest).not.toHaveProperty('iconInactiveSvg');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// minifySvg
+// ---------------------------------------------------------------------------
+
+describe('minifySvg', () => {
+  test('removes XML comments', () => {
+    const input = '<svg><!-- comment --><rect/></svg>';
+    expect(minifySvg(input)).toBe('<svg><rect/></svg>');
+  });
+
+  test('removes multi-line XML comments', () => {
+    const input = '<svg>\n<!-- multi\nline\ncomment -->\n<rect/></svg>';
+    expect(minifySvg(input)).toBe('<svg> <rect/></svg>');
+  });
+
+  test('collapses whitespace between tags', () => {
+    const input = '<svg>   <rect/>   <circle/>   </svg>';
+    expect(minifySvg(input)).toBe('<svg> <rect/> <circle/> </svg>');
+  });
+
+  test('collapses runs of whitespace to single space', () => {
+    const input = '<svg   viewBox="0 0 32 32">  <rect  /></svg>';
+    expect(minifySvg(input)).toBe('<svg viewBox="0 0 32 32"> <rect /></svg>');
+  });
+
+  test('trims leading and trailing whitespace', () => {
+    const input = '  \n  <svg><rect/></svg>  \n  ';
+    expect(minifySvg(input)).toBe('<svg><rect/></svg>');
+  });
+
+  test('handles already-minified SVGs', () => {
+    const input = '<svg viewBox="0 0 32 32"><rect/></svg>';
+    expect(minifySvg(input)).toBe(input);
+  });
+
+  test('handles empty SVG', () => {
+    expect(minifySvg('<svg></svg>')).toBe('<svg></svg>');
+  });
+
+  test('removes multiple comments', () => {
+    const input = '<svg><!-- a --><rect/><!-- b --><circle/></svg>';
+    expect(minifySvg(input)).toBe('<svg><rect/><circle/></svg>');
+  });
+
+  test('preserves attribute values with spaces', () => {
+    const input = '<svg viewBox="0 0 32 32">\n  <rect fill="rgb(255, 0, 0)"/>\n</svg>';
+    expect(minifySvg(input)).toBe('<svg viewBox="0 0 32 32"> <rect fill="rgb(255, 0, 0)"/> </svg>');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// readAndValidateIcons
+// ---------------------------------------------------------------------------
+
+const VALID_ICON_SVG =
+  '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="12" fill="#ff0000"/></svg>';
+const VALID_INACTIVE_SVG =
+  '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="12" fill="#808080"/></svg>';
+
+describe('readAndValidateIcons', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'opentabs-icon-test-'));
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('returns empty when no icon files exist', async () => {
+    const result = await readAndValidateIcons(tmpDir);
+    expect(result).toEqual({});
+  });
+
+  test('auto-generates inactive icon when only icon.svg exists', async () => {
+    await writeFile(join(tmpDir, 'icon.svg'), VALID_ICON_SVG);
+    const result = await readAndValidateIcons(tmpDir);
+    expect(result.iconSvg).toBeDefined();
+    expect(result.iconInactiveSvg).toBeDefined();
+    // The active icon preserves original colors and is minified
+    expect(result.iconSvg).toContain('#ff0000');
+    expect(result.iconSvg).toContain('viewBox="0 0 32 32"');
+    // The inactive icon should have grayscale colors (no red)
+    expect(result.iconInactiveSvg).not.toContain('#ff0000');
+  });
+
+  test('uses manual override when both icon files exist', async () => {
+    await writeFile(join(tmpDir, 'icon.svg'), VALID_ICON_SVG);
+    await writeFile(join(tmpDir, 'icon-inactive.svg'), VALID_INACTIVE_SVG);
+    const result = await readAndValidateIcons(tmpDir);
+    expect(result.iconSvg).toBeDefined();
+    expect(result.iconInactiveSvg).toBeDefined();
+    // Manual override should contain the original gray value
+    expect(result.iconInactiveSvg).toContain('#808080');
+  });
+
+  test('throws when icon-inactive.svg exists without icon.svg', async () => {
+    await writeFile(join(tmpDir, 'icon-inactive.svg'), VALID_INACTIVE_SVG);
+    expect(readAndValidateIcons(tmpDir)).rejects.toThrow('icon-inactive.svg requires icon.svg');
+  });
+
+  test('throws when icon.svg is invalid (missing viewBox)', async () => {
+    await writeFile(join(tmpDir, 'icon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>');
+    expect(readAndValidateIcons(tmpDir)).rejects.toThrow('icon.svg validation failed');
+  });
+
+  test('throws when icon.svg has non-square viewBox', async () => {
+    const nonSquare = '<svg viewBox="0 0 32 24" xmlns="http://www.w3.org/2000/svg"><rect/></svg>';
+    await writeFile(join(tmpDir, 'icon.svg'), nonSquare);
+    expect(readAndValidateIcons(tmpDir)).rejects.toThrow('icon.svg validation failed');
+  });
+
+  test('throws when icon-inactive.svg has invalid structure', async () => {
+    await writeFile(join(tmpDir, 'icon.svg'), VALID_ICON_SVG);
+    await writeFile(
+      join(tmpDir, 'icon-inactive.svg'),
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect fill="#808080"/></svg>',
+    );
+    expect(readAndValidateIcons(tmpDir)).rejects.toThrow('icon-inactive.svg validation failed');
+  });
+
+  test('throws when icon-inactive.svg has saturated colors', async () => {
+    const coloredInactive =
+      '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle fill="#ff0000"/></svg>';
+    await writeFile(join(tmpDir, 'icon.svg'), VALID_ICON_SVG);
+    await writeFile(join(tmpDir, 'icon-inactive.svg'), coloredInactive);
+    expect(readAndValidateIcons(tmpDir)).rejects.toThrow('icon-inactive.svg color validation failed');
+  });
+
+  test('minifies SVGs before returning', async () => {
+    const unminified = [
+      '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">',
+      '  <!-- Active icon -->',
+      '  <circle cx="16" cy="16" r="12" fill="#ff0000"/>',
+      '</svg>',
+    ].join('\n');
+    await writeFile(join(tmpDir, 'icon.svg'), unminified);
+    const result = await readAndValidateIcons(tmpDir);
+    expect(result.iconSvg).not.toContain('<!--');
+    expect(result.iconSvg).not.toContain('\n');
+  });
+
+  test('auto-generated inactive icon does not contain original colors', async () => {
+    const multiColor =
+      '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><rect fill="#ff0000"/><circle stroke="#00ff00"/></svg>';
+    await writeFile(join(tmpDir, 'icon.svg'), multiColor);
+    const result = await readAndValidateIcons(tmpDir);
+    expect(result.iconInactiveSvg).not.toContain('#ff0000');
+    expect(result.iconInactiveSvg).not.toContain('#00ff00');
   });
 });
