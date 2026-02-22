@@ -5,12 +5,13 @@
  * Tests cover:
  *   - Progress notifications flow through the pipeline and are captured by the client
  *   - Progress fields (progress, total, message) are preserved end-to-end
+ *   - Indeterminate progress (progress=0, total=0, message-only) flows through correctly
  *   - Progress resets the dispatch timeout, allowing tools to run past 30s
  *   - Tools without progress still time out at the default 30s/25s
  *
  * Prerequisites:
  *   - `bun run build` has been run (platform dist/ files exist)
- *   - `plugins/e2e-test` has been built with the slow_with_progress tool
+ *   - `plugins/e2e-test` has been built with slow_with_progress and indeterminate_progress tools
  *   - Chromium is installed for Playwright
  */
 
@@ -95,6 +96,43 @@ test.describe('Progress reporting — full pipeline', () => {
     if (!last) throw new Error('Missing last notification');
     expect(last.progress).toBe(5);
     expect(last.total).toBe(5);
+
+    await page.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Indeterminate progress (no progress/total — message only)
+// ---------------------------------------------------------------------------
+
+test.describe('Indeterminate progress reporting', () => {
+  test('indeterminate_progress sends notifications with progress=0, total=0', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    const result = await mcpClient.callToolWithProgress('e2e-test_indeterminate_progress', {}, { timeout: 30_000 });
+
+    // Tool should succeed
+    expect(result.isError).toBe(false);
+    const output = parseToolResult(result.content);
+    expect(output.ok).toBe(true);
+
+    // All 3 indeterminate progress notifications should be received
+    expect(result.progressNotifications.length).toBe(3);
+
+    // Each notification should have the indeterminate sentinel values (0, 0) and a message
+    expect(result.progressNotifications[0]?.message).toBe('Step 1: Initializing...');
+    expect(result.progressNotifications[1]?.message).toBe('Step 2: Processing...');
+    expect(result.progressNotifications[2]?.message).toBe('Step 3: Finishing...');
+
+    for (const notif of result.progressNotifications) {
+      expect(notif.progress).toBe(0);
+      expect(notif.total).toBe(0);
+    }
 
     await page.close();
   });
