@@ -73,7 +73,7 @@ opentabs status
 opentabs doctor
 ```
 
-You're ready. Your AI agent can now use all registered plugin tools and the 36 built-in browser tools.
+You're ready. Your AI agent can now use all registered plugin tools and the 37 built-in browser tools.
 
 ---
 
@@ -102,19 +102,15 @@ bun run build
 
 This compiles your plugin, generates `dist/adapter.iife.js` and `dist/tools.json`, registers the plugin in `~/.opentabs/config.json` under `localPlugins`, and notifies the running server via `POST /reload`.
 
-### Start the server in dev mode
+### Rebuild and reload
 
-For automatic reload when you rebuild your plugin:
-
-```bash
-opentabs start --dev
-```
-
-Dev mode watches your local plugin's `dist/` directory and automatically reloads when files change. You can also rebuild manually:
+Every time you rebuild, the server picks up your changes automatically:
 
 ```bash
-bun run build   # The build command notifies the server via POST /reload
+bun run build   # Compiles, builds adapter, and notifies the server via POST /reload
 ```
+
+The `opentabs-plugin build` step (part of `bun run build`) calls `POST /reload` on the running server, triggering plugin rediscovery. No server restart needed.
 
 See the [Plugin Development guide](/docs/guides/plugin-development) for a complete walkthrough of building your first plugin.
 

@@ -258,6 +258,23 @@ const result = await postJSON<{ id: string }>("/api/items", {
 });
 ```
 
+The SDK also provides `putJSON`, `patchJSON`, and `deleteJSON` for other HTTP methods. `putJSON` and `patchJSON` follow the same signature as `postJSON` — `deleteJSON` omits the body parameter:
+
+```typescript
+import { putJSON, patchJSON, deleteJSON } from "@opentabs-dev/plugin-sdk";
+
+// PUT — full replace
+await putJSON("/api/items/abc123", { title: "Updated", status: "archived" });
+
+// PATCH — partial update
+await patchJSON("/api/items/abc123", { status: "archived" });
+
+// DELETE — no body
+await deleteJSON("/api/items/abc123");
+```
+
+All JSON fetch helpers support an optional Zod schema as the last argument for response validation. See the [Utilities reference](/docs/sdk/utilities) for the full API.
+
 ### Wait for DOM elements
 
 Use `waitForSelector` when the page loads asynchronously:
