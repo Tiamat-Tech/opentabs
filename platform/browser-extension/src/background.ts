@@ -141,7 +141,30 @@ chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
 
 // --- Message routing (offscreen, side panel, content scripts) ---
 
-chrome.runtime.onMessage.addListener((message: InternalMessage, _sender, sendResponse) => {
+// Message types that must originate from extension contexts (offscreen document,
+// side panel, popup) — never from ISOLATED-world content scripts on web pages.
+const EXTENSION_ONLY_TYPES: ReadonlySet<InternalMessage['type']> = new Set([
+  'offscreen:getUrl',
+  'ws:state',
+  'ws:message',
+  'bg:send',
+  'bg:getConnectionState',
+  'bg:getLogs',
+]);
+
+chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResponse) => {
+  // Guard: reject extension-only messages from non-extension senders.
+  // Content scripts on web pages have sender.id matching the extension, but
+  // only when they are registered by this extension. A compromised ISOLATED-world
+  // script injected by the extension still shares sender.id. The critical protection
+  // here is against messages from other extensions or contexts where sender.id
+  // differs — e.g., a malicious extension or injected page script using
+  // chrome.runtime.sendMessage with an explicit extensionId.
+  if (EXTENSION_ONLY_TYPES.has(message.type) && sender.id !== chrome.runtime.id) {
+    console.warn(`[opentabs] Rejected ${message.type} from unauthorized sender:`, sender.id ?? sender.url);
+    return false;
+  }
+
   switch (message.type) {
     case 'offscreen:getUrl': {
       // Return the user-configured server URL (or default). The offscreen
