@@ -68,9 +68,9 @@ test.describe('Side panel — plugin list rendering', () => {
       // Verify plugin card shows display name
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
 
-      // With no matching tab open, the PluginIcon shows an outlined (not-ready) state.
-      // The SVG element has fill="none" for not-ready.
-      await expect(sidePanelPage.locator('.bg-muted svg').first()).toHaveAttribute('fill', 'none', {
+      // With no matching tab open, the PluginIcon shows an inactive (not-ready) state
+      // with opacity-50 class. The e2e-test plugin has a custom SVG icon.
+      await expect(sidePanelPage.locator('.border-border.opacity-50 svg').first()).toBeVisible({
         timeout: 5_000,
       });
 
@@ -82,7 +82,9 @@ test.describe('Side panel — plugin list rendering', () => {
       await expect
         .poll(
           async () => {
-            const res = await fetch(`http://localhost:${server.port}/health`);
+            const res = await fetch(`http://localhost:${server.port}/health`, {
+              headers: { Authorization: `Bearer ${server.secret ?? ''}` },
+            });
             const body = (await res.json()) as {
               pluginDetails?: Array<{ name: string; tabState: string }>;
             };
@@ -96,8 +98,8 @@ test.describe('Side panel — plugin list rendering', () => {
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
 
-      // The PluginIcon now shows a filled (ready) state — fill="currentColor"
-      await expect(sidePanelPage.locator('.bg-muted svg').first()).toHaveAttribute('fill', 'currentColor', {
+      // The PluginIcon now shows a filled (ready) state (no opacity-50 on container)
+      await expect(sidePanelPage.locator('.border-border:not(.opacity-50) svg').first()).toBeVisible({
         timeout: 15_000,
       });
 

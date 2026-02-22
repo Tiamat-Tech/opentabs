@@ -40,6 +40,7 @@ const TEST_SERVER_ENTRY = path.join(ROOT, 'e2e/test-server.ts');
 const STRICT_CSP_SERVER_ENTRY = path.join(ROOT, 'e2e/strict-csp-test-server.ts');
 const ANALYZE_SITE_SERVER_ENTRY = path.join(ROOT, 'e2e/analyze-site-test-server.ts');
 const E2E_TEST_PLUGIN_DIR = path.join(ROOT, 'plugins/e2e-test');
+const MCP_SERVER_PKG_PATH = path.join(ROOT, 'platform/mcp-server/package.json');
 const PLUGIN_SDK_PKG_PATH = path.join(ROOT, 'platform/plugin-sdk/package.json');
 
 // ---------------------------------------------------------------------------
@@ -420,6 +421,15 @@ const createServerWrapper = (): {
  */
 const startMcpServer = (configDir: string, hot: boolean = true, explicitPort?: number): Promise<McpServer> =>
   new Promise<McpServer>((resolve, reject) => {
+    // Pre-create the extension version marker so ensureExtensionInstalled()
+    // sees a matching version and does NOT trigger extension.reload on connect.
+    // Without this, the fresh temp configDir always causes a version mismatch,
+    // leading to chrome.runtime.reload() which disconnects the extension.
+    const extensionDir = path.join(configDir, 'extension');
+    fs.mkdirSync(extensionDir, { recursive: true });
+    const serverVersion = (JSON.parse(fs.readFileSync(MCP_SERVER_PKG_PATH, 'utf-8')) as { version: string }).version;
+    fs.writeFileSync(path.join(extensionDir, '.opentabs-version'), serverVersion, 'utf-8');
+
     const { wrapperDir, entryFile, rewriteWrapper } = createServerWrapper();
     // E2E tests require dev mode (file watchers, hot reload, config watching).
     const args = hot ? ['--hot', entryFile, '--dev'] : [entryFile, '--dev'];
@@ -435,6 +445,7 @@ const startMcpServer = (configDir: string, hot: boolean = true, explicitPort?: n
         ...process.env,
         PORT: portStr,
         OPENTABS_CONFIG_DIR: configDir,
+        OPENTABS_SKIP_CONFIRMATION: '1',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });

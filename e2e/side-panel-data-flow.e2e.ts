@@ -120,9 +120,8 @@ test.describe('Side panel data flow — tab state changes', () => {
       // 4. Verify plugin card is visible with 'E2E Test'
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
 
-      // 5. Verify the PluginIcon shows not-ready state (outlined, fill="none")
-      const pluginIconSvg = sidePanelPage.locator('.bg-muted svg').first();
-      await expect(pluginIconSvg).toHaveAttribute('fill', 'none', { timeout: 5_000 });
+      // 5. Verify the PluginIcon shows not-ready state (opacity-50 on container)
+      await expect(sidePanelPage.locator('.border-border.opacity-50 svg').first()).toBeVisible({ timeout: 5_000 });
 
       // 6. Open a new tab to the test server URL (matches http://localhost/*)
       const appTab = await context.newPage();
@@ -135,7 +134,9 @@ test.describe('Side panel data flow — tab state changes', () => {
       await expect
         .poll(
           async () => {
-            const res = await fetch(`http://localhost:${server.port}/health`);
+            const res = await fetch(`http://localhost:${server.port}/health`, {
+              headers: { Authorization: `Bearer ${server.secret ?? ''}` },
+            });
             const body = (await res.json()) as {
               pluginDetails?: Array<{ name: string; tabState: string }>;
             };
@@ -152,8 +153,8 @@ test.describe('Side panel data flow — tab state changes', () => {
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
 
-      // Verify the PluginIcon shows ready state (filled, fill="currentColor")
-      await expect(sidePanelPage.locator('.bg-muted svg').first()).toHaveAttribute('fill', 'currentColor', {
+      // Verify the PluginIcon shows ready state (no opacity-50 on container)
+      await expect(sidePanelPage.locator('.border-border:not(.opacity-50) svg').first()).toBeVisible({
         timeout: 15_000,
       });
 
@@ -164,7 +165,9 @@ test.describe('Side panel data flow — tab state changes', () => {
       await expect
         .poll(
           async () => {
-            const res = await fetch(`http://localhost:${server.port}/health`);
+            const res = await fetch(`http://localhost:${server.port}/health`, {
+              headers: { Authorization: `Bearer ${server.secret ?? ''}` },
+            });
             const body = (await res.json()) as {
               pluginDetails?: Array<{ name: string; tabState: string }>;
             };
@@ -177,8 +180,8 @@ test.describe('Side panel data flow — tab state changes', () => {
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
 
-      // Verify the PluginIcon shows not-ready state again (outlined, fill="none")
-      await expect(sidePanelPage.locator('.bg-muted svg').first()).toHaveAttribute('fill', 'none', {
+      // Verify the PluginIcon shows not-ready state again (opacity-50 on container)
+      await expect(sidePanelPage.locator('.border-border.opacity-50 svg').first()).toBeVisible({
         timeout: 15_000,
       });
 
@@ -228,7 +231,9 @@ test.describe('Side panel data flow — tab state changes', () => {
       await expect
         .poll(
           async () => {
-            const res = await fetch(`http://localhost:${server.port}/health`);
+            const res = await fetch(`http://localhost:${server.port}/health`, {
+              headers: { Authorization: `Bearer ${server.secret ?? ''}` },
+            });
             const body = (await res.json()) as {
               pluginDetails?: Array<{ name: string; tabState: string }>;
             };
@@ -241,7 +246,7 @@ test.describe('Side panel data flow — tab state changes', () => {
       // Reload side panel and verify PluginIcon shows ready state (filled)
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
-      await expect(sidePanelPage.locator('.bg-muted svg').first()).toHaveAttribute('fill', 'currentColor', {
+      await expect(sidePanelPage.locator('.border-border:not(.opacity-50) svg').first()).toBeVisible({
         timeout: 15_000,
       });
 
@@ -258,7 +263,9 @@ test.describe('Side panel data flow — tab state changes', () => {
       await expect
         .poll(
           async () => {
-            const res = await fetch(`http://localhost:${server.port}/health`);
+            const res = await fetch(`http://localhost:${server.port}/health`, {
+              headers: { Authorization: `Bearer ${server.secret ?? ''}` },
+            });
             const body = (await res.json()) as {
               pluginDetails?: Array<{ name: string; tabState: string }>;
             };
@@ -272,7 +279,7 @@ test.describe('Side panel data flow — tab state changes', () => {
       // When unavailable, TabStateHint renders "Log in to E2E Test" — the
       // PluginIcon shows fill="none" for both unavailable and closed states.
       await sidePanelPage.reload({ waitUntil: 'load' });
-      await expect(sidePanelPage.locator('.bg-muted svg').first()).toHaveAttribute('fill', 'none', {
+      await expect(sidePanelPage.locator('.border-border.opacity-50 svg').first()).toBeVisible({
         timeout: 15_000,
       });
 
@@ -286,7 +293,9 @@ test.describe('Side panel data flow — tab state changes', () => {
       await expect
         .poll(
           async () => {
-            const res = await fetch(`http://localhost:${server.port}/health`);
+            const res = await fetch(`http://localhost:${server.port}/health`, {
+              headers: { Authorization: `Bearer ${server.secret ?? ''}` },
+            });
             const body = (await res.json()) as {
               pluginDetails?: Array<{ name: string; tabState: string }>;
             };
@@ -299,7 +308,7 @@ test.describe('Side panel data flow — tab state changes', () => {
       // Reload side panel and verify PluginIcon shows ready state (filled) again
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
-      await expect(sidePanelPage.locator('.bg-muted svg').first()).toHaveAttribute('fill', 'currentColor', {
+      await expect(sidePanelPage.locator('.border-border:not(.opacity-50) svg').first()).toBeVisible({
         timeout: 15_000,
       });
 
@@ -351,7 +360,9 @@ test.describe('Side panel data flow — tool invocation animation', () => {
       await expect
         .poll(
           async () => {
-            const res = await fetch(`http://localhost:${server.port}/health`);
+            const res = await fetch(`http://localhost:${server.port}/health`, {
+              headers: { Authorization: `Bearer ${server.secret ?? ''}` },
+            });
             const body = (await res.json()) as {
               pluginDetails?: Array<{ name: string; tabState: string }>;
             };
