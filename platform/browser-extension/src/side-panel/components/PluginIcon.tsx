@@ -23,9 +23,37 @@ interface PluginIconProps {
   ready: boolean;
   size?: number;
   className?: string;
+  iconSvg?: string;
+  iconInactiveSvg?: string;
 }
 
-const PluginIcon = ({ pluginName, displayName, ready, size = 32, className = '' }: PluginIconProps) => {
+const PluginIcon = ({
+  pluginName,
+  displayName,
+  ready,
+  size = 32,
+  className = '',
+  iconSvg,
+  iconInactiveSvg,
+}: PluginIconProps) => {
+  const hasSvg = !!iconSvg;
+  const svgToRender = ready ? iconSvg : iconInactiveSvg;
+  const innerSize = Math.round(size * 0.6);
+
+  if (hasSvg && svgToRender) {
+    return (
+      <div
+        className={`border-border flex shrink-0 items-center justify-center rounded border-2 ${ready ? '' : 'opacity-50'} ${className}`}
+        style={{ width: size, height: size }}>
+        <div
+          className="overflow-hidden"
+          style={{ width: innerSize, height: innerSize }}
+          dangerouslySetInnerHTML={{ __html: svgToRender }}
+        />
+      </div>
+    );
+  }
+
   const letter = getAvatarLetter(displayName, pluginName);
   const fontSize = Math.round(size * 0.55);
 

@@ -118,6 +118,8 @@ const PluginCard = ({
                     displayName={plugin.displayName}
                     ready={plugin.tabState === 'ready'}
                     size={32}
+                    iconSvg={plugin.iconSvg}
+                    iconInactiveSvg={plugin.iconInactiveSvg}
                   />
                 </div>
               </Tooltip.Trigger>

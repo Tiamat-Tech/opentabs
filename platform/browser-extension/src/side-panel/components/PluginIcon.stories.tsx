@@ -12,6 +12,12 @@ const meta: Meta<typeof PluginIcon> = {
 
 type Story = StoryObj<typeof PluginIcon>;
 
+const SAMPLE_ACTIVE_SVG =
+  '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#4F46E5"/><text x="16" y="21" text-anchor="middle" fill="white" font-size="16" font-family="sans-serif">S</text></svg>';
+
+const SAMPLE_INACTIVE_SVG =
+  '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#808080"/><text x="16" y="21" text-anchor="middle" fill="white" font-size="16" font-family="sans-serif">S</text></svg>';
+
 const Ready: Story = { args: { pluginName: 'slack', displayName: 'Slack', ready: true, size: 32 } };
 const NotReady: Story = { args: { pluginName: 'slack', displayName: 'Slack', ready: false, size: 32 } };
 
@@ -59,5 +65,27 @@ const Sizes: Story = {
   ),
 };
 
+const WithIcon: Story = {
+  args: {
+    pluginName: 'slack',
+    displayName: 'Slack',
+    ready: true,
+    size: 32,
+    iconSvg: SAMPLE_ACTIVE_SVG,
+    iconInactiveSvg: SAMPLE_INACTIVE_SVG,
+  },
+};
+
+const WithIconInactive: Story = {
+  args: {
+    pluginName: 'slack',
+    displayName: 'Slack',
+    ready: false,
+    size: 32,
+    iconSvg: SAMPLE_ACTIVE_SVG,
+    iconInactiveSvg: SAMPLE_INACTIVE_SVG,
+  },
+};
+
 export default meta;
-export { Ready, NotReady, Palette, Sizes };
+export { Ready, NotReady, Palette, Sizes, WithIcon, WithIconInactive };
