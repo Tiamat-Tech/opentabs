@@ -2,15 +2,14 @@
 #
 # Publish platform packages to npm (private):
 #   @opentabs-dev/shared, @opentabs-dev/plugin-sdk, @opentabs-dev/plugin-tools,
-#   @opentabs-dev/cli, and create-opentabs-plugin.
+#   @opentabs-dev/cli, and @opentabs-dev/create-plugin.
 #
 # Requires:
-#   - ~/.npmrc with a token that has read+write access to @opentabs-dev packages
-#     and create-opentabs-plugin.
+#   - ~/.npmrc with a token that has read+write access to @opentabs-dev packages.
 #
 # Setup (one-time):
 #   1. Create a granular access token at https://www.npmjs.com/settings/tokens/create
-#      - Permissions: Read and Write, Packages: @opentabs-dev/* + create-opentabs-plugin, Bypass 2FA enabled
+#      - Permissions: Read and Write, Packages: @opentabs-dev/*, Bypass 2FA enabled
 #   2. Save it: echo '//registry.npmjs.org/:_authToken=<TOKEN>' > ~/.npmrc
 #
 # Usage:
@@ -79,7 +78,7 @@ npm publish --access restricted -w platform/plugin-tools
 echo "  Publishing @opentabs-dev/cli@$VERSION..."
 npm publish --access restricted -w platform/cli
 
-echo "  Publishing create-opentabs-plugin@$VERSION..."
+echo "  Publishing @opentabs-dev/create-plugin@$VERSION..."
 npm publish --access restricted -w platform/create-plugin
 
 echo ""
