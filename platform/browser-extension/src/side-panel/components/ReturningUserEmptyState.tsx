@@ -1,6 +1,10 @@
 import { Empty } from './retro/Empty.js';
 
-const ReturningUserEmptyState = () => (
+interface ReturningUserEmptyStateProps {
+  onResetOnboarding: () => void;
+}
+
+const ReturningUserEmptyState = ({ onResetOnboarding }: ReturningUserEmptyStateProps) => (
   <Empty>
     <Empty.Content>
       <Empty.Title>No Plugins Installed</Empty.Title>
@@ -13,6 +17,12 @@ const ReturningUserEmptyState = () => (
           <code className="rounded border px-1.5 py-0.5 font-mono text-xs">opentabs plugin search</code>
         </p>
       </div>
+      <button
+        type="button"
+        onClick={onResetOnboarding}
+        className="text-muted-foreground hover:text-foreground mt-2 cursor-pointer text-xs underline opacity-60 transition-opacity hover:opacity-100">
+        Show setup guide
+      </button>
     </Empty.Content>
   </Empty>
 );

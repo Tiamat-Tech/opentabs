@@ -246,7 +246,12 @@ const App = () => {
           <DisconnectedState />
         ) : !hasContent ? (
           hasEverHadPlugins ? (
-            <ReturningUserEmptyState />
+            <ReturningUserEmptyState
+              onResetOnboarding={() => {
+                setHasEverHadPlugins(false);
+                void chrome.storage.local.set({ [STORAGE_KEY_HAS_EVER_HAD_PLUGINS]: false });
+              }}
+            />
           ) : (
             <OnboardingState connected={connected} pluginCount={plugins.length} />
           )
