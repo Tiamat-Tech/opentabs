@@ -6,6 +6,7 @@
  * from the side panel (relayed through the Chrome extension).
  */
 
+import { pluginNameFromPackage } from './loader.js';
 import { log } from './logger.js';
 import { atomicWrite, platformExec } from '@opentabs-dev/shared';
 import { mkdir } from 'node:fs/promises';
@@ -205,14 +206,12 @@ const installPlugin = async (
   await onReload();
 
   // Find the newly installed plugin in the refreshed registry.
-  // Match by npm package name or by plugin name derived from the package name.
-  const segments = pkg.startsWith('@') ? pkg.split('/') : undefined;
-  const pluginName = segments ? (segments[1] ?? pkg) : pkg;
-  const strippedName = pluginName.replace(/^opentabs-plugin-/, '');
+  // Match by npm package name or by the internal name derived from the package name.
+  const derivedName = pluginNameFromPackage(pkg);
 
   let installedPlugin: { name: string; displayName: string; version: string; toolCount: number } | undefined;
   for (const p of state.registry.plugins.values()) {
-    if (p.npmPackageName === pkg || p.name === strippedName || p.name === pluginName) {
+    if (p.npmPackageName === pkg || p.name === derivedName) {
       installedPlugin = {
         name: p.name,
         displayName: p.displayName,
@@ -257,12 +256,10 @@ interface PluginUpdateResult {
  */
 const findPlugin = (state: ServerState, name: string): RegisteredPlugin | undefined => {
   const pkg = normalizePluginName(name);
-  const segments = pkg.startsWith('@') ? pkg.split('/') : undefined;
-  const pluginName = segments ? (segments[1] ?? pkg) : pkg;
-  const strippedName = pluginName.replace(/^opentabs-plugin-/, '');
+  const derivedName = pluginNameFromPackage(pkg);
 
   for (const p of state.registry.plugins.values()) {
-    if (p.npmPackageName === pkg || p.name === strippedName || p.name === pluginName || p.name === name) {
+    if (p.npmPackageName === pkg || p.name === derivedName || p.name === name) {
       return p;
     }
   }
@@ -421,8 +418,8 @@ const removeLocalPlugin = async (state: { configWriteMutex: Promise<void> }, plu
         const pkgRaw = await Bun.file(join(resolvedPath, 'package.json')).text();
         const pkg = JSON.parse(pkgRaw) as Record<string, unknown>;
         const pkgName = typeof pkg.name === 'string' ? pkg.name : '';
-        const stripped = pkgName.replace(/^opentabs-plugin-/, '');
-        if (stripped === pluginName || pkgName === pluginName) {
+        const derivedPkgName = pluginNameFromPackage(pkgName);
+        if (derivedPkgName === pluginName || pkgName === pluginName) {
           removed = true;
           continue;
         }

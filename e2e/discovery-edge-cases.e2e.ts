@@ -51,7 +51,7 @@ const configWithPlugins = (
 // ---------------------------------------------------------------------------
 
 test.describe('Discovery edge cases — broken plugins', () => {
-  test('non-existent local plugin path appears in failedPlugins with a clear error', async () => {
+  test('non-existent local plugin path is silently skipped, valid plugin still loads', async () => {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-nodir-'));
     const bogusPath = path.join(os.tmpdir(), `nonexistent-plugin-${String(Date.now())}`);
     const config = configWithPlugins([bogusPath]);
@@ -67,14 +67,19 @@ test.describe('Discovery edge cases — broken plugins', () => {
       });
       const body = (await raw.json()) as {
         failedPlugins: Array<{ path: string; error: string }>;
+        discoveryErrors: Array<{ specifier: string; error: string }>;
         pluginDetails?: Array<{ name: string }>;
       };
 
-      // Nonexistent paths are reported as failed plugins with a clear error
-      // message so the user knows the config entry is stale.
+      // Nonexistent paths are treated as stale config entries and silently
+      // skipped — they do not appear in failedPlugins.
       const failure = body.failedPlugins.find(f => f.path.includes('nonexistent-plugin'));
-      expect(failure).toBeDefined();
-      expect(failure?.error).toContain('Path not found');
+      expect(failure).toBeUndefined();
+
+      // Stale paths still appear in discoveryErrors for diagnostic visibility.
+      const staleError = body.discoveryErrors.find(e => e.specifier.includes('nonexistent-plugin'));
+      expect(staleError).toBeDefined();
+      expect(staleError?.error).toContain('Path not found');
 
       // The valid e2e-test plugin should still load
       expect(health.pluginDetails).toBeDefined();

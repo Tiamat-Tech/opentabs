@@ -52,8 +52,12 @@ describe('pluginNameFromPackage', () => {
     expect(pluginNameFromPackage('opentabs-plugin-slack')).toBe('slack');
   });
 
-  test('handles scoped packages', () => {
+  test('handles third-party scoped packages', () => {
     expect(pluginNameFromPackage('@myorg/opentabs-plugin-jira')).toBe('myorg-jira');
+  });
+
+  test('strips official @opentabs-dev scope — treated like unscoped', () => {
+    expect(pluginNameFromPackage('@opentabs-dev/opentabs-plugin-slack')).toBe('slack');
   });
 
   test('handles packages without the prefix', () => {

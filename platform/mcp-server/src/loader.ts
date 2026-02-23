@@ -63,17 +63,32 @@ interface LoadedPlugin {
 }
 
 /**
+ * The official npm scope for first-party OpenTabs packages.
+ * Plugins published under this scope are treated as unscoped for naming
+ * purposes — the scope is invisible in the derived plugin name.
+ */
+const OFFICIAL_SCOPE = '@opentabs-dev';
+
+/**
  * Extract the internal plugin name from an npm package name.
- * opentabs-plugin-slack → slack
- * @myorg/opentabs-plugin-jira → myorg-jira
+ *
+ * Unscoped:                opentabs-plugin-slack                      → slack
+ * Official @opentabs-dev:  @opentabs-dev/opentabs-plugin-e2e-test     → e2e-test
+ * Third-party scope:       @myorg/opentabs-plugin-jira                → myorg-jira
  */
 const pluginNameFromPackage = (pkgName: string): string => {
   if (pkgName.startsWith('@')) {
     const parts = pkgName.split('/');
     const scopePart = parts[0] ?? '';
     const namePart = parts[1] ?? '';
-    const scope = scopePart.slice(1);
     const pluginSuffix = namePart.replace(/^opentabs-plugin-/, '');
+
+    // Official scope is invisible — treat like an unscoped package
+    if (scopePart === OFFICIAL_SCOPE) {
+      return pluginSuffix;
+    }
+
+    const scope = scopePart.slice(1);
     return `${scope}-${pluginSuffix}`;
   }
   return pkgName.replace(/^opentabs-plugin-/, '');
