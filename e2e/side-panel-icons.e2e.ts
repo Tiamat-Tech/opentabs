@@ -127,8 +127,8 @@ test.describe('Icon pipeline — side panel rendering', () => {
       const inactiveHtml = await iconContainer.innerHTML();
       expect(inactiveHtml).toContain('<svg');
 
-      // The icon container should have opacity-50 class (inactive treatment)
-      await expect(iconContainer).toHaveClass(/opacity-50/, { timeout: 5_000 });
+      // No status dot should be visible in closed state
+      await expect(sidePanelPage.locator('.bg-success').first()).toBeHidden({ timeout: 5_000 });
 
       // 2. Open a matching tab to transition to 'ready' state
       const appTab = await context.newPage();
@@ -160,9 +160,8 @@ test.describe('Icon pipeline — side panel rendering', () => {
       const activeHtml = await activeIconContainer.innerHTML();
       expect(activeHtml).toContain('<svg');
 
-      // Active icon should NOT have opacity-50 class
-      const activeClasses = (await activeIconContainer.getAttribute('class')) ?? '';
-      expect(activeClasses).not.toContain('opacity-50');
+      // Ready state should show green status dot
+      await expect(sidePanelPage.locator('.bg-success').first()).toBeVisible({ timeout: 5_000 });
 
       // The active and inactive SVG content should differ (different fill values)
       expect(activeHtml).not.toBe(inactiveHtml);

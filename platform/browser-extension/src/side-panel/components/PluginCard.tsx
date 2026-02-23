@@ -117,7 +117,7 @@ const PluginCard = ({
                   <PluginIcon
                     pluginName={plugin.name}
                     displayName={plugin.displayName}
-                    ready={plugin.tabState === 'ready'}
+                    tabState={plugin.tabState}
                     size={32}
                     iconSvg={plugin.iconSvg}
                     iconInactiveSvg={plugin.iconInactiveSvg}
