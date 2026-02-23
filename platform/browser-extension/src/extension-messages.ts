@@ -125,6 +125,12 @@ export interface SpConfirmationResponseMessage {
   };
 }
 
+/** Side panel → Background → Offscreen: MCP server port changed */
+export interface PortChangedMessage {
+  type: 'port-changed';
+  port: number;
+}
+
 /** All internal message types flowing through chrome.runtime.sendMessage */
 export type InternalMessage =
   | OffscreenGetUrlMessage
@@ -143,7 +149,8 @@ export type InternalMessage =
   | SpConnectionStateMessage
   | SpRelayMessage
   | SpConfirmationRequestMessage
-  | SpConfirmationResponseMessage;
+  | SpConfirmationResponseMessage
+  | PortChangedMessage;
 
 /** Lightweight plugin metadata stored in the `plugins_meta` index (no IIFE content) */
 export interface PluginMeta {

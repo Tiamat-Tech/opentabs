@@ -451,6 +451,30 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
       break;
     }
 
+    case 'port-changed': {
+      const newUrl = `ws://localhost:${message.port}/ws`;
+      if (newUrl !== mcpServerUrl) {
+        console.log(`[opentabs:offscreen] Port changed to ${message.port}, reconnecting`);
+        mcpServerUrl = newUrl;
+        backoffMs = INITIAL_BACKOFF_MS;
+        if (ws) {
+          try {
+            ws.close(1000, 'Port changed');
+          } catch {
+            // Already closed
+          }
+        } else if (reconnectTimeoutId !== null) {
+          clearTimeout(reconnectTimeoutId);
+          reconnectTimeoutId = null;
+          void connect();
+        } else {
+          void connect();
+        }
+      }
+      sendResponse({ ok: true });
+      break;
+    }
+
     // Messages handled by the background script or side panel — not processed here.
     case 'offscreen:getUrl':
     case 'ws:state':

@@ -274,6 +274,15 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
       return true;
     }
 
+    case 'port-changed': {
+      // Relay port change from side panel to offscreen document for reconnect
+      chrome.runtime.sendMessage(message).catch(() => {
+        // Offscreen may not be ready yet
+      });
+      sendResponse({ ok: true });
+      return true;
+    }
+
     // Messages handled by other listeners (offscreen, side panel) — not
     // processed here, but included for exhaustiveness so TypeScript flags
     // any new InternalMessage variant that isn't routed somewhere.
