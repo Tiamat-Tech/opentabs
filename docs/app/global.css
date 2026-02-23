@@ -80,7 +80,7 @@ body {
 /* Firefox scrollbar */
 html {
   scrollbar-width: auto;
-  scrollbar-color: var(--muted) var(--foreground);
+  scrollbar-color: var(--muted) transparent;
 }
 
 /* Syntax Highlighting stuff */
@@ -97,33 +97,33 @@ code.hljs {
 
 .hljs {
   background: var(--code-bg);
-  color: var(--muted-foreground);
+  color: #f8f8f2;
 }
 
 .hljs-subst {
-  color: var(--muted-foreground);
+  color: #f8f8f2;
 }
 
 .hljs-section {
-  color: var(--foreground);
+  color: #f8f8f2;
 }
 
 .hljs-comment,
 .hljs-quote,
 .hljs-meta {
-  color: var(--muted);
+  color: #6272a4;
 }
 
 .hljs-string,
 .hljs-symbol,
 .hljs-bullet,
 .hljs-regexp {
-  color: var(--primary);
+  color: #f1fa8c;
 }
 
 .hljs-number,
 .hljs-addition {
-  color: var(--accent-foreground);
+  color: #bd93f9;
 }
 
 .hljs-built_in,
@@ -132,7 +132,7 @@ code.hljs {
 .hljs-template-variable,
 .hljs-attribute,
 .hljs-link {
-  color: var(--foreground);
+  color: #8be9fd;
 }
 
 .hljs-keyword,
@@ -140,14 +140,14 @@ code.hljs {
 .hljs-name,
 .hljs-selector-id,
 .hljs-selector-class {
-  color: var(--accent);
+  color: #ff79c6;
 }
 
 .hljs-title,
 .hljs-variable,
 .hljs-deletion,
 .hljs-template-tag {
-  color: var(--destructive);
+  color: #50fa7b;
 }
 
 .hljs-section,
@@ -184,5 +184,8 @@ code.hljs {
 .sidebar-scroll::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: var(--radius);
-  transition: background 0.3s ease;
+}
+
+.sidebar-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--muted);
 }
