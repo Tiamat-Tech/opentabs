@@ -19,7 +19,7 @@ const FooterPreview = () => {
   };
 
   return (
-    <footer className="border-border bg-card flex items-center border-t-2 px-3 py-3 text-sm">
+    <footer className="border-border bg-card flex items-center border-t-2 px-4 pt-3 pb-5 text-sm">
       <div className="flex items-center gap-2">
         <Button variant="outline" size="icon" className="h-9 w-9" asChild>
           <a

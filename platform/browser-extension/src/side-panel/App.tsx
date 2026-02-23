@@ -254,7 +254,7 @@ const App = () => {
         />
       )}
       {showSearchBar && (
-        <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+        <div className="flex items-center gap-2 px-4 pt-4 pb-2">
           {totalTools > 5 && (
             <div className="relative min-w-0 flex-1">
               <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2" />
@@ -279,7 +279,7 @@ const App = () => {
         </div>
       )}
       <main
-        className={`flex-1 px-3 pb-2 ${showSearchBar ? 'pt-2' : 'pt-3'} ${showPlugins ? '' : 'flex items-center justify-center'}`}>
+        className={`flex-1 px-4 pb-2 ${showSearchBar ? 'pt-2' : 'pt-4'} ${showPlugins ? '' : 'flex items-center justify-center'}`}>
         {loading ? (
           <LoadingState />
         ) : !connected ? (
