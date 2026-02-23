@@ -166,15 +166,16 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
 
   switch (message.type) {
     case 'offscreen:getUrl': {
-      // Return the user-configured server URL (or default). The offscreen
-      // document uses this only as an override — it reads auth.json directly
-      // for the secret and port, so no /ws-info fetch is needed here.
+      // Return the WebSocket URL derived from the user-configured port
+      // in chrome.storage.local (default 9515). The offscreen document
+      // reads auth.json for the secret separately.
       (async () => {
         const stored: Record<string, unknown> = await chrome.storage.local
-          .get('mcpServerUrl')
+          .get('serverPort')
           .catch(() => ({}) as Record<string, unknown>);
-        const baseWsUrl = typeof stored.mcpServerUrl === 'string' ? stored.mcpServerUrl : undefined;
-        sendResponse({ url: baseWsUrl });
+        const port = typeof stored.serverPort === 'number' && stored.serverPort > 0 ? stored.serverPort : undefined;
+        const url = port ? `ws://localhost:${port}/ws` : undefined;
+        sendResponse({ url });
       })().catch(() => {
         sendResponse({ url: undefined });
       });
@@ -323,8 +324,8 @@ reinjectStoredPlugins().catch((err: unknown) => console.warn('[opentabs] plugin 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
 
-  if (typeof changes.mcpServerUrl?.newValue === 'string') {
-    const newUrl = changes.mcpServerUrl.newValue;
+  if (typeof changes.serverPort?.newValue === 'number' && changes.serverPort.newValue > 0) {
+    const newUrl = `ws://localhost:${changes.serverPort.newValue}/ws`;
     chrome.runtime.sendMessage({ type: 'ws:setUrl', url: newUrl } satisfies InternalMessage).catch(() => {
       // Offscreen may not be ready yet
     });

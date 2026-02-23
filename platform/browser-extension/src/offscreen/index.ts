@@ -7,10 +7,10 @@
  *            caused by server hot reload (bun --hot) where the TCP socket stays alive
  *            but the server-side handler has been replaced.
  *
- * The WebSocket URL defaults to ws://localhost:9515/ws but can be overridden
- * by the background script sending a { type: 'ws:setUrl', url: '...' } message.
- * The background script reads from chrome.storage.local and relays it
- * here because offscreen documents do not have access to chrome.storage APIs.
+ * The WebSocket URL defaults to ws://localhost:9515/ws. The port is
+ * configurable via chrome.storage.local ('serverPort' key). The background
+ * script reads the port and relays the constructed URL here because offscreen
+ * documents do not have access to chrome.storage APIs.
  */
 
 import { ALL_ALLOWED_METHODS } from '../known-methods.js';
@@ -471,24 +471,22 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
 });
 
 /**
- * Bootstrap the shared secret and server URL from auth.json.
+ * Bootstrap the shared secret from auth.json.
  *
  * The MCP server writes auth.json to the managed extension directory
  * (~/.opentabs/extension/auth.json) on startup. The offscreen document
- * reads it via chrome.runtime.getURL to obtain the secret and port,
- * avoiding an unauthenticated HTTP request to /ws-info.
+ * reads it via chrome.runtime.getURL to obtain the secret, avoiding an
+ * unauthenticated HTTP request to /ws-info. Port configuration is read
+ * from chrome.storage.local (via the background script) separately.
  */
 const bootstrapFromAuthFile = async (): Promise<void> => {
   try {
     const authUrl = `${chrome.runtime.getURL('auth.json')}?_t=${Date.now()}`;
     const res = await fetch(authUrl, { signal: AbortSignal.timeout(1_000), cache: 'no-store' });
     if (res.ok) {
-      const auth = (await res.json()) as { secret?: string; port?: number };
+      const auth = (await res.json()) as { secret?: string };
       if (typeof auth.secret === 'string' && auth.secret !== '') {
         wsSecret = auth.secret;
-      }
-      if (typeof auth.port === 'number' && auth.port > 0) {
-        mcpServerUrl = `ws://localhost:${auth.port}/ws`;
       }
     }
   } catch {
@@ -496,8 +494,8 @@ const bootstrapFromAuthFile = async (): Promise<void> => {
   }
 };
 
-// Bootstrap from auth.json, then check for a custom URL override from the
-// background script (chrome.storage.local), and connect.
+// Bootstrap the secret from auth.json, then get the port-based URL from
+// the background script (chrome.storage.local), and connect.
 void (async () => {
   await bootstrapFromAuthFile();
 
