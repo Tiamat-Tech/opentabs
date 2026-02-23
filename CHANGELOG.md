@@ -1,0 +1,903 @@
+# Changelog
+
+## v0.0.19
+
+### Features
+
+- US-005 - Replace audit output ASCII table with clean code block in logging-debugging.mdx
+- US-004 - Replace dispatch flow ASCII art with SVG illustration
+- US-003 - Replace monorepo project structure ASCII art with SVG illustration
+- US-002 - Replace config directory tree ASCII art with SVG illustration
+- US-001 - Move ArchitectureIllustration to shared illustrations.tsx and reuse on architecture.mdx
+- US-004 - Skip chmod calls on Windows in E2E fixtures
+- US-003 - Fix resolveLocalPath to handle tilde with backslash on Windows
+- US-002 - Fix isLocalPathEntry to recognize Windows-style paths
+- US-001 - Fix isLocalPath to recognize Windows-style paths
+- US-004 - Add ConfirmationDialog storybook story
+- US-003 - Add OutdatedPluginsBadge storybook story
+- US-002 - Add PluginList storybook story
+- US-001 - Add ErrorBoundary storybook story
+- two-phase quality checks — fast iteration, e2e only before commit
+- parallel ralph daemon using git worktrees
+- US-010 — add E2E tests for resource and prompt error scenarios
+- US-009 — add E2E tests for plugin discovery edge cases
+- US-007 — add unit tests for plugin-tools inspect command
+- US-006 — add unit tests for browser-extension log-collector.ts
+- US-005 — add unit tests for mcp-server sanitize-error.ts and sdk-version.ts
+- US-004 — add unit tests for mcp-server log-buffer.ts
+- US-003 — add unit tests for mcp-server resolver.ts
+- US-002 — add unit tests for shared/manifest.ts parsing
+- US-001 — add unit tests for shared/result.ts utilities
+- US-010 — add JSDoc to browser command handler functions
+- US-009 — eliminate all `as any` casts in plugin-tools IIFE wrapper
+- US-008 — extract magic numbers into named constants in browser-extension
+- US-007 — add JSDoc to type exports in analyze-site detection modules
+- US-006 — add JSDoc to type exports in mcp-server core modules
+- US-005 — add JSDoc with @param/@returns to mcp-server utility exports
+- US-004 — add JSDoc with @param/@returns to tab-matching and iife-injection exports
+- US-003 — rename unclear files in browser-extension for clarity
+- US-002 — improve variable naming in network-capture, dispatch, and utility files
+- US-001 — improve variable naming in validate-icon.ts
+- US-003 — remove connection token anti-takeover mechanism
+- US-002 — remove tool output sanitization and skip-sanitization flag
+- US-001 — remove npm registry verification and skip-verification flag
+- US-003 — add E2E tests for icon rendering pipeline (health + side panel)
+- US-002 — add E2E tests for icon build validation and auto-generation
+- US-001 — add icon.svg to e2e-test plugin and fix E2E auth infrastructure
+- US-006 — add custom icon documentation to plugin scaffold template
+- US-005 — render custom SVG icons in PluginIcon with inactive treatment
+- omit undefined iconSvg/iconInactiveSvg from wire payloads and add SVG icon tests
+- US-003 — read, validate, and auto-generate icons during opentabs-plugin build
+- US-002 — add SVG validation and auto-grayscale generation utilities
+- US-001 — add SVG icon fields to shared manifest and wire types
+- US-002 — add test tools for new SDK utilities
+- US-001 — update e2e-test plugin SDK dependency to local workspace version
+- US-001 — update Slack plugin SDK dependency to local workspace version
+- US-007 — add two-click confirmation to 'Show setup guide' reset
+- US-010 — add automated changelog generation to publish script
+- US-009 — optimize CI with shared build artifacts
+- US-008 — auto-build e2e-test plugin in test:e2e script
+- US-007 — add format:check to check and check:all scripts
+- US-006 — use generic tab state hint for unavailable plugins
+- US-005 — improve failed plugin card UX with readable errors and expand/collapse
+- US-004 — fix search filter to include displayName in PluginList
+- US-003 — show outdated plugins badge in side panel
+- US-002 — remove version mismatch banner from side panel
+- US-001 — auto-reload extension when server detects version change
+- US-016 — add tool output sanitization with --dangerously-skip-sanitization bypass
+- US-015 — add rate limiting on MCP session creation
+- US-014 — add npm package signature verification for official plugins
+- US-012 — use configurable:false on adapter property descriptors
+- US-011 — add persistent audit log to disk
+- US-010 — add opentabs config rotate-secret CLI command
+- US-009 — build side panel confirmation dialog UI
+- migrate Slack plugin to ToolError factory methods for structured error categorization
+- add SDK utilities — setSessionStorage, putJSON/patchJSON/deleteJSON, generic waitForSelector, ResourceContentType
+- US-008 — wire permission evaluation into tool dispatch with confirmation hold
+- US-007 — add permission evaluation engine and --dangerously-skip-confirmation flag
+- US-006 — prevent WebSocket single-slot takeover with connection token
+- add assembled side panel Storybook stories with 14 data combinations
+- US-005 — add sender validation to background script onMessage handler
+- US-004 — reduce /health endpoint information disclosure
+- US-003 — add security warnings to data-exfiltration browser tools
+- US-002 — add browser tool enable/disable via config
+- US-001 — remove unauthenticated secret from /ws-info, bootstrap via auth.json
+- add deterministic letter avatars for plugin icons and Storybook for side panel
+- US-012 — add E2E tests for source maps in plugin IIFE bundles
+- US-011 — add E2E tests for side panel auto-refresh via POST /reload
+- US-010 — add E2E test for side panel onboarding reset via "Show setup guide"
+- US-009 — add E2E tests for /health endpoint plugin details and failed plugins
+- US-008 — add E2E tests for audit tool and combined tool+plugin filters
+- US-007 — add E2E tests for typed getPageGlobal with deep nesting
+- US-006 — add E2E tests for removeLocalStorage and removeSessionStorage
+- US-005 — add E2E tests for ToolError factory methods with custom codes
+- US-004 — add E2E tests for typed prompt arguments with Zod schema
+- US-003 — add E2E tests for auto-derived displayName and default icon
+- US-002 — add E2E tests for indeterminate progress reporting
+- US-001 — add E2E tests for structured fetch error categories
+- US-001 — add 'Show setup guide' link to returning user empty state
+- US-010 — add tsconfig coverage verification script
+- US-009 — check E2E test plugin prerequisite before Playwright runs
+- US-008 — remove redundant type-check:e2e from CI and check:all
+- US-007 — enforce minimum Bun version locally
+- US-006 — add automated git commit and tag to publish script
+- US-005 — remove redundant pre-bump build from publish script
+- US-004 — make publish script cross-platform
+- US-003 — add unified `bun run check` verification command
+- US-002 — Create CONTRIBUTING.md
+- US-001 — Create root README.md
+- US-007 — verify side panel auto-refresh on plugin rebuild
+- US-006 — document shared schema pattern in scaffolded README
+- US-005 — add opentabs-plugin inspect command
+- US-004 — add interactive mode to create-opentabs-plugin
+- US-003 — use cross-platform dev script in scaffold
+- US-002 — make scaffolded isReady return false by default with build warning
+- US-001 — generate source maps for plugin IIFE bundles
+- US-011 — add optional Zod schema to defineResource for content type safety
+- US-010 — add optional Zod schema validation to fetchJSON and postJSON
+- US-009 — verify PromptMessage literal type inference without as const
+- US-008 — add removeLocalStorage and removeSessionStorage utilities
+- US-007 — add typed generic overload to getPageGlobal
+- US-006 — remove \_setLogTransport from public API exports
+- US-005 — support indeterminate progress reporting
+- US-004 — auto-derive displayName and default icon for tools
+- US-003 — add optional custom code parameter to ToolError factory methods
+- US-002 — add structured ErrorCategory to fetchFromPage errors
+- US-001 — add Zod-based typed arguments to definePrompt
+- US-006 — add --since time filter to opentabs audit
+- US-005 — add --tool filter to opentabs audit
+- US-004 — fix audit table ANSI column alignment
+- US-003 — add MCP client configuration check to doctor
+- US-002 — add npm plugin health check to doctor
+- US-001 — fix doctor false alarm for npm-only users
+- US-009 — fix config read error double-messaging
+- US-008 — clarify Reloads label in status output
+- US-007 — notify user to reload extension after update
+- US-006 — document env vars in CLI help text
+- US-005 — warn on invalid OPENTABS_PORT env var
+- US-004 — add tool name discovery to config set
+- US-003 — expand config set to support port and localPlugins keys
+- US-002 — add opentabs config reset command
+- US-001 — show MCP config for multiple clients
+- US-004 — add opentabs plugin list command
+- US-003 — add opentabs plugin remove command
+- US-002 — add opentabs plugin install command
+- US-001 — unify package manager guidance to npm
+- US-006 — E2E test for tab state sync after server restart (reconnect)
+- US-005 — E2E test for rapid close-and-reopen tab state recovery
+- US-004 — E2E test for multi-tab resilience (plugin stays ready when one tab closes)
+- US-003 — E2E test for navigate-away tab state transition to closed
+- US-002 — sync lastKnownState cache in handlePluginUpdate before sending tab.stateChanged
+- US-001 — add chrome.tabs.onReplaced handler for tab replacement events
+- US-006 — freeze adapter objects after injection to prevent page-side tampering
+- US-005 — add nonce-based authentication to postMessage log relay
+- US-004 — expand sensitive header redaction in network capture
+- US-003 — sanitize generic dispatch error messages in MCP tool responses
+- US-002 — add Host header validation to prevent DNS rebinding attacks
+- US-001 — bind MCP server to 127.0.0.1 loopback only
+- US-005 — add unit tests verifying CORS origin check covers WebSocket upgrades
+- US-004 — add unit test verifying /health endpoint excludes wsSecret
+- US-003 — add unit tests for WebSocket message size limit enforcement
+- US-001 — use constant-time comparison for Bearer token and WebSocket secret
+- US-017 — add sessionStorage JWT and Basic Auth E2E test scenarios
+- US-016 — add suggestion generation quality E2E test scenario
+- US-015 — add SPA with client-side routing E2E test scenario
+- US-014 — add WebSocket real-time connection E2E test scenario
+- US-013 — add mixed auth (cookie + CSRF + Bearer) E2E test scenario
+- US-012 — add tRPC API E2E test scenario
+- US-011 — add API key header auth E2E test scenario
+- US-010 — add Next.js-style SSR app E2E test scenario
+- US-009 — add JSON-RPC API E2E test scenario
+- US-008 — add GraphQL API E2E test scenario
+- US-007 — add JWT localStorage auth E2E test scenario
+- US-006 — create E2E test server with cookie session auth and analyze-site tests
+- add page title header to docs pages
+- US-005 — create plugin_analyze_site browser tool orchestrator
+- US-004 — create DOM and storage analysis modules for site analyzer
+- US-003 — create framework and globals detection modules for site analyzer
+- US-002 — create API pattern detection module for site analyzer
+- US-001 — create authentication detection module for site analyzer
+- US-017 — final verification, create missing Your First Plugin page
+- US-016 — update header bar and homepage for new docs structure
+- US-015 — create SVG illustrations for Quick Start and Plugin Development pages
+- US-014 — delete outdated pages and move Slack plugin to reference
+- US-013 — rewrite Introduction page with role-based paths and warm tone
+- US-012 — write Contributing section pages for Development Setup, Architecture, Publishing
+- US-011 — rewrite Server Reference pages for CLI, Configuration, MCP Server, Browser Tools, Troubleshooting
+- US-010 — write SDK Reference pages for Utilities, Lifecycle Hooks, Error Types
+- US-009 — write SDK Reference pages for Plugin Class, Tools, Resources, Prompts
+- US-008 — write Streaming & Progress guide for plugin developers
+- US-007 — write Resources & Prompts guide for plugin developers
+- US-006 — write Logging & Debugging guide for plugin developers
+- US-005 — write Error Handling guide for plugin developers
+- US-004 — write Plugin Development guide for plugin developers
+- US-003 — rewrite Installation page with role-based sections
+- US-002 — add Quick Start page for 5-minute onboarding
+- US-001 — restructure docs navigation with new information architecture
+- US-005 — document side panel onboarding state machine in CLAUDE.md
+- US-004 — add E2E tests for onboarding state transitions
+- US-002 — add state transitions between onboarding, returning-user, and plugin list views
+- US-001 — add onboarding welcome state to side panel
+- US-003 — document plugin search command in CLAUDE.md
+- US-001 — add opentabs plugin search command
+- US-006 — document audit logging in CLAUDE.md
+- US-005 — add E2E tests for audit logging pipeline
+- US-004 — add opentabs audit CLI command for viewing tool invocation history
+- US-003 — include audit summary stats in /health endpoint
+- US-002 — add GET /audit endpoint for querying tool invocation history
+- US-001 — add in-memory audit log for tool invocations
+- US-005 — document SDK version compatibility in CLAUDE.md
+- US-004 — add E2E tests for SDK version compatibility
+- US-003 — show SDK version compatibility in status and health
+- US-002 — check SDK compatibility at plugin discovery time
+- US-001 — embed SDK version in plugin build artifacts
+- US-009 — document resources and prompts in CLAUDE.md
+- US-008 — publish updated packages v0.0.16 and update plugins
+- US-007 — add E2E tests for resources and prompts
+- US-005 — update extension to dispatch resource reads and prompt gets
+- US-004 — register MCP resource and prompt handlers on server
+- US-003 — add ManifestResource and ManifestPrompt types to shared package
+- US-002 — update build tool to extract resources and prompts
+- US-001 — add defineResource and definePrompt to plugin SDK
+- US-005 — publish v0.0.15 and update plugin dependencies
+- US-004 — add E2E tests for progress reporting pipeline
+- US-003 — make dispatch timeout reset on progress with absolute max bound
+- US-002 — wire progress from adapter through extension to server
+- US-001 — add progress callback to tool handler context
+- US-006 — document structured error pattern in CLAUDE.md
+- US-005 — publish v0.0.14 and update plugin dependencies
+- US-004 — add E2E tests for structured error propagation
+- US-003 — add standard error factory methods to ToolError
+- US-002 — propagate structured error fields through dispatch chain
+- US-001 — extend ToolError with structured error metadata
+- US-006 — publish v0.0.13 and update plugin dependencies
+- US-005 — add E2E tests for plugin logging pipeline
+- US-004 — surface plugin logs in opentabs logs CLI
+- US-003 — forward plugin logs from extension to MCP server
+- US-002 — wire log messages from adapter runtime to extension
+- US-001 — add sdk.log API to plugin SDK
+- US-006 — publish packages v0.0.12 and update plugin deps
+- US-004 — wire lifecycle hooks in adapter IIFE build
+- US-003 — add onToolInvocationStart and onToolInvocationEnd hooks to plugin SDK
+- US-002 — add onActivate and onDeactivate hooks to plugin SDK
+- US-001 — add onNavigate hook to plugin SDK
+- US-007 — publish @opentabs-dev packages v0.0.11 and update plugins
+- US-006 — add E2E tests for SDK utilities using e2e-test plugin
+- US-004 — add page state utilities to plugin SDK
+- US-003 — add storage utilities to plugin SDK
+- US-005 — add retry/timing utilities to plugin SDK
+- US-002 — add page fetch utilities to plugin SDK
+- US-001 — add DOM utilities to plugin SDK
+- US-016 — fix stale plugins references in test config data
+- US-015 — update CLAUDE.md for new UX design
+- US-014 — update E2E tests for localPlugins config format
+- US-013 — fix misleading auto-detect messages in plugin CLI
+- redesign landing page with architecture flow illustration
+- US-012 — simplify publish script to use single npm token
+- US-011 — remove scaffold auto-registration from config
+- US-010 — side panel shows DEV badge for local plugins
+- US-009 — opentabs status shows plugins with source labels
+- US-008 — Remove redundant CLI commands (config init, setup, plugin add/remove/list)
+- US-007 — opentabs start auto-initializes config and extension
+- US-006 — opentabs-plugin build auto-registers in config and notifies server
+- US-005 — Ungate POST /reload endpoint for all modes
+- US-003 — Update discovery to merge npm auto-discovered + local plugins
+- US-002 — Add npm global package auto-discovery to the resolver
+- US-001 — Replace plugins with localPlugins in config
+- set logo SVG as favicon, remove dead components and deps
+- US-009 — Update CLAUDE.md for CLI separation
+- US-008 — Update stale CLI references after CLI separation
+- migrate to content-collections, upgrade to Next.js 16 + React 19, redesign home page
+- US-007 — Update CLI description and command order
+- US-006 — Add @opentabs-dev/plugin-tools to publish script
+- US-005 — Update existing plugins to use @opentabs-dev/plugin-tools
+- add logo to docs-v2 TopNav
+- US-004 — Add @opentabs-dev/plugin-tools dependency to CLI for scaffold version resolution
+- US-003 — Add opentabs start command
+- toggle side panel open/close on extension icon click
+- US-002 — Remove dev, build, and reload commands from user CLI
+- US-001 — Create @opentabs-dev/plugin-tools package
+- US-005 — Document dev vs production mode in CLAUDE.md
+- US-007 — Document dev vs production mode in docs-v2
+- US-006 — Replace npmPlugins references with unified plugins array in docs
+- US-005 — Replace opentabs-plugin.json references with package.json format in docs
+- US-004 — Pass --dev flag to MCP server in E2E test fixtures
+- US-003 — Remove POST /reload endpoint in production mode
+- US-002 — Make file watchers dev-only for local plugins
+- US-001 — Add dev mode flag to MCP server
+- US-023 — Final cleanup and verification
+- US-022 — Update CLAUDE.md for new plugin format
+- US-021 — Add structured error reporting for discovery failures
+- US-017 — Migrate e2e-test plugin to package.json manifest
+- US-016 — Migrate slack plugin to package.json manifest
+- US-015 — Add README to scaffolded plugin projects
+- US-014 — Update CLI to generate dist/tools.json instead of opentabs-plugin.json
+- US-009 — Simplify reload.ts to use new discovery orchestrator
+- US-008 — Update ServerState to use PluginRegistry
+- US-007 — Unify config.plugins to accept both npm packages and local paths
+- US-006 — Create discovery orchestrator with phase separation
+- US-005 — Create immutable PluginRegistry type
+- US-004 — Create plugin loader module
+- US-003 — Create plugin resolver module
+- US-002 — Define PluginPackageJson type for package.json opentabs field
+- US-001 — Add Result type for structured error handling
+- US-023 — Replace remaining RetroUI branding with OpenTabs
+- US-022 — Remove unused RetroUI images and static assets
+- US-021 — Add build scripts, fix ESLint warnings, and format codebase
+- US-020 — Create the Troubleshooting reference page
+- US-019 — Create the MCP Server reference page
+- US-018 — Create the CLI Commands reference page
+- US-017 — Create the Configuration reference page
+- US-016 — Create the Slack plugin docs page
+- US-015 — Create the 'Creating a Plugin' guide
+- US-014 — Create the Plugin SDK docs page
+- US-013 — Create the Browser Tools concept page
+- US-012 — Create the Tab State Machine concept page
+- US-011 — Create the Plugin System concept page
+- US-010 — Create the Architecture concept page
+- US-009 — Create the OpenTabs installation guide
+- US-008 — Create the OpenTabs docs introduction page
+- US-007 — Create the OpenTabs marketing homepage
+- US-006 — Remove RetroUI component-specific code from config and contentlayer
+- US-003 — Update layout.tsx and TopNav for OpenTabs branding
+- US-002 — Apply OpenTabs theme to global.css
+- US-001 — scaffold docs-v2 from RetroUI, switch to Bun, strip third-party services
+- US-012 — responsive breadcrumb overflow and touch targets
+- US-011 — responsive page footer card stacking and touch targets
+- US-010 — global mobile CSS overscroll and safe-area insets
+- US-009 — responsive accordion, tabs, and file tree touch targets
+- US-008 — mobile-optimized code blocks and copy button touch targets
+- US-007 — responsive MDX content typography and tables
+- US-006 — mobile TOC popover touch targets and overscroll containment
+- US-005 — mobile sidebar drawer polish and safe-area handling
+- US-004 — mobile-optimized search dialog positioning and sizing
+- US-003 — responsive feature cards and how-it-works grid spacing
+- US-002 — responsive hero section typography and spacing
+- US-001 — homepage mobile navigation with collapsible menu
+- improve mobile UX — touch targets, safe areas, responsive spacing
+- US-002 — CSS-only tab scroll fade indicator for mobile
+- US-001 — add explicit viewport meta dimensions for mobile
+- US-006 - Restore hero heading size on tablets
+- US-005 - Restore inline code border-2 and py-0.5 padding
+- US-004 - Restore heading spacing hierarchy in MDX components
+- US-003 - Remove min-h-11 from tab triggers
+- US-002 - Remove scroll affordance machinery from RetroTabs
+- US-001 - Remove global shadow utility class overrides on mobile
+- US-004 - Log warning when polling detects repeated stale-watcher events
+- US-003 - Expose watcher health in /health endpoint
+- US-002 - Add periodic mtime polling as fs.watch fallback
+- US-001 - Add mtime tracking to file watcher state
+- US-007 - Add rounded to table container
+- US-006 - Add rounded to file tree container
+- US-005 - Add rounded to homepage feature cards and how-it-works cards
+- US-004 - Restore rounded to code block and fix copy button sizing
+- US-003 - Restore rounded to Card and Callout components
+- US-002 - Restore rounded to Accordion items
+- US-001 - Restore rounded to Button component base styles
+- US-007 - Fix scaffolded plugin dev script for iterative development
+- US-006 - Health endpoint exposes failed plugin paths for debugging
+- US-005 - CLI config set and scaffold use atomic writes
+- US-004 - CLI plugin add/remove uses atomic writes and correct guidance messages
+- US-003 - File watcher watches all config plugin paths, not just successfully-discovered ones
+- US-001 - loadConfig throws on persistent read failure instead of returning empty fallback
+- US-012 - Tighten list item internal paragraph spacing with [&>p]:mb-2
+- US-011 - Reduce inline code vertical padding from py-0.5 to py-px
+- US-010 - Reduce breadcrumb bottom margin from mb-4 to mb-2
+- US-009 - Tighten page footer separator spacing from pt-8 to pt-6
+- US-008 - Remove top border from tab content panel to fix double-border
+- US-007 - Increase RetroCards internal gap from gap-5 to gap-6
+- US-006 - Increase callout mobile padding from p-3 to p-4
+- US-005 - Increase step number box to title gap from mb-3 to mb-4
+- US-004 - Add h-full to feature cards for equal row height
+- US-003 - Add border-radius to homepage beta badge
+- US-002 - Reduce paragraph bottom margin from mb-5 to mb-4
+- US-001 - Consistent heading vertical rhythm with descending scale
+- US-010 - Add safe-area-inset padding for notched devices (iPhone X+)
+- US-009 - Responsive hero description text sizing for mobile
+- US-008 - Add mobile-safe border to inline code elements
+- US-007 - Ensure touch targets meet 44px minimum on all interactive elements
+- US-006 - Stack prev/next footer links on mobile at md instead of lg
+- US-005 - Truncate breadcrumb link text on mobile to prevent wrapping
+- US-004 - Smooth hero heading typography scale for mobile and tablets
+- US-003 - Add intermediate 2-column grid for How It Works on tablets
+- US-002 - Responsive code block max-height on mobile
+- US-001 - Add scroll affordance gradient masks to RetroTabs on mobile
+- US-005 - Fix AccordionHeader default padding to match px-3 convention
+- US-004 - Clean up redundant zero-padding in AccordionContent
+- US-003 - Remove shadow-xs override from search input so shadow matches plugin cards
+- US-002 - Fix footer horizontal padding to match content area
+- US-001 - Align tool rows and tab state hints with plugin name in accordion cards
+- US-008 - Fix code block and file tree components for mobile
+- US-007 - Fix global CSS for mobile sidebar, TOC, and search dialog
+- US-006 - Improve MDX content typography for mobile
+- US-005 - Improve homepage typography and spacing for mobile
+- US-004 - Fix steps component positioning on narrow screens
+- US-003 - Fix tab component overflow on mobile
+- US-002 - Add mobile search trigger to header
+- US-001 - Fix docs layout grid to be responsive on mobile
+- US-008 - Fix all Knip unused code issues in docs project
+- US-006 - Fix all ESLint errors in docs project
+- US-004 - strengthen docs tsconfig.json to match root strictness flags
+- US-003 - Create Prettier config and Knip config for docs project
+- US-003 - create Prettier config, Knip config, and fix tsconfig for docs project
+- US-002 - create ESLint flat config for docs project
+- US-001 - install tooling devDependencies and add scripts to docs
+- add application icon SVG
+- add preview script to docs for serving static build
+- US-005 — increase how-it-works h2 bottom margin from mb-10 to mb-12
+- US-004 — remove rounded class from callout and card for sharp neobrutalist corners
+- US-003 — add hr MDX override with 2px neobrutalist border
+- US-002 — fix blockquote vertical margin from my-4 to my-6
+- US-001 — fix tab trigger bottom border gaps and content panel spacing
+- US-009 — compact plugin card trigger vertical padding to py-2
+- US-008 — tone down Connected badge to default variant
+- US-007 — add left accent border on open accordion cards
+- US-006 — constrain empty state separator to w-16 accent bar
+- US-005 — add pt-2 top padding to filter count text
+- US-004 — move TabStateHint inside accordion content area
+- US-003 — indent tool rows with pl-5 for parent-child hierarchy
+- US-002 — remove accordion content bottom padding asymmetry (pb-1 → pb-0)
+- US-001 — fix footer border weight to match header (border-t-2)
+- US-014 — add ps-3 left indent to file tree root container
+- US-013 — increase accordion item gap from gap-2 to gap-3
+- US-012 — add bottom border to tab trigger list for connected tab look
+- US-011 — fix step indicator vertical alignment (top: 0 → top: 2rem)
+- US-010 — increase MDX Cards grid gap from gap-4 to gap-5
+- US-009 — improve callout internal spacing (p-4 → p-5, mb-1 → mb-2)
+- US-008 — reduce table row hover intensity (bg-primary/50 → bg-primary/15, remove hover text color)
+- US-007 — fix footer press effect to translate-y-only (remove diagonal shift)
+- US-006 — add mb-4 bottom spacing to breadcrumb nav
+- US-005 — fix sidebar active link text jitter with transparent left border reserve
+- US-004 — fix code block floating copy button position (top-2 right-2 → top-3 right-3)
+- US-003 — increase feature cards grid gap from gap-4 to gap-6
+- US-002 — fix hero section spacing progression
+- US-001 — standardize MDX vertical rhythm
+- US-002 — add unit tests for tools/call handler dispatch pipeline
+- US-001 — add unit tests for sanitizeOutput in mcp-setup.ts
+- US-010 — improve callout and card spacing within prose
+- US-009 — improve TOC visual hierarchy and active state
+- US-008 — improve sidebar visual hierarchy and spacing
+- US-007 — improve prev/next footer spacing
+- US-006 — improve code block spacing and inline code visual weight
+- US-005 — improve table cell padding for consistent column alignment
+- US-004 — improve MDX prose typography spacing and line heights
+- US-003 — improve feature cards and how-it-works cards visual polish
+- US-002 — improve home page vertical rhythm and section spacing
+- US-001 — unify max-width to max-w-5xl across all home page sections
+- US-004 — refine plugin card header spacing and Accordion.Content padding
+- US-003 — improve vertical rhythm and breathing room
+- US-002 — fix TabStateHint alignment and add separator
+- US-001 — unify horizontal padding across all sections
+- add icon and displayName fields to tool definitions
+- US-013 - Override Fumadocs Table of Contents with RetroUI styling
+- US-012 - Override Fumadocs Sidebar with RetroUI neobrutalist sidebar
+- US-011 - Override Fumadocs Navbar with RetroUI neobrutalist navbar
+- US-010 - Override Fumadocs Files with RetroUI styling
+- US-009 - Override Fumadocs Steps with RetroUI styling
+- US-008 - Override Fumadocs Accordion with RetroUI Accordion styling
+- US-007 - Override Fumadocs Tabs with RetroUI Tabs styling
+- US-006 - Override Fumadocs code blocks with RetroUI-styled code blocks
+- add --model flag to ralph and per-PRD qualityChecks override
+- US-005 - Override Fumadocs Callout/Card MDX components with RetroUI Alert/Card styling
+- US-004 - Override Fumadocs prose/typography with RetroUI styling
+- US-003 - Apply RetroUI global CSS theme (colors, shadows, fonts, radius)
+- US-002 - Copy RetroUI component source files into docs-v2/
+- US-001 - Scaffold Fumadocs project at docs-v2/
+- US-010 - Replace magic number indent in TabStateHint with computed value
+- US-009 - Add rounded container to ToolIcon for visual consistency
+- US-008 - Enlarge empty state icons for better visual weight
+- US-007 - Polish footer border and padding
+- US-006 - Reduce search input shadow weight
+- US-005 - Improve tool description readability
+- US-004 - Tighten tool row density and soften hover
+- US-003 - Fix plugin card trigger vertical alignment
+- US-002 - Fix header shadow and tighten padding
+- US-001 - Add dark mode detection and Space Mono font
+- US-008 - Add missing webkit scrollbar thumb transition for smooth background change
+- US-006 - Fix ThemeSelect.astro active state to include translateX(1px)
+- US-005 - Fix Pagination.astro buttons to match RetroUI Button.tsx exactly
+- US-004 - Fix Hero.astro buttons to match RetroUI Button.tsx exactly
+- US-003 - Remove text-card-foreground from feature card titles for readability
+- US-002 - Add missing --background-image and --chart-\* to :root and .dark blocks
+- US-001 - Switch @theme to @theme inline and add missing theme variables
+- US-004 - Replace border-black with border-border in Hero.astro and Pagination.astro
+- US-002 - Replace border-black with border-border in Button.tsx
+- US-001 - Apply RetroUI Purple theme to side panel styles.css
+- US-006 - Fix PluginCard accordion trigger to use items-start like RetroUI
+- US-005 - Replace ToolRow CSS spinner with RetroUI Loader component
+- US-004 - Fix ToolRow to use RetroUI border-b-2, hover:bg-accent, and bg-accent/20 active state
+- US-003 - Replace Starlight CSS variables in Pagination.astro with RetroUI values
+- US-002 - Add --sl-color-gray-7 to dark mode Starlight overrides
+- US-001 - Fix docs hover/active press effects to match RetroUI Button pattern
+- US-006 through US-013 - Platform quality fixes batch
+- US-005 - Derive BROWSER_TOOL_NAMES dynamically from browserTools array
+- US-004 - Eliminate redundant double notifyToolListChanged on hot reload
+- US-003 - Clean up stale .tmp exec files on server startup
+- US-002 - Add npmPlugins to FALLBACK_CONFIG for consistency
+- US-001 - Remove dead code: getNextRequestId unused \_state parameter and nextRequestId field
+- US-004 - Fix header shadow to RetroUI equal-offset pattern (2px 2px)
+- US-010 - Add cursor-pointer to side panel clear-filter button
+- US-009 - Add RetroUI anchor hover pattern to Footer feedback link
+- US-008 - Fix docs borders from 1px to 2px to match RetroUI universal border-2
+- US-007 - Add active press state to docs search, mobile menu, and social icons
+- US-006 - Replace hardcoded Starlight gray overrides with RetroUI tokens
+- US-003 - Replace hardcoded rgba in tool-pulse animation with RetroUI --primary token
+- US-002 - Fix --border dark mode value to match RetroUI (#5c5c5c)
+- US-001 - Fix --muted light mode value to match RetroUI (#d5d5d5)
+- US-006 - Fix AccordionContent dark mode colors and verify retro components match source
+- US-005 - Align all switches to same right column
+- US-004 - Show tool description as primary text, tool name in Tooltip
+- US-003 - Move version+trust into Tooltip on plugin icon hover
+- US-002 - Redesign PluginIcon with ready/not-ready dual-state SVGs
+- US-005 - Add IP address host support to URL pattern validation
+- US-002 - Fix extension_check_adapter to return actual tool names instead of array indices
+- US-001 - Remove non-existent script references from CI pipeline
+- US-007 - Style table of contents with RetroUI NeoBrutalism
+- US-006 - Add RetroUI body colors, scrollbar, text-outlined utility, and CSS fixes
+- US-005 - Style social icon links with RetroUI NeoBrutalism
+- US-004 - Style sidebar with RetroUI NeoBrutalism typography and borders
+- US-003 - Style mobile menu toggle with RetroUI NeoBrutalism
+- US-002 - Style search button with RetroUI NeoBrutalism
+- US-001 - Style ThemeSelect with RetroUI NeoBrutalism
+- Redesign Chrome extension side panel with RetroUI NeoBrutalism theme
+- US-008 - Remove old VitePress website/ directory and update root configuration
+- US-007 - Style markdown content elements with RetroUI NeoBrutalism
+- US-006 - Create RetroUI-styled hero landing page
+- US-005 - Override Starlight components with RetroUI NeoBrutalism styling
+- US-004 - Configure sidebar navigation matching VitePress structure
+- US-003 - Migrate all markdown content from VitePress to Starlight
+- US-002 - Configure Tailwind CSS v4 with exact RetroUI NeoBrutalism theme
+- US-001 - Scaffold Astro Starlight project in docs/ directory
+- US-002 - Auto-rebuild and auto-reload Chrome extension on source changes
+- US-001 - Create dev orchestrator script with tsc --build --watch + bun --hot
+- US-010 - Fix isNewer version comparison for NaN segments
+- US-009 - Add runtime object check for extension message params
+- US-008 - Fix Slack token regex to include underscores in character class
+- US-007 - Add separate meta modifier parameter to browser_press_key
+- US-006 - Remove dead code in handleBrowserTypeText clear logic
+- US-005 - Fix followFile race condition in opentabs logs
+- US-004 - Fix opentabs build --watch silently dropping file changes during rebuild
+- US-003 - Fix EXTENSION_COPY_EXCLUDE_PATTERN to exclude root-level tsconfig files
+- US-002 - Fix MCP session leak when transport connect throws
+- US-001 - Fix atob corrupting non-ASCII response bodies in network capture
+- US-006 - Add unit tests for plugin-storage write mutex serialization
+- US-005 - Add unit tests for browser extension sanitize-error.ts
+- US-004 - Add unit tests for rate-limiter.ts
+- US-003 - Add unit tests for tab-matching port logic
+- US-002 - Add early URL validation in offscreen ws:setUrl handler
+- US-001 - Clear pluginLocks on WebSocket disconnect in tab-state.ts
+- US-005 - Add rate limiting and auth to /ws-info endpoint
+- US-004 - Scrub sensitive headers from network capture
+- US-003 - Add wildcard count limit to URL pattern validation
+- US-002 - Add ring-buffer cap to console log capture
+- US-001 - Tighten execFile validation to enforce \_\_exec- prefix
+- US-001/US-002/US-003 - Add E2E tests for network body capture, page HTML, and web storage
+- US-007 - Add E2E tests for extension debugging tools
+- US-006 - Add extension_force_reconnect tool for WebSocket reconnection
+- US-005 - Add extension_check_adapter tool for plugin injection diagnostics
+- US-004 - Add extension_get_side_panel tool for side panel inspection
+- US-003 - Add extension_get_logs tool for internal log retrieval
+- US-002 - Add extension_get_state tool for comprehensive state inspection
+- US-001 - Add internal log collector to background and offscreen scripts
+- US-002 - Add E2E tests for browser interaction tools
+- US-001 - Add browser_handle_dialog tool for JS alert/confirm/prompt
+- US-007 - Add complexity guards on Ajv schema validation
+- US-006 - Document debugger permission usage in CLAUDE.md
+- US-005 - Set WebSocket maxPayloadLength in Bun.serve config
+- US-004 - Add test to verify ALLOWED_METHODS covers all methodHandlers
+- US-003 - Centralize plugin name validation regex in browser extension
+- US-002 - Add sender validation to offscreen chrome.runtime.onMessage
+- US-001 - Validate WebSocket URL path in offscreen document
+- US-003 - Add browser_hover_element tool for hover interactions
+- US-002 - Add browser_scroll tool for page and element scrolling
+- US-001 - Add browser_press_key tool for keyboard input
+- US-003 - Add E2E tests for browser_list_resources and browser_get_resource_content
+- US-002 - Add browser_get_resource_content tool to read specific page resources
+- US-001 - Add browser_list_resources tool to enumerate all page resources
+- US-007 - Standardize build script log prefixes to [opentabs:build:<target>]
+- US-006 - Add debug-level request lifecycle logging for tool dispatch
+- US-005 - Standardize error object passing in MCP server log callsites
+- US-004 - Add ISO 8601 timestamps to MCP server logger
+- US-003 - Replace bare .catch(console.error) with contextual error handlers in message-router.ts
+- US-002 - Replace bare .catch(console.error) with contextual error handlers in background.ts
+- US-001 - Standardize browser extension log tag prefix to [opentabs]
+- US-005 - Update network capture tool descriptions for discoverability
+- US-004 - Add browser_get_storage tool for localStorage and sessionStorage
+- US-003 - Add browser_get_page_html tool for raw HTML extraction
+- US-002 - Capture network response bodies via Network.getResponseBody
+- US-001 - Capture network request bodies (postData) in network capture
+- US-005 - E2E test for opentabs build CLI command
+- US-004 - E2E test for plugin list/add/remove CLI commands
+- US-003 - E2E test for scaffolded plugin install and build pipeline
+- US-002 - E2E test for create-opentabs-plugin error handling
+- US-001 - E2E test for create-opentabs-plugin scaffolding CLI
+- US-005 - Add tool config round-trip persistence unit tests
+- US-004 - E2E test for toggle-all switch
+- US-003 - E2E test for disabled tool dispatch rejection
+- US-002 - Extract checkToolCallable helper and add unit tests
+- US-001 - Extract getEnabledToolsList helper and add unit tests
+- US-010 - Add formatBytes and formatTimestamp tests to build.test.ts
+- US-009 - Fix imprecise assertions in reload.test.ts
+- US-008 - Add convertToolSchemas tests to build.test.ts
+- US-007 - Add checkPlugins and checkConfigFile tests to doctor.test.ts
+- US-006 - Add disabled tool filtering tests to mcp-setup.test.ts
+- US-005 - Add /health and /ws-info response shape tests to http-routes.test.ts
+- US-004 - Add extension.reload routing tests to message-router.test.ts
+- US-003 - Add findMatchingTab unit tests to tab-matching.test.ts
+- US-002 - Add writeExecFile failure test and success return value test to execute-script
+- US-001 - Add oversized IIFE rejection test and fix try/catch patterns
+- US-014 - Add E2E tests for network capture and console log tools
+- US-013 - Add E2E tests for cookie tools
+- US-012 - Add E2E tests for DOM interaction tools
+- US-011 - Add E2E tests for tab management and content tools
+- US-010 - Add browser_get_console_logs and browser_clear_console_logs tools
+- US-009 - Add network capture MCP tools (enable, get, disable)
+- US-008 - Add network capture state management in extension
+- US-007 - Add browser_get_cookies, browser_set_cookie, and browser_delete_cookies tools
+- US-006 - Add browser_wait_for_element and browser_query_elements tools
+- US-005 - Add browser_click_element, browser_type_text, and browser_select_option tools
+- US-004 - Add browser_get_tab_content tool
+- US-003 - Add browser_screenshot_tab tool
+- US-002 - Add browser_focus_tab and browser_get_tab_info tools
+- US-001 - Add manifest permissions and interactive test page
+- US-014 - Add edge case tests for validatePlugin tool name starting with digit
+- US-013 - Add unit tests for scaffoldPlugin domain-to-URL-pattern conversion
+- US-012 - Add unit tests for loadPluginFromDir in discovery.ts
+- US-011 - Add unit tests for handleServerMessage routing in message-router.ts
+- US-010 - Add unit tests for executeScript browser tool cleanup contract
+- US-009 - Add unit tests for EXTENSION_COPY_EXCLUDE_PATTERN in shared
+- US-008 - Add unit tests for findAllMatchingTabs ranking logic
+- US-007 - Add unit tests for bridge setAllToolsEnabled and request timeout
+- US-006 - Add unit tests for reloadExtension browser tool handler
+- US-005 - Export and test determineTrustTier in discovery.ts
+- US-004 - Export and test checkExtensionConnected and checkBunVersion from doctor.ts
+- US-003 - Export and test formatUptime, colorTabState, isTimeout from status.ts
+- US-002 - Add unit tests for isConnectionRefused in CLI config.ts
+- US-001 - Add comprehensive unit tests for parseManifest
+- US-008 - Validate plugin tool inputs on MCP server before dispatch
+- US-007 - Add security annotations to browser tool descriptions
+- US-006 - Freeze adapter entries to prevent cross-adapter tampering
+- US-005 - Add description length limits and browser tool reference warnings
+- US-004 - Surface trust tier prefix in MCP tool descriptions
+- US-003 - Add Bearer token authentication to MCP HTTP endpoints
+- US-002 - Require explicit opt-in for npm-discovered plugins
+- US-001 - Reject broad TLD wildcard URL patterns
+- US-004 - Normalize timestamp parameter to ts across Slack tools
+- US-003 - Improve read_thread and list_members Slack tool descriptions
+- US-002 - Add JSON-serializability note to browser_execute_script description
+- US-001 - Add composability hints to browser tool descriptions
+- US-001 - Fix scaffold display name to use title case
+- rewrite browser_execute_script for full arbitrary JS execution via CSP-free file injection
+- migrate to Zod 4 with native JSON Schema generation
+- add dev script to build and start MCP server with hot reload
+- US-001 — add fallback auth extraction for modern app.slack.com
+- US-002 — extract getExtensionId, openSidePanel, setupAdapterSymlink into helpers.ts
+- redesign ralph as continuous PRD consumer daemon with file-name state machine
+- US-002 — add --version flag to create-opentabs-plugin CLI
+- US-001 — log version on MCP server startup
+- US-004 — tool dispatch falls back to other matching tabs when best tab is not ready
+- US-002 — add React error boundary to side panel
+- US-003 — normalize bridge sendRequest to promise-style messaging
+- US-003 — remove unnecessary loadPluginsRef indirection in App.tsx
+- US-002 — deduplicate fetchConfigState calls on sync.full with timestamp guard
+- US-001 — eliminate duplicate notification processing in side panel ws:message fallback
+- US-008 — add runtime version negotiation between side panel and MCP server
+- US-007 — add E2E test coverage for side panel plugin list and tool toggle flow
+- US-005 — add unit tests for side panel bridge module
+- US-004 — sort plugins alphabetically in config.getState response
+- US-003 — make bridge.ts handleServerResponse defensive against numeric JSON-RPC ids
+- US-002 — remove redundant type cast in forwardToSidePanel
+- US-001 — remove fragile sync.full delay in side panel ws:message fallback
+- US-006 — E2E test for tool invocation animation + ws:message fallback
+- US-004 — E2E test for tab state changes + fix injection/state race
+- US-003 — E2E test for side panel connection status transitions
+- US-002 — optimistic local toggle for tool enable/disable
+- US-001 — forward tab.stateChanged to side panel from background
+- US-005 — optimistic local toggle for tool enable/disable
+- US-004 — remove ws:message broadcast fallback in side panel
+- US-003 — push plugin.update state directly to side panel
+- US-002 — push sync.full plugin state directly to side panel
+- US-001 — forward tab.stateChanged to side panel from background
+- US-002 — send plugins.changed notification to side panel
+- US-001 — add config.json file watcher to MCP server
+- add publish script with dual-token auth for npm private packages
+- initial platform implementation
+
+### Bug Fixes
+
+- include wsSecret in /ws-info endpoint response
+- add recursive kill_tree for complete e2e process cleanup
+- exclude worktree directories from eslint, knip, and prettier
+- validate --poll flag + fix DISPATCHED_ANY reset after recovery
+- recovery stuck ~running PRDs + update skill for parallel execution
+- explicitly require bun run test:e2e in RALPH.md quality checks
+- US-003 — remove wsSecret echo from /ws-info endpoint response
+- US-002 — sanitize plugin SVG icons to prevent XSS via dangerouslySetInnerHTML
+- US-006 — fix audit table status column alignment with ANSI color codes
+- US-005 — accept base64url padding in JWT detection regex
+- US-004 — check file existence before stat() in plugin build output
+- US-003 — validate resource and prompt entries in plugin manifest loader
+- US-002 — handle null textContent in getTextContent SDK utility
+- US-005 — resolve remaining E2E test failures (sanitization, auth, secret rotation)
+- prevent orphaned E2E test processes from leaking
+- US-005 — fix E2E test infrastructure (version marker, skip confirmation, auth headers)
+- US-013 — replace silent chmod .catch(() => {}) with warning logs
+- enforce theme tokens in side panel Switch and SDK badge
+- e2e test failures — sdkVersion missing from e2e-test plugin and dialog test race condition
+- prevent scroll passthrough on sidebar and TOC with overflow-y-scroll + overscroll-y-contain
+- use fixed sidebar, symmetric gaps, and clean up docs layout
+- truncate long TOC entries and make TOC scrollable
+- correct docs sticky offsets and nav z-index for our nav height
+- constrain content column width to prevent TOC layout shift
+- remove active item border and unconstrain TOC scroll
+- register radius in @theme block, set --radius to 0, fix component border/radius consistency
+- set --radius to 0 for full neobrutalist sharp corners
+- eliminate all hardcoded colors and radii, use theme tokens exclusively
+- replace all hardcoded colors and radii with theme tokens
+- align styling to RetroUI reference implementation
+- convert all pipe tables to JSX Table components in docs-v2
+- collapse docs grid gutter columns on mobile so content fills full width
+- resolve infinite extension rebuild loop in dev script
+- ensure ralph uses PRD-level qualityChecks for standalone subprojects
+- US-008 - Remove unused RetroUI components and clean up dependencies
+- add auto-logging to ralph.sh so diagnostics are never lost
+- update side panel E2E test to match redesigned disconnected state UI
+- scope sidebar transparent left border to page tree only
+- enforce one-story-per-iteration in ralph agent instructions
+- repair pre-existing E2E test failures
+- Add displayName to ManifestTool/WireToolDef test fixtures and exclude docs-v2 from root tooling
+- US-001 - Fix search input icon vertical centering and flaky network capture test
+- US-006 - Improve validateUrlPattern error message to mention path requirement
+- US-004 - Fix Slack localStorage scan regex to include underscores in token character class
+- US-003 - Fix getResourceContent base64 text decoding for non-ASCII characters
+- resolve 4 flaky e2e tests and stale tsbuildinfo build issue
+- make quality checks a hard gate in ralph agent instructions
+- unset CLAUDECODE env var in ralph.sh to prevent nested-session error
+- prevent ralph from spinning empty iterations and fix PRD timestamp accuracy
+- reduce Slack file upload max size from 50MB to 20MB
+- US-022 - Sanitize tool output to prevent prototype pollution in MCP clients
+- US-021 - Upgrade WebSocket secret to 256-bit cryptographic random
+- US-020 - Validate tab URL before tool execution to prevent TOCTOU race
+- US-019 - Add input size limit enforcement in tool dispatch
+- US-018 - Atomic config file writes with race condition prevention
+- US-017 - Sanitize error messages before returning to MCP clients
+- US-016 - Reject tool calls when schema compilation has failed
+- US-015 - Secure E2E test config directory permissions
+- US-014 - Set restrictive file permissions on config file and directory
+- US-013 - Add file upload type validation in Slack plugin
+- US-012 - Add rate limiting on MCP server administrative endpoints
+- US-011 - Add rate limiting on browser commands in extension
+- US-010 - Validate plugin name format in side panel to prevent XSS
+- US-009 - Validate plugin existence before accepting tab state changes
+- US-008 - Add plugin path traversal validation in discovery
+- US-007 - Move WebSocket token from URL query to sec-websocket-protocol subprotocol
+- US-006 - Enforce HTTPS for Slack API calls
+- US-005 - Validate Slack upload URL domain to prevent SSRF
+- US-004 - Validate execFile path to prevent directory traversal
+- US-003 - Validate WebSocket URL origin in offscreen document
+- US-002 - Prevent exec script code injection via IIFE wrapper breakout
+- US-001 - Replace predictable sequential dispatch IDs with crypto.randomUUID()
+- US-111 - Replace fixed setTimeout waits with polling in E2E browser-tools tests
+- US-109 - Separate Slack API error message from error code
+- US-108 - Use crypto.randomUUID() for temp file uniqueness in IIFE bundling
+- US-107 - Add try-catch with clear error messages around z.toJSONSchema() in build command
+- US-106 - Log tab state lock rejections instead of silently swallowing
+- US-105 - Log adapter teardown failures instead of silently swallowing
+- US-104 - Detach debugger if Network.enable or Runtime.enable fails in startCapture
+- US-103 - Replace unsafe type casts with runtime type guards in extension-protocol
+- US-102 - Add try-catch around atob() in Slack upload-file tool
+- US-101 - Fix WebSocket connecting flag deadlock in offscreen document
+- normalize undefined exec results to null before structured cloning
+- US-001, US-002 - Fix set_channel_topic and set_channel_purpose response parsing
+- US-005 - Log warning when sync notifications fail to send
+- US-004 - Reject empty-string wsUrl from /ws-info endpoint
+- US-003 - Replace wall-clock modulo with elapsed-time tracking for E2E diagnostics
+- US-002 - Throw error on adapter hash mismatch after retry
+- auto-install managed extension on every build
+- update scaffolded zod version from ^3.0.0 to ^4.0.0
+- harden URL validation refine and clean up stale comment
+- use jsonSchema7 target for zodToJsonSchema to produce valid JSON Schema 2020-12
+- add actionable error message for EADDRINUSE on server startup
+- prevent E2E test server process leaks
+- US-002 — buffer tab state notifications to prevent stale side panel display
+- US-009 — add try/catch cleanup to createExtensionCopy for temp dir leak prevention
+- US-008 — remove redundant 1s sleep in invalid uninstall test
+- US-005 — remove unused defaultUrl variable in createExtensionCopy
+- US-004 — remove dead errorMode from strict-csp-test-server.ts
+- US-002 — extract duplicated getExtensionId, openSidePanel, setupAdapterSymlink into helpers.ts
+- add PID file lock to prevent multiple ralph.sh daemons
+- US-001 — wrap testServer and strictCspServer fixtures in try/finally cleanup
+- preserve ~done suffix in archive folder and file names
+- US-001 — correct extension loading path in CLAUDE.md
+- ralph exits early when all prd.json stories pass
+- US-002 — connect immediately on ws:setUrl when disconnected with no pending reconnect
+- US-001 — re-ensure offscreen document on keepalive alarm tick
+- US-004 — preserve per-tool states on toggle-all rollback
+- include website/ and markdown files in quality checks
+
+### Refactoring
+
+- make ralph/perfect skills multi-project aware and rename to drop opentabs- prefix
+- move icon.svg to assets/ for shared static resources
+- US-110 - Consolidate duplicated Slack message and pagination schemas
+- US-007 — add timeout option to createMcpClient callTool
+- US-006 — rename McpServer.distDir to wrapperDir
+- US-003 — extract shared test server utilities into test-server-utils.ts
+- rename to @opentabs-dev, publish to npm, make plugins fully standalone
+
+### Build
+
+- add create-opentabs-plugin to publish pipeline and switch plugins to published npm deps
+
+### Tests
+
+- US-005 — add E2E tests for all lifecycle hooks
+- add E2E test for browser_execute_script triggering actual browser dialogs
+- US-006 — add displayName and icon validation tests to build.test.ts
+- US-005 — add unit tests for handleManifestChange in file-watcher.ts
+- US-004 — add unit tests for fetchLatestVersion and checkForUpdates in version-check.ts
+- US-003 — add unit tests for wsClose, wsOpen, and CORS handlers in http-routes.ts
+- add unit tests for safeUrl schema validation
+- US-006 — E2E test for MCP session invalidation after close
+- US-005 — E2E test for tab closing during active in-flight tool dispatch
+- US-003 — add plugin SDK unit tests for ToolError, defineTool, and re-exports
+- US-008 — E2E test for URL change reconnection while disconnected
+- US-007 — E2E test for concurrent tool dispatch timeouts
+- US-006 — E2E test for malformed WebSocket messages
+- US-005 — E2E test for server-side DISPATCH_TIMEOUT_MS
+- US-004 — E2E test for unavailable tab state in side panel
+- US-005 — add E2E test for side panel live-updates when plugins change
+- US-004 — add E2E test for config.json auto-discovery
+- US-003 — add unit tests for config file watcher
+
+### Documentation
+
+- US-012 — add putJSON, patchJSON, deleteJSON to plugin development guide
+- US-011 — add browser tool security tiers and confirmation system to architecture docs
+- US-010 — remove plugin-specific Slack reference page
+- US-009 — remove incorrect --dev flag from install page plugin developer section
+- US-008 — add missing WebSocket protocol messages (confirmation + config)
+- US-007 — add missing /audit query params and /health auth-dependent responses
+- US-006 — add missing config fields and directory structure to configuration reference
+- US-005 — add missing SDK fetch, storage, and HTTP helper functions to utilities page
+- US-004 — add plugin_analyze_site and update browser tools count to 37
+- US-003 — add missing audit flags (--tool, --since, --file) to CLI reference
+- US-002 — add missing config subcommands (reset, rotate-secret) and config set keys
+- US-001 — add missing plugin subcommands (list, install, remove) to CLI reference
+- improve README with SVG illustrations and audience-friendly structure
+- US-018 — document plugin_analyze_site browser tool in CLAUDE.md
+- US-006 — document streaming progress support in CLAUDE.md
+- US-007 — document plugin logging architecture in CLAUDE.md
+- US-007 — add lifecycle hooks documentation to CLAUDE.md
+- US-008 — document SDK utilities in CLAUDE.md
+- clean up docs-v2 content for conciseness and clarity
+- teach ralph skill about standalone subprojects and PRD location
+- add 'Own the Codebase' rule to ralph agent instructions
+- add 'search online first' principle and document bun --hot stale watcher issue
+- add README to plugins/ explaining standalone isolation
+
+### Chores
+
+- remove perfect skill, shell script, and readme
+- bump plugin deps to @opentabs-dev/\*@^0.0.17
+- gitignore content-collections generated artifacts
+- replace docs site with docs-v2 and add full code quality tooling
+- bump platform packages to 0.0.10, update plugins to install from npm
+- bump plugin deps to @opentabs-dev/\*@0.0.7 (required displayName)
+- US-007 - Remove dead ESLint override for plugins/\*_/_.ts
+
+### Other
+
+- remove yellow left accent border on open accordion cards
+
+### Other
+
+- fix table: single wrapper div with overflow-auto + rounded + shadow
+- fix table shadow clipping: move border/shadow/rounded to wrapper div
+- code review fixes: missing rounded, consistent hover pattern, border-border
+- restore TOC active highlight with dynamic group-rounded corners
+- fix sidebar sticky target and TOC highlight saw-tooth
+- fix sidebar top gap and TOC active highlight rounded
+- move search bar to global header, remove sidebar search/collapse, fix top gaps
+- fix inline code rounded, TOC active heading contrast, sidebar/TOC sticky below header
+- fix docs header centering: restore inline gridTemplate that ralph incorrectly moved to CSS
+- revert debatable ralph changes: restore header button sizing, breadcrumb, table padding, grid layout, footer stacking, heading sizes
+- fix missing rounded on side panel Switch/Tooltip, add browser extension CLAUDE.md with theme rules
+- add docs/CLAUDE.md with RetroUI design system rules for AI agents
+- enforce theme variables across docs, add global header for consistent logo positioning
+- redesign disconnected state as red-tinted empty card, remove connection badge from footer
+- center empty states vertically in side panel
+- add dark/light theme toggle, fix theme variable coverage, improve footer
+- update docs icon to match latest asset
+- simplify icon to flat yellow squircle with centered cutout
+- fix docs UI bugs, add logo icon and favicon
+- add extension icons, bundle fonts locally, fix CSP, remove duplicate header
+- update theme to yellow/gold RetroUI palette across docs and side panel
+- Replace Astro docs with fumadocs, rename docs-v2 to docs, enable static export
+- reduce local Playwright workers from 12 to 8
+- Revert "feat: US-001 — forward tab.stateChanged to side panel from background"
+- Revert "feat: US-002 — push sync.full plugin state directly to side panel"
+- Revert "feat: US-003 — push plugin.update state directly to side panel"
+- Revert "feat: US-004 — remove ws:message broadcast fallback in side panel"
+- Revert "feat: US-005 — optimistic local toggle for tool enable/disable"
+- rename PERFECT-LOOP.md references to PERFECT.md
