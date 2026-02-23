@@ -657,12 +657,26 @@ dispatch_prd() {
   echo -e "$(ts) ${CYAN}[${tag}]${RESET} Project: $prd_project"
   [ -n "$prd_desc" ] && echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${DIM}$prd_desc${RESET}"
 
-  # Clean up any leftover worktree/branch from a previous crashed run
+  # Clean up any leftover worktree/branch from a previous crashed run.
   if [ -d "$worktree_dir" ]; then
     echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${DIM}Cleaning up stale worktree...${RESET}"
     remove_worktree "$worktree_dir"
   fi
-  git branch -D "$branch_name" 2>/dev/null || true
+  # Only delete the branch if it has no unmerged commits. A branch with
+  # commits not on HEAD was preserved from a previous merge conflict —
+  # deleting it would lose completed work that needs manual resolution.
+  if git rev-parse --verify "$branch_name" >/dev/null 2>&1; then
+    local unmerged
+    unmerged=$(git rev-list --count "HEAD..$branch_name" 2>/dev/null || echo "0")
+    if [ "$unmerged" -gt 0 ]; then
+      echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${YELLOW}Branch $branch_name has $unmerged unmerged commit(s) from a previous conflict — skipping PRD.${RESET}"
+      echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${YELLOW}Resolve first: git merge $branch_name${RESET}"
+      # Revert PRD from ~running back to ready so it can be retried after resolution
+      mv "$prd_file" "${prd_file/\~running.json/.json}" 2>/dev/null || true
+      return 1
+    fi
+    git branch -D "$branch_name" 2>/dev/null || true
+  fi
 
   # Create worktree branching from current HEAD
   echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${DIM}Creating worktree...${RESET}"
