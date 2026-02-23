@@ -6,23 +6,7 @@ lastUpdated: 2026-02-21
 
 OpenTabs has three main components: the **MCP server** (discovers plugins and dispatches requests), the **Chrome extension** (injects plugin adapters into browser tabs), and **plugins** (define tools, resources, and prompts that run in the page context). All communication uses JSON-RPC 2.0.
 
-```
-┌─────────────┐  Streamable HTTP  ┌─────────────┐  WebSocket  ┌──────────────────┐
-│ AI Agent    │ ←───────────────→ │ MCP Server  │ ←─────────→ │ Chrome Extension │
-│ (Claude)    │  /mcp             │ (localhost)  │             │   (Background)   │
-└─────────────┘                   └──────┬──────┘             └────────┬─────────┘
-                                         │                             │
-                                  ┌──────▼──────┐            ┌────────▼─────────┐
-                                  │   Plugin    │            │  Adapter IIFEs   │
-                                  │  Discovery  │            │  (injected into  │
-                                  │ (npm + local│            │   matching tabs) │
-                                  │  paths)     │            └────────┬─────────┘
-                                  └─────────────┘                     │
-                                                             ┌────────▼─────────┐
-                                                             │   Web APIs       │
-                                                             │ (user's session) │
-                                                             └──────────────────┘
-```
+<ArchitectureIllustration />
 
 ## MCP Server
 
