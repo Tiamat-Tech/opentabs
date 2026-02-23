@@ -144,7 +144,13 @@ const readConfigWithRetry = async (
 
 /** Check whether a string looks like a local filesystem path. */
 const isLocalPathEntry = (s: string): boolean =>
-  s.startsWith('./') || s.startsWith('../') || s.startsWith('/') || s.startsWith('~/');
+  s.startsWith('./') ||
+  s.startsWith('.\\') ||
+  s.startsWith('../') ||
+  s.startsWith('..\\') ||
+  s.startsWith('/') ||
+  s.startsWith('~/') ||
+  /^[A-Za-z]:[/\\]/.test(s);
 
 const VALID_TOOL_PERMISSIONS = new Set<string>(['allow', 'ask', 'deny']);
 

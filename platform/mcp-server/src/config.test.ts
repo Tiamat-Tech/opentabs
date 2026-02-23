@@ -136,6 +136,32 @@ describe('loadConfig / saveConfig round-trip', () => {
     expect(config).not.toHaveProperty('plugins');
   });
 
+  test('migrates Windows-style paths from legacy plugins array into localPlugins', async () => {
+    await Bun.write(
+      configPath,
+      JSON.stringify({
+        plugins: [
+          '.\\relative\\plugin',
+          '..\\parent\\plugin',
+          'C:\\Users\\dev\\plugin',
+          'D:/projects/plugin',
+          'opentabs-plugin-npm',
+        ],
+        tools: {},
+        secret: 'test-secret-win',
+      }),
+    );
+
+    const config = await loadConfig();
+    // Windows-style local paths are migrated, npm package names are dropped
+    expect(config.localPlugins).toEqual([
+      '.\\relative\\plugin',
+      '..\\parent\\plugin',
+      'C:\\Users\\dev\\plugin',
+      'D:/projects/plugin',
+    ]);
+  });
+
   test('drops legacy npmPlugins entries with a log notice', async () => {
     await Bun.write(
       configPath,
