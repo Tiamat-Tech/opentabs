@@ -31,7 +31,7 @@ Functions for waiting on elements, querying the DOM, and observing mutations.
 Waits for an element matching `selector` to appear in the DOM. Uses MutationObserver for efficient detection, with an immediate querySelector check for elements already present.
 
 ```typescript
-function waitForSelector(selector: string, opts?: WaitForSelectorOptions): Promise<Element>;
+function waitForSelector<T extends Element = Element>(selector: string, opts?: WaitForSelectorOptions): Promise<T>;
 ```
 
 <Table>
@@ -195,7 +195,7 @@ function fetchFromPage(url: string, init?: FetchFromPageOptions): Promise<Respon
       <Table.Cell className="font-medium">`timeout`</Table.Cell>
       <Table.Cell>`number`</Table.Cell>
       <Table.Cell>`30000`</Table.Cell>
-      <Table.Cell>Request timeout in milliseconds. Throws a `ToolError` with code `'timeout'` on expiry.</Table.Cell>
+      <Table.Cell>Request timeout in milliseconds. Throws a `ToolError` with code `'TIMEOUT'` on expiry.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
@@ -224,7 +224,7 @@ Fetches a URL and parses the response as JSON. Uses the page's session cookies a
 function fetchJSON<T>(url: string, init?: FetchFromPageOptions): Promise<T>;
 ```
 
-Throws a `ToolError` with code `'json_parse_error'` if the response is not valid JSON.
+Throws a `ToolError` with code `'VALIDATION_ERROR'` if the response is not valid JSON.
 
 ```typescript
 interface Channel { id: string; name: string }
