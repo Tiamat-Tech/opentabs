@@ -1,6 +1,5 @@
 'use client';
 
-import { Theme as ColorTheme } from '@/config/theme';
 import { createContext, useContext, useState } from 'react';
 import type React from 'react';
 
@@ -8,13 +7,9 @@ type DarkMode = 'light' | 'dark';
 
 interface ThemeContextType {
   darkMode: DarkMode;
-  colorTheme: ColorTheme;
-  variant: string;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
   setDarkMode: (theme: DarkMode) => void;
-  setColorTheme: (theme: ColorTheme) => void;
-  setVariant: (variant: string) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -40,33 +35,13 @@ const getInitialDarkMode = (): DarkMode => {
   return saved === 'dark' || saved === 'light' ? saved : 'light';
 };
 
-const getInitialColorTheme = (): ColorTheme => {
-  const saved = readStorage('colorTheme') as ColorTheme | null;
-  if (saved !== null && Object.values(ColorTheme).includes(saved)) return saved;
-  return ColorTheme.Default;
-};
-
-const getInitialVariant = (): string => readStorage('variant') ?? 'box';
-
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [darkMode, setDarkModeState] = useState<DarkMode>(getInitialDarkMode);
-  const [colorTheme, setColorThemeState] = useState<ColorTheme>(getInitialColorTheme);
-  const [variant, setVariantState] = useState<string>(getInitialVariant);
 
   const setDarkMode = (newDarkMode: DarkMode) => {
     setDarkModeState(newDarkMode);
     localStorage.setItem('darkMode', newDarkMode);
     applyDarkMode(newDarkMode);
-  };
-
-  const setColorTheme = (newColorTheme: ColorTheme) => {
-    setColorThemeState(newColorTheme);
-    localStorage.setItem('colorTheme', newColorTheme);
-  };
-
-  const setVariant = (newVariant: string) => {
-    setVariantState(newVariant);
-    localStorage.setItem('variant', newVariant);
   };
 
   const toggleDarkMode = () => {
@@ -76,13 +51,9 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   const value: ThemeContextType = {
     darkMode,
-    colorTheme,
-    variant,
     isDarkMode: darkMode === 'dark',
     toggleDarkMode,
     setDarkMode,
-    setColorTheme,
-    setVariant,
   };
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

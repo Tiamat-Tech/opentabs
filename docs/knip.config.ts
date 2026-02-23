@@ -24,16 +24,6 @@ const config: KnipConfig = {
     // unist is a type-only stub resolved automatically via @types/unist
     'unist',
   ],
-  ignoreMembers: [
-    // Theme enum values are iterated via Object.values(ColorTheme) in ThemeContext
-    // Knip cannot trace runtime Object.values() usage
-    'Purple',
-    'Lime',
-    'Red',
-    'Lavender',
-    'Orange',
-    'Green',
-  ],
   ignoreExportsUsedInFile: true,
 };
 
