@@ -663,6 +663,172 @@ export const QuickStartFlow = () => (
 );
 
 /**
+ * ConfigDirectory — directory structure diagram for the Configuration reference page.
+ * Shows the ~/.opentabs/ directory layout as a terminal-window tree.
+ */
+export const ConfigDirectory = () => (
+  <div className="my-8">
+    <svg
+      viewBox="0 0 520 300"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-full max-w-lg"
+      aria-hidden="true">
+      {/* ── Main box ──────────────────────────────────────── */}
+      {/* Shadow */}
+      <rect x="8" y="8" width="508" height="288" fill="var(--color-foreground)" />
+      {/* Body */}
+      <rect
+        x="4"
+        y="4"
+        width="508"
+        height="288"
+        fill="var(--color-background)"
+        stroke="var(--color-foreground)"
+        strokeWidth="3"
+      />
+      {/* Header */}
+      <rect x="4" y="4" width="508" height="36" fill="var(--color-foreground)" />
+      {/* Traffic lights */}
+      <circle cx="24" cy="22" r="5" fill="var(--color-primary)" />
+      <circle cx="40" cy="22" r="5" fill="var(--color-background)" opacity="0.4" />
+      <circle cx="56" cy="22" r="5" fill="var(--color-background)" opacity="0.4" />
+      <text
+        x="258"
+        y="27"
+        fontSize="12"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-primary)"
+        fontWeight="bold"
+        textAnchor="middle">
+        ~/.opentabs/
+      </text>
+
+      {/* ── File tree ─────────────────────────────────────── */}
+      {/* config.json */}
+      <text x="28" y="68" fontSize="12" fontFamily="var(--font-mono), monospace" fill="var(--color-foreground)">
+        config.json
+      </text>
+      <text
+        x="220"
+        y="68"
+        fontSize="10"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.45">
+        Configuration (0600, created on first run)
+      </text>
+
+      {/* auth.json */}
+      <text x="28" y="94" fontSize="12" fontFamily="var(--font-mono), monospace" fill="var(--color-foreground)">
+        auth.json
+      </text>
+      <text
+        x="220"
+        y="94"
+        fontSize="10"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.45">
+        Auth secret + port (written on server start)
+      </text>
+
+      {/* audit.log */}
+      <text x="28" y="120" fontSize="12" fontFamily="var(--font-mono), monospace" fill="var(--color-foreground)">
+        audit.log
+      </text>
+      <text
+        x="220"
+        y="120"
+        fontSize="10"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.45">
+        Tool invocation log (NDJSON, append-only)
+      </text>
+
+      {/* server.log */}
+      <text x="28" y="146" fontSize="12" fontFamily="var(--font-mono), monospace" fill="var(--color-foreground)">
+        server.log
+      </text>
+      <text
+        x="220"
+        y="146"
+        fontSize="10"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.45">
+        Server output (written by opentabs start)
+      </text>
+
+      {/* Divider */}
+      <line x1="20" y1="162" x2="500" y2="162" stroke="var(--color-foreground)" strokeWidth="1" opacity="0.15" />
+
+      {/* extension/ directory */}
+      <text
+        x="28"
+        y="186"
+        fontSize="12"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-primary)"
+        fontWeight="bold">
+        extension/
+      </text>
+      <text
+        x="220"
+        y="186"
+        fontSize="10"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.45">
+        Chrome extension (managed by opentabs start)
+      </text>
+
+      {/* extension/manifest.json */}
+      <text x="62" y="212" fontSize="12" fontFamily="var(--font-mono), monospace" fill="var(--color-foreground)">
+        manifest.json
+      </text>
+
+      {/* extension/background.js */}
+      <text x="62" y="238" fontSize="12" fontFamily="var(--font-mono), monospace" fill="var(--color-foreground)">
+        background.js
+      </text>
+
+      {/* extension/adapters/ */}
+      <text
+        x="62"
+        y="264"
+        fontSize="12"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-primary)"
+        fontWeight="bold">
+        adapters/
+      </text>
+      <text
+        x="220"
+        y="264"
+        fontSize="10"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.45">
+        Plugin adapter IIFEs (one per plugin)
+      </text>
+
+      {/* extension/.opentabs-version */}
+      <text
+        x="62"
+        y="286"
+        fontSize="12"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.5">
+        .opentabs-version
+      </text>
+    </svg>
+  </div>
+);
+
+/**
  * PluginStructure — project structure diagram for the Plugin Development guide.
  * Shows the key files in a scaffolded plugin project as a tree.
  */

@@ -2,7 +2,7 @@
 
 import { CodeBlock } from './CodeBlock';
 import { CliCommand } from './ComponentInstall';
-import { ArchitectureIllustration, PluginStructure, QuickStartFlow } from './illustrations';
+import { ArchitectureIllustration, ConfigDirectory, PluginStructure, QuickStartFlow } from './illustrations';
 import { Table } from './retroui/Table';
 import { Alert, Badge, Card, Text } from '@/components/retroui';
 import { cn } from '@/lib/utils';
@@ -84,6 +84,7 @@ const docComponents = {
   Alert,
   CliCommand,
   ArchitectureIllustration,
+  ConfigDirectory,
   QuickStartFlow,
   PluginStructure,
 };

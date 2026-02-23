@@ -309,18 +309,7 @@ The `/health` endpoint includes a `mode` field (`"dev"` or `"production"`) to ve
 
 ## Config directory structure
 
-```
-~/.opentabs/
-├── config.json          # Configuration file (created on first run, 0600 permissions)
-├── auth.json            # WebSocket auth secret + port (written on every server start)
-├── audit.log            # Tool invocation audit log (NDJSON, append-only)
-├── server.log           # Server output (written by opentabs start)
-└── extension/           # Chrome extension files (managed by opentabs start)
-    ├── manifest.json
-    ├── background.js
-    ├── adapters/        # Plugin adapter IIFEs (one per plugin)
-    └── .opentabs-version
-```
+<ConfigDirectory />
 
 Both `config.json` and `auth.json` are created with `0600` permissions (owner read/write only) to protect the shared secret.
 
