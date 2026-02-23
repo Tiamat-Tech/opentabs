@@ -96,7 +96,7 @@ test.describe('Health endpoint — plugin details', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('Health endpoint — failed plugins', () => {
-  test('returns failedPlugins when a local plugin path does not exist', async () => {
+  test('nonexistent local plugin path is silently skipped, valid plugin still loads', async () => {
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
     const prefixedToolNames = readPluginToolNames();
     const tools: Record<string, boolean> = {};
@@ -124,13 +124,11 @@ test.describe('Health endpoint — failed plugins', () => {
       });
       const body = (await raw.json()) as Record<string, unknown>;
 
+      // Nonexistent paths are treated as stale config entries and silently
+      // skipped — they do not appear in failedPlugins.
       const failedPlugins = body.failedPlugins as Array<{ path: string; error: string }>;
-      expect(failedPlugins.length).toBeGreaterThanOrEqual(1);
-
       const bogusFailure = failedPlugins.find(f => f.path.includes('nonexistent-opentabs-plugin'));
-      expect(bogusFailure).toBeDefined();
-      expect(typeof bogusFailure?.error).toBe('string');
-      expect(bogusFailure?.error.length).toBeGreaterThan(0);
+      expect(bogusFailure).toBeUndefined();
 
       // The valid e2e-test plugin should still load successfully
       expect(health.pluginDetails).toBeDefined();

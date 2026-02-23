@@ -297,11 +297,22 @@ export {
   httpStatusToToolError,
   parseRetryAfterMs,
   postJSON,
+  postForm,
+  postFormData,
   putJSON,
   patchJSON,
   deleteJSON,
 } from './fetch.js';
-export type { FetchFromPageOptions, FetchJSON, PostJSON, PutJSON, PatchJSON, DeleteJSON } from './fetch.js';
+export type {
+  FetchFromPageOptions,
+  FetchJSON,
+  PostJSON,
+  PostForm,
+  PostFormData,
+  PutJSON,
+  PatchJSON,
+  DeleteJSON,
+} from './fetch.js';
 
 // ---------------------------------------------------------------------------
 // SDK utilities — Timing
