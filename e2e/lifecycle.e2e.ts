@@ -468,12 +468,11 @@ test.describe('Secret rotation during hot reload', () => {
 
     // Rotate the secret in auth.json (single source of truth for auth)
     const authPath = path.join(mcpServer.configDir, 'extension', 'auth.json');
-    const authData = JSON.parse(fs.readFileSync(authPath, 'utf-8')) as { secret?: string; port?: number };
+    const authData = JSON.parse(fs.readFileSync(authPath, 'utf-8')) as { secret?: string };
     const oldSecret = authData.secret;
     const newSecret = `rotated-${crypto.randomUUID()}`;
     expect(newSecret).not.toBe(oldSecret);
-    authData.secret = newSecret;
-    fs.writeFileSync(authPath, JSON.stringify(authData) + '\n', 'utf-8');
+    fs.writeFileSync(authPath, JSON.stringify({ secret: newSecret }) + '\n', 'utf-8');
 
     // Trigger hot reload — server picks up the new secret from auth.json
     mcpServer.logs.length = 0;
@@ -506,7 +505,7 @@ test.describe('Secret rotation during hot reload', () => {
     // when /ws-info returns 401 (stale secret). The extension's offscreen
     // document falls back to auth.json on 401.
     const extensionAuthJson = path.join(mcpServer.configDir, 'extension', 'auth.json');
-    fs.writeFileSync(extensionAuthJson, JSON.stringify({ secret: newSecret, port: mcpServer.port }) + '\n', 'utf-8');
+    fs.writeFileSync(extensionAuthJson, JSON.stringify({ secret: newSecret }) + '\n', 'utf-8');
 
     // Wait for the extension to reconnect — it must re-fetch /ws-info
     // to get a token signed with the new secret
