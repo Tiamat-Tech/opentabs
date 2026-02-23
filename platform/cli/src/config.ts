@@ -2,17 +2,10 @@
  * Config file helpers shared across CLI commands.
  */
 
-import { atomicWrite } from '@opentabs-dev/shared';
-import { homedir } from 'node:os';
-import { join, dirname, resolve, isAbsolute } from 'node:path';
+import { atomicWrite, getConfigDir, getConfigPath, getExtensionDir, getLogFilePath } from '@opentabs-dev/shared';
+import { dirname, resolve, isAbsolute } from 'node:path';
 
-export const getConfigDir = (): string => Bun.env.OPENTABS_CONFIG_DIR || join(homedir(), '.opentabs');
-
-export const getConfigPath = (): string => join(getConfigDir(), 'config.json');
-
-export const getExtensionDir = (): string => join(getConfigDir(), 'extension');
-
-export const getLogFilePath = (): string => join(getConfigDir(), 'server.log');
+export { getConfigDir, getConfigPath, getExtensionDir, getLogFilePath };
 
 export type ConfigResult =
   | { config: Record<string, unknown>; error?: undefined }

@@ -4,7 +4,7 @@
 
 import { atomicWriteConfig, getConfigPath, getExtensionDir, isConnectionRefused, readConfig } from '../config.js';
 import { resolvePort } from '../parse-port.js';
-import { atomicWrite } from '@opentabs-dev/shared';
+import { atomicWrite, generateSecret } from '@opentabs-dev/shared';
 import pc from 'picocolors';
 import { mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -363,13 +363,6 @@ const handleConfigReset = async (options: ConfigResetOptions): Promise<void> => 
 
   await configFile.delete();
   console.log('Config reset. Run opentabs start to regenerate.');
-};
-
-/** Generate a 256-bit cryptographic random secret as a 64-character hex string. */
-const generateSecret = (): string => {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 };
 
 /**

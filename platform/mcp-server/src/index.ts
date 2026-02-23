@@ -50,6 +50,7 @@ import { performReload } from './reload.js';
 import { installShutdownHandlers } from './shutdown.js';
 import { createState } from './state.js';
 import { version } from './version.js';
+import { DEFAULT_PORT } from '@opentabs-dev/shared';
 import type { HotHandlers } from './http-routes.js';
 import type { McpServerInstance } from './mcp-setup.js';
 import type { ReloadResult } from './reload.js';
@@ -168,7 +169,7 @@ const handlers: HotHandlers = createHandlers({
 // Editing createHttpServer or the PORT logic requires a full process restart.
 // =========================================================================
 
-const PORT = hotState?.actualPort ?? (Bun.env.PORT !== undefined ? Number(Bun.env.PORT) : 9515);
+const PORT = hotState?.actualPort ?? (Bun.env.PORT !== undefined ? Number(Bun.env.PORT) : DEFAULT_PORT);
 
 /** Create a Bun HTTP + WebSocket server (only on first load) */
 const createHttpServer = (): ReturnType<typeof Bun.serve> => {

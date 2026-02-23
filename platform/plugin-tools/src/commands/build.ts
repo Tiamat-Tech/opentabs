@@ -7,7 +7,15 @@
 
 import { generateInactiveIcon, validateIconSvg, validateInactiveIconColors } from '../validate-icon.js';
 import { validatePluginName, validateUrlPattern, LUCIDE_ICON_NAMES } from '@opentabs-dev/plugin-sdk';
-import { atomicWrite, parsePluginPackageJson } from '@opentabs-dev/shared';
+import {
+  ADAPTER_FILENAME,
+  ADAPTER_SOURCE_MAP_FILENAME,
+  TOOLS_FILENAME,
+  atomicWrite,
+  DEFAULT_PORT,
+  getConfigPath,
+  parsePluginPackageJson,
+} from '@opentabs-dev/shared';
 import pc from 'picocolors';
 import { z } from 'zod';
 import { mkdirSync, rmSync, watch } from 'node:fs';
@@ -25,15 +33,6 @@ import type { Command } from 'commander';
 import type { FSWatcher } from 'node:fs';
 
 const DEBOUNCE_MS = 100;
-const DEFAULT_PORT = 9515;
-
-// ---------------------------------------------------------------------------
-// Config helpers — lightweight versions for the build tool, which cannot
-// depend on the CLI or MCP server packages.
-// ---------------------------------------------------------------------------
-
-const getConfigDir = (): string => Bun.env.OPENTABS_CONFIG_DIR || join(homedir(), '.opentabs');
-const getConfigPath = (): string => join(getConfigDir(), 'config.json');
 
 /** Write config atomically with restrictive permissions via the shared helper. */
 const atomicWriteConfig = (configPath: string, content: string): Promise<void> =>
@@ -753,7 +752,7 @@ if (typeof plugin.onNavigate === 'function') {
       target: 'browser',
       minify: false,
       sourcemap: 'external',
-      naming: 'adapter.iife.js',
+      naming: ADAPTER_FILENAME,
       external: [],
     });
 
@@ -874,7 +873,7 @@ const runBuild = async (projectDir: string): Promise<void> => {
   await bundleIIFE(sourceEntry, distDir, plugin.name);
   // Read the bundled IIFE and compute its SHA-256 hash. The hash is computed
   // from the core IIFE content (before the __adapterHash setter is appended).
-  const iifePath = join(distDir, 'adapter.iife.js');
+  const iifePath = join(distDir, ADAPTER_FILENAME);
   const iifeContent = await Bun.file(iifePath).text();
   const adapterHash = new Bun.CryptoHasher('sha256').update(iifeContent).digest('hex');
 
@@ -895,16 +894,16 @@ const runBuild = async (projectDir: string): Promise<void> => {
   const iifeFile = Bun.file(iifePath);
   if (await iifeFile.exists()) {
     const iifeSize = (await iifeFile.stat()).size;
-    console.log(`  Written: ${pc.bold('dist/adapter.iife.js')} (${formatBytes(iifeSize)})`);
+    console.log(`  Written: ${pc.bold(`dist/${ADAPTER_FILENAME}`)} (${formatBytes(iifeSize)})`);
   } else {
-    console.log(pc.dim('  dist/adapter.iife.js not generated'));
+    console.log(pc.dim(`  dist/${ADAPTER_FILENAME} not generated`));
   }
 
-  const sourceMapPath = join(distDir, 'adapter.iife.js.map');
+  const sourceMapPath = join(distDir, ADAPTER_SOURCE_MAP_FILENAME);
   const sourceMapFile = Bun.file(sourceMapPath);
   if (await sourceMapFile.exists()) {
     const sourceMapSize = (await sourceMapFile.stat()).size;
-    console.log(`  Written: ${pc.bold('dist/adapter.iife.js.map')} (${formatBytes(sourceMapSize)})`);
+    console.log(`  Written: ${pc.bold(`dist/${ADAPTER_SOURCE_MAP_FILENAME}`)} (${formatBytes(sourceMapSize)})`);
   } else {
     console.log(pc.dim('  Source map not generated'));
   }
@@ -914,9 +913,9 @@ const runBuild = async (projectDir: string): Promise<void> => {
   const sdkVersion = await resolveSdkVersion(projectDir);
 
   // Step 6: Generate dist/tools.json (tool schemas + resource/prompt metadata + icons)
-  console.log(pc.dim('Generating tools.json...'));
+  console.log(pc.dim(`Generating ${TOOLS_FILENAME}...`));
   const manifest = generateManifest(plugin, sdkVersion, icons);
-  const toolsJsonPath = join(distDir, 'tools.json');
+  const toolsJsonPath = join(distDir, TOOLS_FILENAME);
   await Bun.write(toolsJsonPath, JSON.stringify(manifest, null, 2) + '\n');
   const toolCount = manifest.tools.length;
   const resourceCount = manifest.resources.length;
@@ -924,7 +923,7 @@ const runBuild = async (projectDir: string): Promise<void> => {
   const parts = [`${toolCount} tool${toolCount === 1 ? '' : 's'}`];
   if (resourceCount > 0) parts.push(`${resourceCount} resource${resourceCount === 1 ? '' : 's'}`);
   if (promptCount > 0) parts.push(`${promptCount} prompt${promptCount === 1 ? '' : 's'}`);
-  console.log(`  Written: ${pc.bold('dist/tools.json')} (${parts.join(', ')})`);
+  console.log(`  Written: ${pc.bold(`dist/${TOOLS_FILENAME}`)} (${parts.join(', ')})`);
 
   const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
   console.log('');
@@ -1005,7 +1004,7 @@ const handleBuild = async (options: { watch?: boolean }): Promise<void> => {
       if (
         !filename ||
         !filename.endsWith('.js') ||
-        filename === 'adapter.iife.js' ||
+        filename === ADAPTER_FILENAME ||
         filename.startsWith('_adapter_entry_')
       )
         return;
