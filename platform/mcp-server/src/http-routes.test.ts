@@ -96,6 +96,14 @@ describe('isLocalhostHost', () => {
     expect(isLocalhostHost('[::1]:9515')).toBe(true);
   });
 
+  test('allows "[::ffff:127.0.0.1]" (IPv4-mapped IPv6)', () => {
+    expect(isLocalhostHost('[::ffff:127.0.0.1]')).toBe(true);
+  });
+
+  test('allows "[::ffff:127.0.0.1]:9515" (IPv4-mapped IPv6 with port)', () => {
+    expect(isLocalhostHost('[::ffff:127.0.0.1]:9515')).toBe(true);
+  });
+
   test('rejects "evil.com"', () => {
     expect(isLocalhostHost('evil.com')).toBe(false);
   });

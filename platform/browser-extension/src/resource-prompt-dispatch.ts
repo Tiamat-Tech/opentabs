@@ -395,7 +395,11 @@ const handlePromptGet = async (params: Record<string, unknown>, id: string | num
     });
     return;
   }
-  const promptArgs = (rawArgs ?? {}) as Record<string, string>;
+  const rawObj = (rawArgs ?? {}) as Record<string, unknown>;
+  const promptArgs: Record<string, string> = {};
+  for (const [key, val] of Object.entries(rawObj)) {
+    promptArgs[key] = String(val);
+  }
 
   const plugin = await getPluginMeta(pluginName);
   if (!plugin) {
