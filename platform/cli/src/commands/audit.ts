@@ -6,6 +6,7 @@
  * for post-restart forensics.
  */
 
+import { isTimeout } from './status.js';
 import { getConfigDir, isConnectionRefused, readAuthSecret } from '../config.js';
 import { resolvePort } from '../parse-port.js';
 import { toErrorMessage } from '@opentabs-dev/shared';
@@ -250,6 +251,9 @@ const handleAudit = async (options: AuditOptions): Promise<void> => {
     if (isConnectionRefused(err)) {
       console.error(pc.red('MCP server is not running.'));
       console.error(pc.dim(startHint));
+    } else if (isTimeout(err)) {
+      console.error(pc.red('Server not responding (timed out). Is the server running?'));
+      console.error(pc.dim(`The server at port ${port} did not respond in time.`));
     } else {
       const message = toErrorMessage(err);
       console.error(pc.red(`Error: ${message}`));
