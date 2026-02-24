@@ -81,6 +81,14 @@ const sendToExtension = (
   }
 };
 
+/**
+ * Send a JSON-RPC error response to the extension.
+ * Shorthand for the common pattern of sending { jsonrpc: '2.0', error: { code, message }, id }.
+ */
+const sendJsonRpcError = (state: ServerState, id: string | number, code: number, message: string): void => {
+  sendToExtension(state, { jsonrpc: '2.0', error: { code, message }, id });
+};
+
 /** Callbacks the extension protocol can invoke on the MCP side */
 interface McpCallbacks {
   onToolConfigChanged: () => void;
@@ -651,11 +659,7 @@ const handleExtensionMessage = (
 
   // Unrecognized method with an id — send JSON-RPC -32601 'Method not found'
   if (id !== undefined && method) {
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code: -32601, message: `Method not found: ${method}` },
-      id,
-    });
+    sendJsonRpcError(state, id, -32601, `Method not found: ${method}`);
     return;
   }
 
@@ -742,7 +746,7 @@ const handleTabStateChanged = (
 ): void => {
   const sendError = (message: string): void => {
     if (id !== undefined) {
-      sendToExtension(state, { jsonrpc: '2.0', error: { code: -32602, message }, id });
+      sendJsonRpcError(state, id, -32602, message);
     } else {
       log.warn(`tab.stateChanged: ${message}`);
     }
@@ -835,7 +839,7 @@ const handleConfigSetToolEnabled = (
   callbacks: McpCallbacks,
 ): void => {
   if (!params) {
-    sendToExtension(state, { jsonrpc: '2.0', error: { code: -32602, message: 'Missing params' }, id });
+    sendJsonRpcError(state, id, -32602, 'Missing params');
     return;
   }
 
@@ -845,30 +849,18 @@ const handleConfigSetToolEnabled = (
   const enabled = toolEnabledParams.enabled;
 
   if (typeof pluginName !== 'string' || typeof tool !== 'string' || typeof enabled !== 'boolean') {
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Invalid params: expected plugin (string), tool (string), enabled (boolean)' },
-      id,
-    });
+    sendJsonRpcError(state, id, -32602, 'Invalid params: expected plugin (string), tool (string), enabled (boolean)');
     return;
   }
 
   const plugin = state.registry.plugins.get(pluginName);
   if (!plugin) {
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code: -32602, message: `Plugin not found: ${pluginName}` },
-      id,
-    });
+    sendJsonRpcError(state, id, -32602, `Plugin not found: ${pluginName}`);
     return;
   }
 
   if (!plugin.tools.some(t => t.name === tool)) {
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code: -32602, message: `Tool not found: ${tool} in plugin ${pluginName}` },
-      id,
-    });
+    sendJsonRpcError(state, id, -32602, `Tool not found: ${tool} in plugin ${pluginName}`);
     return;
   }
 
@@ -891,7 +883,7 @@ const handleConfigSetAllToolsEnabled = (
   callbacks: McpCallbacks,
 ): void => {
   if (!params) {
-    sendToExtension(state, { jsonrpc: '2.0', error: { code: -32602, message: 'Missing params' }, id });
+    sendJsonRpcError(state, id, -32602, 'Missing params');
     return;
   }
 
@@ -900,21 +892,13 @@ const handleConfigSetAllToolsEnabled = (
   const enabled = allToolsEnabledParams.enabled;
 
   if (typeof pluginName !== 'string' || typeof enabled !== 'boolean') {
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Invalid params: expected plugin (string), enabled (boolean)' },
-      id,
-    });
+    sendJsonRpcError(state, id, -32602, 'Invalid params: expected plugin (string), enabled (boolean)');
     return;
   }
 
   const plugin = state.registry.plugins.get(pluginName);
   if (!plugin) {
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code: -32602, message: `Plugin not found: ${pluginName}` },
-      id,
-    });
+    sendJsonRpcError(state, id, -32602, `Plugin not found: ${pluginName}`);
     return;
   }
 
@@ -1030,11 +1014,7 @@ const handlePluginSearch = async (
 ): Promise<void> => {
   const query = params?.query;
   if (query !== undefined && typeof query !== 'string') {
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Invalid params: query must be a string if provided' },
-      id,
-    });
+    sendJsonRpcError(state, id, -32602, 'Invalid params: query must be a string if provided');
     return;
   }
 
@@ -1067,11 +1047,7 @@ const handlePluginInstall = async (
   callbacks: McpCallbacks,
 ): Promise<void> => {
   if (!params || typeof params.name !== 'string' || params.name.length === 0) {
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Invalid params: name must be a non-empty string' },
-      id,
-    });
+    sendJsonRpcError(state, id, -32602, 'Invalid params: name must be a non-empty string');
     return;
   }
 
@@ -1110,11 +1086,7 @@ const handlePluginUpdateFromRegistry = async (
   callbacks: McpCallbacks,
 ): Promise<void> => {
   if (!params || typeof params.name !== 'string' || params.name.length === 0) {
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Invalid params: name must be a non-empty string' },
-      id,
-    });
+    sendJsonRpcError(state, id, -32602, 'Invalid params: name must be a non-empty string');
     return;
   }
 
@@ -1149,11 +1121,7 @@ const handlePluginRemove = async (
   callbacks: McpCallbacks,
 ): Promise<void> => {
   if (!params || typeof params.name !== 'string' || params.name.length === 0) {
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Invalid params: name must be a non-empty string' },
-      id,
-    });
+    sendJsonRpcError(state, id, -32602, 'Invalid params: name must be a non-empty string');
     return;
   }
 
@@ -1199,12 +1167,7 @@ const handlePluginCheckUpdates = async (state: ServerState, id: string | number)
       id,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code: -32603, message },
-      id,
-    });
+    sendJsonRpcError(state, id, -32603, err instanceof Error ? err.message : 'Unknown error');
   }
 };
 
