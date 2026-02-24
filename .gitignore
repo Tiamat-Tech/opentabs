@@ -13,3 +13,4 @@ playwright-report/
 !/.ralph/RALPH.md
 !/.ralph/ralph.sh
 .claude/worktrees/
+opencode.json

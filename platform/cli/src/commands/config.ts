@@ -41,9 +41,11 @@ const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
   }
 
   const config = result.config;
+  const secret = await readAuthSecret();
 
   if (options.json) {
-    console.log(JSON.stringify(config, null, 2));
+    const output = { ...config, ...(secret ? { secret } : {}) };
+    console.log(JSON.stringify(output, null, 2));
   } else {
     console.log(pc.bold('OpenTabs Config'));
     console.log(pc.dim(configPath));
@@ -88,6 +90,11 @@ const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
             : JSON.stringify(value);
         console.log(`  ${pc.cyan(key)}  ${display}`);
       }
+    }
+
+    if (secret) {
+      console.log('');
+      console.log(`  ${pc.cyan('secret')}  ${pc.dim(secret)}`);
     }
   }
 };

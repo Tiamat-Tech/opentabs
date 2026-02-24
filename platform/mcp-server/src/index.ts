@@ -144,7 +144,7 @@ const sessionServers: McpServerInstance[] = hotState?.sessionServers ?? [];
 const reloadResult: ReloadResult = await performReload(state, sessionServers, transports, isHotReload);
 
 // Load the WebSocket secret from auth.json (single source of truth).
-// The secret is immutable after startup — it only changes on explicit rotation.
+// Also re-read on every reload (reloadCore) so secret rotation takes effect.
 state.wsSecret = await loadSecret();
 
 // ---------------------------------------------------------------------------

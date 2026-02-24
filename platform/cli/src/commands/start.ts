@@ -11,7 +11,7 @@
  */
 
 import { installExtension } from './setup.js';
-import { getConfigDir, getLogFilePath } from '../config.js';
+import { getConfigDir, getLogFilePath, readAuthSecret } from '../config.js';
 import { parsePort, resolvePort } from '../parse-port.js';
 import { isWindows, platformExec, toErrorMessage } from '@opentabs-dev/shared';
 import pc from 'picocolors';
@@ -89,7 +89,7 @@ const autoInitialize = async (configDir: string): Promise<boolean> => {
   return false;
 };
 
-const printFirstTimeInstructions = (extensionDest: string, port: number): void => {
+const printFirstTimeInstructions = (extensionDest: string, port: number, secret: string | null): void => {
   const mcpUrl = `http://127.0.0.1:${port}/mcp`;
 
   console.log('');
@@ -102,21 +102,28 @@ const printFirstTimeInstructions = (extensionDest: string, port: number): void =
   console.log('');
   console.log('  2. Configure your MCP client:');
   console.log('');
-  printMcpClientConfigs(mcpUrl);
+  printMcpClientConfigs(mcpUrl, secret);
 };
 
-const printMcpClientConfigs = (mcpUrl: string): void => {
-  console.log(pc.dim(`     ${pc.bold('Claude Code')} (~/.claude/settings/mcp.json):`));
-  console.log(pc.dim(`     { "mcpServers": { "opentabs": { "type": "streamable-http", "url": "${mcpUrl}" } } }`));
+const printMcpClientConfigs = (mcpUrl: string, secret: string | null): void => {
+  const headers = secret ? `, "headers": { "Authorization": "Bearer ${secret}" }` : '';
+
+  console.log(pc.dim(`     ${pc.bold('Claude Code')} (~/.claude.json — add to "mcpServers"):`));
+  console.log(
+    pc.dim(`     { "mcpServers": { "opentabs": { "type": "streamable-http", "url": "${mcpUrl}"${headers} } } }`),
+  );
+  console.log('');
+  console.log(pc.dim(`     ${pc.bold('OpenCode')} (opencode.json in project root):`));
+  console.log(pc.dim(`     { "mcp": { "opentabs": { "type": "remote", "url": "${mcpUrl}"${headers} } } }`));
   console.log('');
   console.log(pc.dim(`     ${pc.bold('Cursor')} (.cursor/mcp.json):`));
-  console.log(pc.dim(`     { "mcpServers": { "opentabs": { "type": "http", "url": "${mcpUrl}" } } }`));
+  console.log(pc.dim(`     { "mcpServers": { "opentabs": { "type": "http", "url": "${mcpUrl}"${headers} } } }`));
   console.log('');
   console.log(pc.dim(`     ${pc.bold('Windsurf')} (~/.codeium/windsurf/mcp_config.json):`));
-  console.log(pc.dim(`     { "mcpServers": { "opentabs": { "serverUrl": "${mcpUrl}" } } }`));
+  console.log(pc.dim(`     { "mcpServers": { "opentabs": { "serverUrl": "${mcpUrl}"${headers} } } }`));
   console.log('');
   console.log(pc.dim('     For other MCP clients, consult their documentation for adding a Streamable HTTP server'));
-  console.log(pc.dim(`     pointing to ${mcpUrl}`));
+  console.log(pc.dim(`     pointing to ${mcpUrl} with Authorization: Bearer <secret>`));
   console.log('');
 };
 
@@ -143,6 +150,7 @@ const handleStart = async (options: StartOptions): Promise<void> => {
 
   const configDir = getConfigDir();
   const isFirstTime = await autoInitialize(configDir);
+  const secret = await readAuthSecret();
 
   const env: Record<string, string | undefined> = { ...process.env };
   env.PORT = String(port);
@@ -159,11 +167,11 @@ const handleStart = async (options: StartOptions): Promise<void> => {
 
   if (isFirstTime) {
     const extensionDest = resolve(configDir, 'extension');
-    printFirstTimeInstructions(extensionDest, port);
+    printFirstTimeInstructions(extensionDest, port, secret);
   } else {
     console.log(pc.dim('  MCP client config (add to your client):'));
     console.log('');
-    printMcpClientConfigs(`http://127.0.0.1:${port}/mcp`);
+    printMcpClientConfigs(`http://127.0.0.1:${port}/mcp`, secret);
   }
 
   console.log(pc.dim('  Press Ctrl+C to stop'));

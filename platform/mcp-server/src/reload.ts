@@ -12,7 +12,7 @@
  */
 
 import { browserTools } from './browser-tools/index.js';
-import { loadConfig, getConfigDir } from './config.js';
+import { loadConfig, loadSecret, getConfigDir } from './config.js';
 import { isDev } from './dev-mode.js';
 import { discoverPlugins } from './discovery.js';
 import { ensureExtensionInstalled } from './extension-install.js';
@@ -194,6 +194,9 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
 
     rebuildCachedBrowserTools(state);
     pruneStaleState(state);
+
+    // Re-read the auth secret so secret rotation takes effect without a restart.
+    state.wsSecret = await loadSecret();
   } catch (err) {
     log.error('Reload failed, keeping previous state:', err);
   }

@@ -64,7 +64,7 @@ Get your auth secret:
 opentabs config show --json | jq -r .secret
 ```
 
-Add the server to your MCP client. For Claude Code (`~/.claude/settings/mcp.json`):
+Add the server to your MCP client. For Claude Code (`~/.claude.json` — merge into `"mcpServers"`):
 
 ```json
 {
