@@ -22,15 +22,14 @@ const program = new Command('opentabs')
   .version(pkgJson.version, '-V, --version')
   .description('OpenTabs — manage your MCP server and plugins')
   .option('--port <number>', 'MCP server port (env: OPENTABS_PORT, default: 9515)', parsePort)
+  .showSuggestionAfterError()
+  .showHelpAfterError()
   .addHelpText(
     'after',
     `\nEnvironment:
   OPENTABS_PORT         MCP server port (overridden by --port)
   OPENTABS_CONFIG_DIR   Config directory (default: ~/.opentabs)`,
-  )
-  .action(() => {
-    program.help();
-  });
+  );
 
 registerStartCommand(program);
 registerStatusCommand(program);
