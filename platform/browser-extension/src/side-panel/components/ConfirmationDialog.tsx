@@ -79,7 +79,7 @@ const ConfirmationDialog = ({ confirmations, onRespond, onDenyAll }: Confirmatio
   const count = confirmations.length;
 
   return (
-    <div className="mx-4 mt-2" role="alert">
+    <div className="mt-2 mr-5 ml-4" role="alert">
       <div className="border-accent-foreground bg-accent/30 rounded border-2 shadow-md">
         {/* Header */}
         <div className="border-accent-foreground flex items-center gap-2 border-b-2 px-3 py-2">
@@ -125,7 +125,7 @@ const ConfirmationDialog = ({ confirmations, onRespond, onDenyAll }: Confirmatio
         </div>
 
         {/* Actions */}
-        <div className="border-accent-foreground flex flex-wrap items-center gap-2 border-t-2 px-3 py-2">
+        <div className="border-accent-foreground flex flex-wrap items-center gap-2 border-t-2 py-2 pr-4 pl-3">
           <Button size="sm" onClick={() => onRespond(current.id, 'allow_once')}>
             Allow Once
           </Button>
