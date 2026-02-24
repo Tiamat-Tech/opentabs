@@ -593,6 +593,7 @@ Examples:
 
   pluginCmd
     .command('list')
+    .alias('ls')
     .description('List installed plugins')
     .option('--port <number>', 'Server port (default: 9515)', parsePort)
     .option('--json', 'Output machine-readable JSON')
@@ -608,6 +609,7 @@ Examples:
 
   pluginCmd
     .command('install')
+    .alias('add')
     .description('Install a plugin from npm')
     .argument('<name>', 'Plugin name or full package name (e.g., slack or opentabs-plugin-slack)')
     .addHelpText(
@@ -624,6 +626,7 @@ Examples:
 
   pluginCmd
     .command('remove')
+    .alias('rm')
     .description('Remove a globally installed plugin')
     .argument('<name>', 'Plugin name or full package name (e.g., slack or opentabs-plugin-slack)')
     .option('-y, --confirm', 'Confirm removal')
