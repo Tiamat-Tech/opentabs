@@ -25,7 +25,13 @@ const handleConfigPath = (): void => {
 
 interface ConfigShowOptions {
   json?: boolean;
+  showSecret?: boolean;
 }
+
+const maskSecret = (secret: string): string => {
+  if (secret.length > 8) return secret.slice(0, 4) + '...' + secret.slice(-4);
+  return '****';
+};
 
 const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
   const configPath = getConfigPath();
@@ -43,9 +49,10 @@ const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
 
   const config = result.config;
   const secret = await readAuthSecret();
+  const displaySecret = secret ? (options.showSecret ? secret : maskSecret(secret)) : null;
 
   if (options.json) {
-    const output = { ...config, ...(secret ? { secret } : {}) };
+    const output = { ...config, ...(displaySecret ? { secret: displaySecret } : {}) };
     console.log(JSON.stringify(output, null, 2));
   } else {
     console.log(pc.bold('OpenTabs Config'));
@@ -93,9 +100,9 @@ const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
       }
     }
 
-    if (secret) {
+    if (displaySecret) {
       console.log('');
-      console.log(`  ${pc.cyan('secret')}  ${pc.dim(secret)}`);
+      console.log(`  ${pc.cyan('secret')}  ${pc.dim(displaySecret)}`);
     }
   }
 };
@@ -535,12 +542,14 @@ Examples:
     .command('show')
     .description('Show config contents')
     .option('--json', 'Output config as JSON')
+    .option('--show-secret', 'Display the full authentication secret')
     .addHelpText(
       'after',
       `
 Examples:
   $ opentabs config show
-  $ opentabs config show --json`,
+  $ opentabs config show --json
+  $ opentabs config show --show-secret`,
     )
     .action((options: ConfigShowOptions) => handleConfigShow(options));
 
