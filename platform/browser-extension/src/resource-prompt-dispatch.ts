@@ -1,17 +1,7 @@
 import { SCRIPT_TIMEOUT_MS } from './constants.js';
+import { dispatchWithTabFallback, executeWithTimeout, requireStringParam, resolvePlugin } from './dispatch-helpers.js';
 import { sendToServer } from './messaging.js';
-import { getPluginMeta } from './plugin-storage.js';
-import { sanitizeErrorMessage } from './sanitize-error.js';
-import { findAllMatchingTabs, urlMatchesPatterns } from './tab-matching.js';
-import { toErrorMessage } from '@opentabs-dev/shared';
-
-type DispatchResult =
-  | {
-      type: 'error';
-      code: number;
-      message: string;
-    }
-  | { type: 'success'; output: unknown };
+import type { DispatchResult } from './dispatch-helpers.js';
 
 /**
  * Execute a resource read on a specific tab. Returns the structured result
@@ -22,8 +12,6 @@ const executeResourceReadOnTab = async (
   pluginName: string,
   resourceUri: string,
 ): Promise<DispatchResult> => {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
   const scriptPromise = chrome.scripting.executeScript({
     target: { tabId },
     world: 'MAIN',
@@ -98,31 +86,7 @@ const executeResourceReadOnTab = async (
     args: [pluginName, resourceUri],
   });
 
-  let timeoutReject: ((err: Error) => void) | undefined;
-  const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    timeoutReject = reject;
-    timeoutId = setTimeout(() => {
-      reject(new Error(`Script execution timed out after ${SCRIPT_TIMEOUT_MS}ms`));
-    }, SCRIPT_TIMEOUT_MS);
-  });
-  // Suppress "unhandled rejection" when the script completes before the timeout
-  void timeoutReject;
-
-  let results: Awaited<typeof scriptPromise>;
-  try {
-    results = await Promise.race([scriptPromise, timeoutPromise]);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  const firstResult = results[0] as { result?: unknown } | undefined;
-  const result = firstResult?.result as DispatchResult | undefined;
-
-  if (!result || typeof result !== 'object' || !('type' in result)) {
-    return { type: 'error', code: -32603, message: 'No result from resource read' };
-  }
-
-  return result;
+  return executeWithTimeout(scriptPromise, SCRIPT_TIMEOUT_MS, 'No result from resource read');
 };
 
 /**
@@ -135,8 +99,6 @@ const executePromptGetOnTab = async (
   promptName: string,
   promptArgs: Record<string, string>,
 ): Promise<DispatchResult> => {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
   const scriptPromise = chrome.scripting.executeScript({
     target: { tabId },
     world: 'MAIN',
@@ -215,34 +177,8 @@ const executePromptGetOnTab = async (
     args: [pluginName, promptName, promptArgs],
   });
 
-  let timeoutReject: ((err: Error) => void) | undefined;
-  const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    timeoutReject = reject;
-    timeoutId = setTimeout(() => {
-      reject(new Error(`Script execution timed out after ${SCRIPT_TIMEOUT_MS}ms`));
-    }, SCRIPT_TIMEOUT_MS);
-  });
-  void timeoutReject;
-
-  let results: Awaited<typeof scriptPromise>;
-  try {
-    results = await Promise.race([scriptPromise, timeoutPromise]);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  const firstResult = results[0] as { result?: unknown } | undefined;
-  const result = firstResult?.result as DispatchResult | undefined;
-
-  if (!result || typeof result !== 'object' || !('type' in result)) {
-    return { type: 'error', code: -32603, message: 'No result from prompt render' };
-  }
-
-  return result;
+  return executeWithTimeout(scriptPromise, SCRIPT_TIMEOUT_MS, 'No result from prompt render');
 };
-
-/** Whether a DispatchResult is an adapter-not-ready error that should trigger fallback */
-const isAdapterNotReady = (result: DispatchResult): boolean => result.type === 'error' && result.code === -32002;
 
 /**
  * Handle resource.read request from MCP server.
@@ -250,115 +186,22 @@ const isAdapterNotReady = (result: DispatchResult): boolean => result.type === '
  * and returns the result.
  */
 const handleResourceRead = async (params: Record<string, unknown>, id: string | number): Promise<void> => {
-  const pluginName = params.plugin;
-  if (typeof pluginName !== 'string' || pluginName.length === 0) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Missing or invalid "plugin" param (expected non-empty string)' },
-      id,
-    });
-    return;
-  }
+  const pluginName = requireStringParam(params, 'plugin', id);
+  if (!pluginName) return;
 
-  const resourceUri = params.uri;
-  if (typeof resourceUri !== 'string' || resourceUri.length === 0) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Missing or invalid "uri" param (expected non-empty string)' },
-      id,
-    });
-    return;
-  }
+  const resourceUri = requireStringParam(params, 'uri', id);
+  if (!resourceUri) return;
 
-  const plugin = await getPluginMeta(pluginName);
-  if (!plugin) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32603, message: `Plugin "${pluginName}" not found` },
-      id,
-    });
-    return;
-  }
+  const plugin = await resolvePlugin(pluginName, id);
+  if (!plugin) return;
 
-  const matchingTabs = await findAllMatchingTabs(plugin);
-  if (matchingTabs.length === 0) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32001, message: `No matching tab for plugin "${pluginName}" (state: closed)` },
-      id,
-    });
-    return;
-  }
-
-  let firstError: { code: number; message: string } | undefined;
-
-  for (const tab of matchingTabs) {
-    if (tab.id === undefined) continue;
-
-    try {
-      const currentTab = await chrome.tabs.get(tab.id);
-      if (!currentTab.url || !urlMatchesPatterns(currentTab.url, plugin.urlPatterns)) {
-        firstError ??= { code: -32001, message: 'Tab navigated away from matching URL' };
-        continue;
-      }
-    } catch {
-      firstError ??= { code: -32001, message: 'Tab closed before resource read' };
-      continue;
-    }
-
-    try {
-      const result = await executeResourceReadOnTab(tab.id, pluginName, resourceUri);
-
-      if (result.type === 'success') {
-        sendToServer({ jsonrpc: '2.0', result: { output: result.output }, id });
-        return;
-      }
-
-      if (isAdapterNotReady(result) && matchingTabs.length > 1) {
-        firstError ??= { code: result.code, message: result.message };
-        continue;
-      }
-
-      sendToServer({
-        jsonrpc: '2.0',
-        error: { code: result.code, message: result.message },
-        id,
-      });
-      return;
-    } catch (err) {
-      const msg = toErrorMessage(err);
-      const isTabGone = msg.includes('No tab with id') || msg.includes('Cannot access');
-      if (isTabGone && matchingTabs.length > 1) {
-        firstError ??= { code: -32001, message: 'Tab closed before resource read' };
-        continue;
-      }
-      sendToServer({
-        jsonrpc: '2.0',
-        error: {
-          code: isTabGone ? -32001 : -32603,
-          message: isTabGone
-            ? 'Tab closed before resource read'
-            : `Script execution failed: ${sanitizeErrorMessage(msg)}`,
-        },
-        id,
-      });
-      return;
-    }
-  }
-
-  if (firstError) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: firstError.code, message: firstError.message },
-      id,
-    });
-  } else {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32001, message: 'No usable tab found (all matching tabs have undefined IDs)' },
-      id,
-    });
-  }
+  await dispatchWithTabFallback({
+    id,
+    pluginName,
+    plugin,
+    operationName: 'resource read',
+    executeOnTab: tabId => executeResourceReadOnTab(tabId, pluginName, resourceUri),
+  });
 };
 
 /**
@@ -367,25 +210,11 @@ const handleResourceRead = async (params: Record<string, unknown>, id: string | 
  * and returns the result.
  */
 const handlePromptGet = async (params: Record<string, unknown>, id: string | number): Promise<void> => {
-  const pluginName = params.plugin;
-  if (typeof pluginName !== 'string' || pluginName.length === 0) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Missing or invalid "plugin" param (expected non-empty string)' },
-      id,
-    });
-    return;
-  }
+  const pluginName = requireStringParam(params, 'plugin', id);
+  if (!pluginName) return;
 
-  const promptName = params.prompt;
-  if (typeof promptName !== 'string' || promptName.length === 0) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Missing or invalid "prompt" param (expected non-empty string)' },
-      id,
-    });
-    return;
-  }
+  const promptName = requireStringParam(params, 'prompt', id);
+  if (!promptName) return;
 
   const rawArgs = params.arguments;
   if (rawArgs !== undefined && rawArgs !== null && (typeof rawArgs !== 'object' || Array.isArray(rawArgs))) {
@@ -402,93 +231,16 @@ const handlePromptGet = async (params: Record<string, unknown>, id: string | num
     promptArgs[key] = String(val);
   }
 
-  const plugin = await getPluginMeta(pluginName);
-  if (!plugin) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32603, message: `Plugin "${pluginName}" not found` },
-      id,
-    });
-    return;
-  }
+  const plugin = await resolvePlugin(pluginName, id);
+  if (!plugin) return;
 
-  const matchingTabs = await findAllMatchingTabs(plugin);
-  if (matchingTabs.length === 0) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32001, message: `No matching tab for plugin "${pluginName}" (state: closed)` },
-      id,
-    });
-    return;
-  }
-
-  let firstError: { code: number; message: string } | undefined;
-
-  for (const tab of matchingTabs) {
-    if (tab.id === undefined) continue;
-
-    try {
-      const currentTab = await chrome.tabs.get(tab.id);
-      if (!currentTab.url || !urlMatchesPatterns(currentTab.url, plugin.urlPatterns)) {
-        firstError ??= { code: -32001, message: 'Tab navigated away from matching URL' };
-        continue;
-      }
-    } catch {
-      firstError ??= { code: -32001, message: 'Tab closed before prompt get' };
-      continue;
-    }
-
-    try {
-      const result = await executePromptGetOnTab(tab.id, pluginName, promptName, promptArgs);
-
-      if (result.type === 'success') {
-        sendToServer({ jsonrpc: '2.0', result: { output: result.output }, id });
-        return;
-      }
-
-      if (isAdapterNotReady(result) && matchingTabs.length > 1) {
-        firstError ??= { code: result.code, message: result.message };
-        continue;
-      }
-
-      sendToServer({
-        jsonrpc: '2.0',
-        error: { code: result.code, message: result.message },
-        id,
-      });
-      return;
-    } catch (err) {
-      const msg = toErrorMessage(err);
-      const isTabGone = msg.includes('No tab with id') || msg.includes('Cannot access');
-      if (isTabGone && matchingTabs.length > 1) {
-        firstError ??= { code: -32001, message: 'Tab closed before prompt get' };
-        continue;
-      }
-      sendToServer({
-        jsonrpc: '2.0',
-        error: {
-          code: isTabGone ? -32001 : -32603,
-          message: isTabGone ? 'Tab closed before prompt get' : `Script execution failed: ${sanitizeErrorMessage(msg)}`,
-        },
-        id,
-      });
-      return;
-    }
-  }
-
-  if (firstError) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: firstError.code, message: firstError.message },
-      id,
-    });
-  } else {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32001, message: 'No usable tab found (all matching tabs have undefined IDs)' },
-      id,
-    });
-  }
+  await dispatchWithTabFallback({
+    id,
+    pluginName,
+    plugin,
+    operationName: 'prompt get',
+    executeOnTab: tabId => executePromptGetOnTab(tabId, pluginName, promptName, promptArgs),
+  });
 };
 
 export { handleResourceRead, handlePromptGet };
