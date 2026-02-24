@@ -36,7 +36,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
           <Alert status="error" className="max-w-xs">
             <Alert.Title>Something went wrong</Alert.Title>
             <Alert.Description>The side panel encountered an unexpected error.</Alert.Description>
-            <Button variant="default" size="sm" className="mt-4" onClick={() => window.location.reload()}>
+            <Button variant="default" size="sm" className="mt-4 w-full" onClick={() => window.location.reload()}>
               Reload
             </Button>
           </Alert>
