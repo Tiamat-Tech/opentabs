@@ -125,7 +125,7 @@ const ConfirmationDialog = ({ confirmations, onRespond, onDenyAll }: Confirmatio
         </div>
 
         {/* Actions */}
-        <div className="border-accent-foreground flex flex-wrap items-center gap-2 border-t-2 px-3 py-2">
+        <div className="border-accent-foreground flex flex-wrap items-center gap-2 border-t-2 py-2 pr-4 pl-3">
           <Button size="sm" onClick={() => onRespond(current.id, 'allow_once')}>
             Allow Once
           </Button>
