@@ -26,9 +26,11 @@ interface TextProps extends Omit<HTMLAttributes<HTMLElement>, 'className'>, Vari
   className?: string;
 }
 
-export const Text = (props: TextProps) => {
+const Text = (props: TextProps) => {
   const { className, as, ...otherProps } = props;
   const Tag: ElementType = as || 'p';
 
   return <Tag className={cn(textVariants({ as }), className)} {...otherProps} />;
 };
+
+export { Text };

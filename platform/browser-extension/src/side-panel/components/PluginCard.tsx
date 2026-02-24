@@ -6,6 +6,7 @@ import { Tooltip } from './retro/Tooltip.js';
 import { ToolRow } from './ToolRow.js';
 import { matchesTool, setToolEnabled, setAllToolsEnabled } from '../bridge.js';
 import { ERROR_DISPLAY_DURATION_MS } from '../constants.js';
+// PluginCard needs a custom header layout (icon + name + switch outside the trigger) that the retro Accordion wrapper does not support.
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
 import { ChevronDown } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
