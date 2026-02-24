@@ -555,16 +555,20 @@ const createHandleWsOpen =
       }
     }
 
-    void sendSyncFull(state).then(() => {
-      // After sync.full completes, check if there's a pending extension reload
-      // (extension files were updated while extension was disconnected).
-      // The delay ensures sync.full is processed before the extension reloads.
-      if (state.pendingExtensionReload) {
-        state.pendingExtensionReload = false;
-        log.info('Sending deferred extension reload (version was updated while extension was disconnected)');
-        setTimeout(() => sendExtensionReload(state), 500);
-      }
-    });
+    void sendSyncFull(state)
+      .then(() => {
+        // After sync.full completes, check if there's a pending extension reload
+        // (extension files were updated while extension was disconnected).
+        // The delay ensures sync.full is processed before the extension reloads.
+        if (state.pendingExtensionReload) {
+          state.pendingExtensionReload = false;
+          log.info('Sending deferred extension reload (version was updated while extension was disconnected)');
+          setTimeout(() => sendExtensionReload(state), 500);
+        }
+      })
+      .catch((err: unknown) => {
+        log.warn('Failed to send sync.full to extension after WebSocket connect:', err);
+      });
   };
 
 const createHandleWsMessage =
