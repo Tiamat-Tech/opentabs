@@ -401,12 +401,13 @@ const handleRotateSecret = async (options: { port?: number }): Promise<void> => 
       });
       if (res.ok) {
         console.log(pc.green('Secret rotated successfully.'));
-        console.log('Reload the Chrome extension from chrome://extensions/ to reconnect.');
+        console.log('The server has picked up the new secret and the extension will reload automatically.');
+        console.log(pc.dim('Update MCP client configs (Claude Code, OpenCode, etc.) with the new secret.'));
         return;
       }
       console.log(pc.green('Secret rotated in auth.json.'));
       console.log(pc.yellow(`Could not notify running server (HTTP ${res.status}).`));
-      console.log('Restart the MCP server and reload the Chrome extension from chrome://extensions/.');
+      console.log('Restart the MCP server for changes to take effect.');
     } catch (err: unknown) {
       console.log(pc.green('Secret rotated in auth.json.'));
       if (isConnectionRefused(err)) {
@@ -414,11 +415,10 @@ const handleRotateSecret = async (options: { port?: number }): Promise<void> => 
       } else {
         console.log(pc.yellow('Could not reach MCP server. Restart it for changes to take effect.'));
       }
-      console.log('Reload the Chrome extension from chrome://extensions/ to reconnect.');
     }
   } else {
     console.log(pc.green('Secret rotated in auth.json.'));
-    console.log('Restart the MCP server and reload the Chrome extension from chrome://extensions/.');
+    console.log('Restart the MCP server for changes to take effect.');
   }
 };
 

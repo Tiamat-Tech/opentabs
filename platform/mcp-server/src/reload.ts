@@ -168,6 +168,7 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
   stopFileWatching(state);
   sweepStaleSessions(state, transports, sessionServers);
 
+  let secretChanged = false;
   try {
     const config = await loadConfig();
     const configDir = getConfigDir();
@@ -196,7 +197,9 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
     pruneStaleState(state);
 
     // Re-read the auth secret so secret rotation takes effect without a restart.
+    const previousSecret = state.wsSecret;
     state.wsSecret = await loadSecret();
+    secretChanged = previousSecret !== null && state.wsSecret !== previousSecret;
   } catch (err) {
     log.error('Reload failed, keeping previous state:', err);
   }
@@ -212,6 +215,14 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
 
   if (state.extensionWs) {
     await sendSyncFull(state);
+
+    // If the auth secret changed (e.g., via `opentabs config rotate-secret`),
+    // trigger an extension reload so it reconnects with the new credentials.
+    // The 500ms delay lets sync.full flush before the extension restarts.
+    if (secretChanged) {
+      log.info('Auth secret changed — sending reload signal to extension');
+      setTimeout(() => sendExtensionReload(state), 500);
+    }
   }
 };
 
