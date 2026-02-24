@@ -365,7 +365,7 @@ const main = async (): Promise<void> => {
     filesToStage.push('CHANGELOG.md');
   }
 
-  run(['git', 'add', ...filesToStage]);
+  run(['git', 'add', '-f', ...filesToStage]);
   run(['git', 'commit', '-m', `release: v${version}`]);
   run(['git', 'tag', `v${version}`]);
 
