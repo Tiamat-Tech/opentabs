@@ -213,6 +213,15 @@ const handleSetTool = async (key: string, value: string, options: { port?: numbe
 
   const indicator = enabled ? pc.green('enabled') : pc.red('disabled');
   console.log(`${toolName}: ${indicator}`);
+
+  const port = resolvePort(options);
+  const registeredTools = await fetchToolNames(port);
+  if (registeredTools && !registeredTools.includes(toolName)) {
+    console.log(
+      pc.yellow(`Warning: "${toolName}" does not match any registered tool. Check the name or start the server.`),
+    );
+  }
+
   await notifyServer({ port: options.port, warnIfNotRunning: true });
 };
 
