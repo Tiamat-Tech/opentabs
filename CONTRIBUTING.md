@@ -76,7 +76,7 @@ bun run build  # builds, registers, and notifies the server
 **Unit tests:**
 
 ```bash
-bun run test        # or: bun run test:unit (alias)
+bun run test
 ```
 
 **E2E tests** (requires the test plugin to be built):
@@ -90,24 +90,23 @@ This builds the `e2e-test` plugin automatically, then runs Playwright.
 **All quality checks at once:**
 
 ```bash
-bun run check       # build + type-check + lint + format + knip + unit tests
+bun run check       # build + lint + format + knip + unit tests
 bun run check:all   # everything above + E2E tests + docs checks + plugin checks
 ```
 
 | Command                 | What it does                                                    |
 | ----------------------- | --------------------------------------------------------------- |
-| `bun run build`         | Production build (tsc + extension)                              |
-| `bun run build:tsc`     | TypeScript only (no extension bundle or icons)                  |
+| `bun run build`         | Production build (tsc + extension, incremental)                 |
+| `bun run build:force`   | Full clean rebuild (non-incremental)                            |
 | `bun run build:docs`    | Build docs site                                                 |
 | `bun run build:plugins` | Build all plugins (install + build each)                        |
-| `bun run type-check`    | TypeScript type checking                                        |
+| `bun run type-check`    | TypeScript type checking (--noEmit, no file emission)           |
 | `bun run lint`          | ESLint                                                          |
 | `bun run format:check`  | Prettier formatting                                             |
 | `bun run knip`          | Unused exports and dependencies                                 |
 | `bun run test`          | Unit tests (Bun test runner)                                    |
-| `bun run test:unit`     | Unit tests (alias for `test`)                                   |
-| `bun run test:e2e`      | E2E tests (Playwright)                                          |
-| `bun run check`         | All root checks (build through unit tests)                      |
+| `bun run test:e2e`      | E2E tests (builds e2e-test plugin + Playwright)                 |
+| `bun run check`         | All root checks (build + lint + format + knip + unit tests)     |
 | `bun run check:all`     | Everything: root + E2E + docs + plugins                         |
 | `bun run check:docs`    | Docs quality checks (build + type-check + lint + knip + format) |
 | `bun run check:plugins` | Plugin quality checks (type-check + lint + format)              |
