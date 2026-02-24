@@ -1,5 +1,6 @@
 import {
   checkAuthSecret,
+  checkBrowser,
   checkBunVersion,
   checkConfigFile,
   checkExtensionConnected,
@@ -61,6 +62,25 @@ describe('checkBunVersion', () => {
     expect(result.ok).toBe(true);
     expect(result.label).toBe('Bun runtime');
     expect(result.detail).toContain(Bun.version);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// checkBrowser
+// ---------------------------------------------------------------------------
+
+describe('checkBrowser', () => {
+  test('returns a result with label Browser', () => {
+    const result: CheckResult = checkBrowser();
+    expect(result.label).toBe('Browser');
+    expect(result.fatal).toBe(false);
+  });
+
+  test('finds a Chromium-based browser on macOS', () => {
+    if (process.platform !== 'darwin') return;
+    const result: CheckResult = checkBrowser();
+    // CI and dev machines should have at least one Chromium browser
+    expect(result.ok).toBe(true);
   });
 });
 

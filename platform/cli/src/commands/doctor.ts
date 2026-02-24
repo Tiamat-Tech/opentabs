@@ -317,6 +317,81 @@ const checkPlugins = async (config: Record<string, unknown> | null): Promise<Che
   return results;
 };
 
+const MACOS_BROWSER_PATHS = [
+  '/Applications/Google Chrome.app',
+  '/Applications/Chromium.app',
+  '/Applications/Microsoft Edge.app',
+  '/Applications/Brave Browser.app',
+];
+
+const LINUX_BROWSER_COMMANDS = ['google-chrome', 'chromium', 'chromium-browser', 'microsoft-edge'];
+
+const checkBrowser = (): CheckResult => {
+  const platform = process.platform;
+
+  if (platform === 'darwin') {
+    for (const appPath of MACOS_BROWSER_PATHS) {
+      if (existsSync(appPath)) {
+        const name = appPath.replace('/Applications/', '').replace('.app', '');
+        return pass('Browser', name);
+      }
+    }
+    return warn(
+      'Browser',
+      'no Chromium-based browser found',
+      'Install Google Chrome, Microsoft Edge, or Brave from their official websites',
+    );
+  }
+
+  if (platform === 'linux') {
+    for (const cmd of LINUX_BROWSER_COMMANDS) {
+      try {
+        const result = Bun.spawnSync(['which', cmd], { stdout: 'pipe', stderr: 'pipe' });
+        if (result.exitCode === 0) {
+          return pass('Browser', cmd);
+        }
+      } catch {
+        // which failed — try next
+      }
+    }
+    return warn(
+      'Browser',
+      'no Chromium-based browser found',
+      'Install google-chrome, chromium, or microsoft-edge via your package manager',
+    );
+  }
+
+  if (platform === 'win32') {
+    const programFiles = process.env.PROGRAMFILES ?? 'C:\\Program Files';
+    const programFilesX86 = process.env['PROGRAMFILES(X86)'] ?? 'C:\\Program Files (x86)';
+    const winPaths = [
+      join(programFiles, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      join(programFilesX86, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      join(programFiles, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      join(programFilesX86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      join(programFiles, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'),
+      join(programFilesX86, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'),
+    ];
+    for (const exePath of winPaths) {
+      if (existsSync(exePath)) {
+        const name = exePath.includes('Chrome')
+          ? 'Google Chrome'
+          : exePath.includes('Edge')
+            ? 'Microsoft Edge'
+            : 'Brave';
+        return pass('Browser', name);
+      }
+    }
+    return warn(
+      'Browser',
+      'no Chromium-based browser found',
+      'Install Google Chrome, Microsoft Edge, or Brave from their official websites',
+    );
+  }
+
+  return warn('Browser', `unsupported platform: ${platform}`, 'Ensure a Chromium-based browser is installed');
+};
+
 const checkAuthSecret = async (): Promise<{ result: CheckResult; secret: string | null }> => {
   const secret = await readAuthSecret();
   if (secret) {
@@ -336,36 +411,39 @@ const handleDoctor = async (options: DoctorOptions): Promise<void> => {
   // 1. Bun version
   results.push(checkBunVersion());
 
-  // 2. Config file
+  // 2. Browser
+  results.push(checkBrowser());
+
+  // 3. Config file
   const { result: configResult, config } = await checkConfigFile();
   results.push(configResult);
 
-  // 3. Auth secret
+  // 4. Auth secret
   const { result: authResult, secret } = await checkAuthSecret();
   results.push(authResult);
 
-  // 4. MCP server health
+  // 5. MCP server health
   const { result: serverResult, data: healthData } = await checkServerHealth(port, secret);
   results.push(serverResult);
 
-  // 5. Extension connected
+  // 6. Extension connected
   results.push(checkExtensionConnected(healthData));
 
-  // 6. Extension installed
+  // 7. Extension installed
   const { result: installedResult, versionFile } = await checkExtensionInstalled();
   results.push(installedResult);
 
-  // 7. Extension version matches CLI
+  // 8. Extension version matches CLI
   results.push(await checkExtensionVersion(versionFile));
 
-  // 8. MCP client config
+  // 9. MCP client config
   results.push(await checkMcpClientConfig());
 
-  // 9. Local plugin checks
+  // 10. Local plugin checks
   const pluginResults = await checkPlugins(config);
   results.push(...pluginResults);
 
-  // 10. npm plugin health (from server /health data)
+  // 11. npm plugin health (from server /health data)
   results.push(...checkNpmPlugins(healthData));
 
   // Print results
@@ -416,6 +494,7 @@ Examples:
 
 export {
   checkAuthSecret,
+  checkBrowser,
   checkBunVersion,
   checkConfigFile,
   checkExtensionConnected,
