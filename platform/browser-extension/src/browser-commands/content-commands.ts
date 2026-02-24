@@ -1,3 +1,4 @@
+import { extractScriptResult, requireTabId, sendErrorResult, sendSuccessResult } from './helpers.js';
 import { SCREENSHOT_RENDER_DELAY_MS } from '../constants.js';
 import { sendToServer } from '../messaging.js';
 import { sanitizeErrorMessage } from '../sanitize-error.js';
@@ -13,11 +14,8 @@ export const handleBrowserGetTabContent = async (
   id: string | number,
 ): Promise<void> => {
   try {
-    const tabId = params.tabId;
-    if (typeof tabId !== 'number') {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: 'Missing or invalid tabId parameter' }, id });
-      return;
-    }
+    const tabId = requireTabId(params, id);
+    if (tabId === null) return;
     const selector = typeof params.selector === 'string' ? params.selector : 'body';
     const maxLength = typeof params.maxLength === 'number' ? params.maxLength : 50000;
 
@@ -36,22 +34,11 @@ export const handleBrowserGetTabContent = async (
       args: [selector, maxLength],
     });
 
-    const result = results[0]?.result as { error?: string; title?: string; url?: string; content?: string } | undefined;
-    if (!result) {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32603, message: 'No result from script execution' }, id });
-      return;
-    }
-    if (result.error) {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: result.error }, id });
-      return;
-    }
-    sendToServer({ jsonrpc: '2.0', result: { title: result.title, url: result.url, content: result.content }, id });
+    const result = extractScriptResult(results, id);
+    if (!result) return;
+    sendSuccessResult(id, { title: result.title, url: result.url, content: result.content });
   } catch (err) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32603, message: sanitizeErrorMessage(toErrorMessage(err)) },
-      id,
-    });
+    sendErrorResult(id, err);
   }
 };
 

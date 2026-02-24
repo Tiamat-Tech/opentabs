@@ -1,3 +1,4 @@
+import { requireTabId, sendErrorResult, sendSuccessResult } from './helpers.js';
 import { sendToServer } from '../messaging.js';
 import { sanitizeErrorMessage } from '../sanitize-error.js';
 import { isBlockedUrlScheme, toErrorMessage } from '@opentabs-dev/shared';
@@ -68,19 +69,12 @@ export const handleBrowserOpenTab = async (params: Record<string, unknown>, id: 
  */
 export const handleBrowserCloseTab = async (params: Record<string, unknown>, id: string | number): Promise<void> => {
   try {
-    const tabId = params.tabId;
-    if (typeof tabId !== 'number') {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: 'Missing or invalid tabId parameter' }, id });
-      return;
-    }
+    const tabId = requireTabId(params, id);
+    if (tabId === null) return;
     await chrome.tabs.remove(tabId);
-    sendToServer({ jsonrpc: '2.0', result: { ok: true }, id });
+    sendSuccessResult(id, { ok: true });
   } catch (err) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32603, message: sanitizeErrorMessage(toErrorMessage(err)) },
-      id,
-    });
+    sendErrorResult(id, err);
   }
 };
 

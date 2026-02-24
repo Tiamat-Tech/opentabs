@@ -1,3 +1,4 @@
+import { requireUrl, sendErrorResult, sendSuccessResult } from './helpers.js';
 import { sendToServer } from '../messaging.js';
 import { sanitizeErrorMessage } from '../sanitize-error.js';
 import { isBlockedUrlScheme, toErrorMessage } from '@opentabs-dev/shared';
@@ -9,50 +10,28 @@ import { isBlockedUrlScheme, toErrorMessage } from '@opentabs-dev/shared';
  */
 export const handleBrowserGetCookies = async (params: Record<string, unknown>, id: string | number): Promise<void> => {
   try {
-    const url = params.url;
-    if (typeof url !== 'string') {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: 'Missing or invalid url parameter' }, id });
-      return;
-    }
-    if (isBlockedUrlScheme(url)) {
-      sendToServer({
-        jsonrpc: '2.0',
-        error: {
-          code: -32602,
-          message: 'URL scheme not allowed (javascript:, data:, file:, chrome:, blob: are blocked)',
-        },
-        id,
-      });
-      return;
-    }
+    const url = requireUrl(params, id);
+    if (url === null) return;
     const filter: chrome.cookies.GetAllDetails = { url };
     const name = params.name;
     if (typeof name === 'string') {
       filter.name = name;
     }
     const cookies = await chrome.cookies.getAll(filter);
-    sendToServer({
-      jsonrpc: '2.0',
-      result: {
-        cookies: cookies.map(c => ({
-          name: c.name,
-          value: c.value,
-          domain: c.domain,
-          path: c.path,
-          secure: c.secure,
-          httpOnly: c.httpOnly,
-          sameSite: c.sameSite,
-          expirationDate: c.expirationDate,
-        })),
-      },
-      id,
+    sendSuccessResult(id, {
+      cookies: cookies.map(c => ({
+        name: c.name,
+        value: c.value,
+        domain: c.domain,
+        path: c.path,
+        secure: c.secure,
+        httpOnly: c.httpOnly,
+        sameSite: c.sameSite,
+        expirationDate: c.expirationDate,
+      })),
     });
   } catch (err) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32603, message: sanitizeErrorMessage(toErrorMessage(err)) },
-      id,
-    });
+    sendErrorResult(id, err);
   }
 };
 

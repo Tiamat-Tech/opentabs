@@ -1,3 +1,4 @@
+import { extractScriptResult, requireSelector, requireTabId, sendErrorResult, sendSuccessResult } from './helpers.js';
 import { withDebugger } from './resource-commands.js';
 import { sendToServer } from '../messaging.js';
 import { sanitizeErrorMessage } from '../sanitize-error.js';
@@ -13,16 +14,10 @@ export const handleBrowserClickElement = async (
   id: string | number,
 ): Promise<void> => {
   try {
-    const tabId = params.tabId;
-    if (typeof tabId !== 'number') {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: 'Missing or invalid tabId parameter' }, id });
-      return;
-    }
-    const selector = params.selector;
-    if (typeof selector !== 'string' || selector.length === 0) {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: 'Missing or invalid selector parameter' }, id });
-      return;
-    }
+    const tabId = requireTabId(params, id);
+    if (tabId === null) return;
+    const selector = requireSelector(params, id);
+    if (selector === null) return;
 
     const results = await chrome.scripting.executeScript({
       target: { tabId },
@@ -40,28 +35,11 @@ export const handleBrowserClickElement = async (
       args: [selector],
     });
 
-    const result = results[0]?.result as
-      | { error?: string; clicked?: boolean; tagName?: string; text?: string }
-      | undefined;
-    if (!result) {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32603, message: 'No result from script execution' }, id });
-      return;
-    }
-    if (result.error) {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: result.error }, id });
-      return;
-    }
-    sendToServer({
-      jsonrpc: '2.0',
-      result: { clicked: result.clicked, tagName: result.tagName, text: result.text },
-      id,
-    });
+    const result = extractScriptResult(results, id);
+    if (!result) return;
+    sendSuccessResult(id, { clicked: result.clicked, tagName: result.tagName, text: result.text });
   } catch (err) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32603, message: sanitizeErrorMessage(toErrorMessage(err)) },
-      id,
-    });
+    sendErrorResult(id, err);
   }
 };
 
@@ -682,16 +660,10 @@ export const handleBrowserHoverElement = async (
   id: string | number,
 ): Promise<void> => {
   try {
-    const tabId = params.tabId;
-    if (typeof tabId !== 'number') {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: 'Missing or invalid tabId parameter' }, id });
-      return;
-    }
-    const selector = params.selector;
-    if (typeof selector !== 'string' || selector.length === 0) {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: 'Missing or invalid selector parameter' }, id });
-      return;
-    }
+    const tabId = requireTabId(params, id);
+    if (tabId === null) return;
+    const selector = requireSelector(params, id);
+    if (selector === null) return;
 
     const results = await chrome.scripting.executeScript({
       target: { tabId },
@@ -731,34 +703,16 @@ export const handleBrowserHoverElement = async (
       args: [selector],
     });
 
-    const result = results[0]?.result as
-      | {
-          error?: string;
-          hovered?: boolean;
-          tagName?: string;
-          text?: string;
-          bounds?: { x: number; y: number; width: number; height: number };
-        }
-      | undefined;
-    if (!result) {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32603, message: 'No result from script execution' }, id });
-      return;
-    }
-    if (result.error) {
-      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: result.error }, id });
-      return;
-    }
-    sendToServer({
-      jsonrpc: '2.0',
-      result: { hovered: result.hovered, tagName: result.tagName, text: result.text, bounds: result.bounds },
-      id,
+    const result = extractScriptResult(results, id);
+    if (!result) return;
+    sendSuccessResult(id, {
+      hovered: result.hovered,
+      tagName: result.tagName,
+      text: result.text,
+      bounds: result.bounds,
     });
   } catch (err) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32603, message: sanitizeErrorMessage(toErrorMessage(err)) },
-      id,
-    });
+    sendErrorResult(id, err);
   }
 };
 
