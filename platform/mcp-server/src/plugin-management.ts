@@ -85,6 +85,41 @@ const isValidPluginPackageName = (name: string): boolean => {
 
 const NPM_SUBPROCESS_TIMEOUT_MS = 60_000;
 
+/**
+ * Run an npm command globally with the given package name.
+ * Applies a 60s timeout, collects stdout/stderr, and throws on non-zero exit.
+ *
+ * @throws Error with code -32603 and data { stderr, stdout } on non-zero exit
+ */
+const runNpmGlobal = async (command: string, packageName: string): Promise<{ stdout: string; stderr: string }> => {
+  const proc = Bun.spawn([platformExec('npm'), command, '-g', packageName], {
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+
+  const timeoutId = setTimeout(() => {
+    proc.kill();
+  }, NPM_SUBPROCESS_TIMEOUT_MS);
+
+  const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
+  clearTimeout(timeoutId);
+
+  const exitCode = await proc.exited;
+
+  if (exitCode !== 0) {
+    log.error(`npm ${command} failed for ${packageName}: exit code ${exitCode}, stderr: ${stderr}`);
+    const error = new Error(`npm ${command} failed (exit code ${exitCode})`) as Error & {
+      code: number;
+      data: { stderr: string; stdout: string };
+    };
+    error.code = -32603;
+    error.data = { stderr, stdout };
+    throw error;
+  }
+
+  return { stdout, stderr };
+};
+
 // ---------------------------------------------------------------------------
 // npm registry search
 // ---------------------------------------------------------------------------
@@ -174,32 +209,7 @@ const installPlugin = async (
   }
 
   log.info(`Installing plugin: ${pkg}`);
-
-  const proc = Bun.spawn([platformExec('npm'), 'install', '-g', pkg], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-
-  const timeoutId = setTimeout(() => {
-    proc.kill();
-  }, NPM_SUBPROCESS_TIMEOUT_MS);
-
-  const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
-  clearTimeout(timeoutId);
-
-  const exitCode = await proc.exited;
-
-  if (exitCode !== 0) {
-    log.error(`npm install failed for ${pkg}: exit code ${exitCode}, stderr: ${stderr}`);
-    const error = new Error(`npm install failed (exit code ${exitCode})`) as Error & {
-      code: number;
-      data: { stderr: string; stdout: string };
-    };
-    error.code = -32603;
-    error.data = { stderr, stdout };
-    throw error;
-  }
-
+  await runNpmGlobal('install', pkg);
   log.info(`npm install succeeded for ${pkg}, triggering rediscovery`);
 
   // Trigger rediscovery so the new plugin appears in the registry
@@ -293,32 +303,7 @@ const updatePlugin = async (
   const pkg = existing.npmPackageName ?? normalizePluginName(name);
 
   log.info(`Updating plugin: ${pkg}`);
-
-  const proc = Bun.spawn([platformExec('npm'), 'update', '-g', pkg], {
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-
-  const timeoutId = setTimeout(() => {
-    proc.kill();
-  }, NPM_SUBPROCESS_TIMEOUT_MS);
-
-  const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
-  clearTimeout(timeoutId);
-
-  const exitCode = await proc.exited;
-
-  if (exitCode !== 0) {
-    log.error(`npm update failed for ${pkg}: exit code ${exitCode}, stderr: ${stderr}`);
-    const error = new Error(`npm update failed (exit code ${exitCode})`) as Error & {
-      code: number;
-      data: { stderr: string; stdout: string };
-    };
-    error.code = -32603;
-    error.data = { stderr, stdout };
-    throw error;
-  }
-
+  await runNpmGlobal('update', pkg);
   log.info(`npm update succeeded for ${pkg}, triggering rediscovery`);
 
   await onReload();
@@ -482,32 +467,7 @@ const removePlugin = async (
     const pkg = existing.npmPackageName ?? normalizePluginName(name);
 
     log.info(`Uninstalling plugin: ${pkg}`);
-
-    const proc = Bun.spawn([platformExec('npm'), 'uninstall', '-g', pkg], {
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
-
-    const timeoutId = setTimeout(() => {
-      proc.kill();
-    }, NPM_SUBPROCESS_TIMEOUT_MS);
-
-    const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
-    clearTimeout(timeoutId);
-
-    const exitCode = await proc.exited;
-
-    if (exitCode !== 0) {
-      log.error(`npm uninstall failed for ${pkg}: exit code ${exitCode}, stderr: ${stderr}`);
-      const error = new Error(`npm uninstall failed (exit code ${exitCode})`) as Error & {
-        code: number;
-        data: { stderr: string; stdout: string };
-      };
-      error.code = -32603;
-      error.data = { stderr, stdout };
-      throw error;
-    }
-
+    await runNpmGlobal('uninstall', pkg);
     log.info(`npm uninstall succeeded for ${pkg}`);
   }
 
