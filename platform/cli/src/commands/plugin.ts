@@ -112,6 +112,40 @@ const resolvePackageName = async (name: string): Promise<string | null> => {
   return null;
 };
 
+/**
+ * After a global npm install, check the installed package's package.json for
+ * the `opentabs` field or `opentabs-plugin` keyword. Prints a yellow warning
+ * if neither is found — the install is not rolled back.
+ */
+const warnIfNotPlugin = async (pkg: string): Promise<void> => {
+  try {
+    const proc = Bun.spawn([platformExec('npm'), 'root', '-g'], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    const globalRoot = (await new Response(proc.stdout).text()).trim();
+    await proc.exited;
+
+    const pkgJsonPath = join(globalRoot, pkg, 'package.json');
+    const pkgJsonText = await Bun.file(pkgJsonPath).text();
+    const pkgJson = JSON.parse(pkgJsonText) as Record<string, unknown>;
+
+    const hasOpentabsField = typeof pkgJson.opentabs === 'object' && pkgJson.opentabs !== null;
+    const keywords = Array.isArray(pkgJson.keywords) ? (pkgJson.keywords as unknown[]) : [];
+    const hasPluginKeyword = keywords.includes('opentabs-plugin');
+
+    if (!hasOpentabsField && !hasPluginKeyword) {
+      console.log(
+        pc.yellow(
+          'Warning: This package does not appear to be an OpenTabs plugin (missing opentabs metadata). It may not load correctly.',
+        ),
+      );
+    }
+  } catch {
+    // Cannot read installed package — skip validation silently
+  }
+};
+
 const handlePluginInstall = async (name: string, options: { port?: number }): Promise<void> => {
   const candidates = resolvePluginPackageCandidates(name);
   const isShorthand = candidates.length > 1;
@@ -142,6 +176,7 @@ const handlePluginInstall = async (name: string, options: { port?: number }): Pr
   }
 
   console.log(pc.green(`Successfully installed ${pkg}.`));
+  await warnIfNotPlugin(pkg);
   await notifyServer(options);
 };
 
