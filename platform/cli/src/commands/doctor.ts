@@ -317,6 +317,18 @@ const checkPlugins = async (config: Record<string, unknown> | null): Promise<Che
   return results;
 };
 
+const checkAuthSecret = async (): Promise<{ result: CheckResult; secret: string | null }> => {
+  const secret = await readAuthSecret();
+  if (secret) {
+    return { result: pass('Auth secret', 'valid'), secret };
+  }
+  const authPath = join(getExtensionDir(), 'auth.json');
+  return {
+    result: warn('Auth secret', `missing or invalid at ${authPath}`, 'Run opentabs start to generate auth.json'),
+    secret: null,
+  };
+};
+
 const handleDoctor = async (options: DoctorOptions): Promise<void> => {
   const port = resolvePort(options);
   const results: CheckResult[] = [];
@@ -328,29 +340,32 @@ const handleDoctor = async (options: DoctorOptions): Promise<void> => {
   const { result: configResult, config } = await checkConfigFile();
   results.push(configResult);
 
-  // 3. MCP server health
-  const secret = await readAuthSecret();
+  // 3. Auth secret
+  const { result: authResult, secret } = await checkAuthSecret();
+  results.push(authResult);
+
+  // 4. MCP server health
   const { result: serverResult, data: healthData } = await checkServerHealth(port, secret);
   results.push(serverResult);
 
-  // 4. Extension connected
+  // 5. Extension connected
   results.push(checkExtensionConnected(healthData));
 
-  // 5. Extension installed
+  // 6. Extension installed
   const { result: installedResult, versionFile } = await checkExtensionInstalled();
   results.push(installedResult);
 
-  // 6. Extension version matches CLI
+  // 7. Extension version matches CLI
   results.push(await checkExtensionVersion(versionFile));
 
-  // 7. MCP client config
+  // 8. MCP client config
   results.push(await checkMcpClientConfig());
 
-  // 8. Local plugin checks
+  // 9. Local plugin checks
   const pluginResults = await checkPlugins(config);
   results.push(...pluginResults);
 
-  // 9. npm plugin health (from server /health data)
+  // 10. npm plugin health (from server /health data)
   results.push(...checkNpmPlugins(healthData));
 
   // Print results
@@ -400,6 +415,7 @@ Examples:
 };
 
 export {
+  checkAuthSecret,
   checkBunVersion,
   checkConfigFile,
   checkExtensionConnected,
