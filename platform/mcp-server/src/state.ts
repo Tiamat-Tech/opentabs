@@ -308,6 +308,10 @@ export interface ServerState {
   sessionPermissions: SessionPermissionRule[];
   /** Whether an extension reload is pending (set when extension files are updated but extension is not connected) */
   pendingExtensionReload: boolean;
+  /** Rate-limit timestamps for administrative endpoints — keyed by endpoint path, values are call timestamps (ms) */
+  endpointCallTimestamps: Map<string, number[]>;
+  /** Whether the extension adapters/ directory has been created (cached to avoid repeated mkdir calls) */
+  adaptersDirReady: boolean;
 }
 
 /** Increment when changing the type of an existing ServerState field */
@@ -368,6 +372,8 @@ export const createState = (): ServerState => ({
   pendingConfirmations: new Map(),
   sessionPermissions: [],
   pendingExtensionReload: false,
+  endpointCallTimestamps: new Map(),
+  adaptersDirReady: false,
 });
 
 /** Generate a cryptographically random JSON-RPC request ID */

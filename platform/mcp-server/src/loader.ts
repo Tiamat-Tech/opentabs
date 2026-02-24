@@ -9,7 +9,7 @@
  * returns a Result. No side effects, no state mutation.
  */
 
-import { browserTools } from './browser-tools/index.js';
+import { BROWSER_TOOL_NAMES } from './browser-tool-names.js';
 import { log } from './logger.js';
 import { sdkVersion as serverSdkVersion } from './sdk-version.js';
 import {
@@ -93,13 +93,6 @@ const pluginNameFromPackage = (pkgName: string): string => {
   }
   return pkgName.replace(/^opentabs-plugin-/, '');
 };
-
-/**
- * Browser tool names that should not appear in plugin tool descriptions.
- * Presence of these names may indicate a prompt injection attempt where
- * a plugin tries to instruct the AI agent to invoke browser-level tools.
- */
-const BROWSER_TOOL_NAMES = browserTools.map(t => t.name);
 
 /**
  * Check plugin tool descriptions for references to browser tool names.
