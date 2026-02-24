@@ -1,9 +1,8 @@
 import { SCRIPT_TIMEOUT_MS, MAX_SCRIPT_TIMEOUT_MS } from './constants.js';
+import { dispatchWithTabFallback, requireStringParam, resolvePlugin } from './dispatch-helpers.js';
 import { sendToServer } from './messaging.js';
-import { getPluginMeta } from './plugin-storage.js';
-import { sanitizeErrorMessage } from './sanitize-error.js';
-import { findAllMatchingTabs, urlMatchesPatterns } from './tab-matching.js';
 import { toErrorMessage } from '@opentabs-dev/shared';
+import type { DispatchResult } from './dispatch-helpers.js';
 import type { PluginMeta } from './extension-messages.js';
 
 /**
@@ -57,15 +56,6 @@ const injectToolInvocationLog = async (
     // Tab may not be injectable — logging is best-effort
   }
 };
-
-type ToolResult =
-  | {
-      type: 'error';
-      code: number;
-      message: string;
-      data?: { code: string; retryable?: boolean; retryAfterMs?: number; category?: string };
-    }
-  | { type: 'success'; output: unknown };
 
 /**
  * Inject an ISOLATED world content script that listens for opentabs:progress
@@ -155,7 +145,7 @@ const executeToolOnTab = async (
   toolName: string,
   input: Record<string, unknown>,
   dispatchId: string,
-): Promise<ToolResult> => {
+): Promise<DispatchResult> => {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const startTs = Date.now();
 
@@ -318,7 +308,7 @@ const executeToolOnTab = async (
   }
 
   const firstResult = results[0] as { result?: unknown } | undefined;
-  const result = firstResult?.result as ToolResult | undefined;
+  const result = firstResult?.result as DispatchResult | undefined;
 
   if (!result || typeof result !== 'object' || !('type' in result)) {
     return { type: 'error', code: -32603, message: 'No result from tool execution' };
@@ -326,12 +316,6 @@ const executeToolOnTab = async (
 
   return result;
 };
-
-/**
- * Whether a ToolResult is an adapter-not-ready error that should trigger
- * fallback to the next matching tab.
- */
-const isAdapterNotReady = (result: ToolResult): boolean => result.type === 'error' && result.code === -32002;
 
 /**
  * Handle tool.dispatch request from MCP server.
@@ -343,25 +327,11 @@ const handleToolDispatch = async (params: Record<string, unknown>, id: string | 
   // dispatchId is the correlation key for progress reporting, injected by the MCP server
   const dispatchId = typeof params.dispatchId === 'string' ? params.dispatchId : String(id);
 
-  const pluginName = params.plugin;
-  if (typeof pluginName !== 'string' || pluginName.length === 0) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Missing or invalid "plugin" param (expected non-empty string)' },
-      id,
-    });
-    return;
-  }
+  const pluginName = requireStringParam(params, 'plugin', id);
+  if (!pluginName) return;
 
-  const toolName = params.tool;
-  if (typeof toolName !== 'string' || toolName.length === 0) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32602, message: 'Missing or invalid "tool" param (expected non-empty string)' },
-      id,
-    });
-    return;
-  }
+  const toolName = requireStringParam(params, 'tool', id);
+  if (!toolName) return;
 
   const rawInput = params.input;
   if (rawInput !== undefined && rawInput !== null && (typeof rawInput !== 'object' || Array.isArray(rawInput))) {
@@ -401,115 +371,26 @@ const handleToolDispatch = async (params: Record<string, unknown>, id: string | 
     return;
   }
 
-  const plugin = await getPluginMeta(pluginName);
-  if (!plugin) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32603, message: `Plugin "${pluginName}" not found` },
-      id,
-    });
-    return;
-  }
-
-  const matchingTabs = await findAllMatchingTabs(plugin);
-  if (matchingTabs.length === 0) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32001, message: `No matching tab for plugin "${pluginName}" (state: closed)` },
-      id,
-    });
-    return;
-  }
+  const plugin = await resolvePlugin(pluginName, id);
+  if (!plugin) return;
 
   const link = getPluginLink(plugin);
 
-  // Try matching tabs in ranked order. If the best tab's adapter is not ready
-  // (code -32002), fall back to the next matching tab.
-  let firstError:
-    | {
-        code: number;
-        message: string;
-        data?: { code: string; retryable?: boolean; retryAfterMs?: number; category?: string };
-      }
-    | undefined;
-
-  for (const tab of matchingTabs) {
-    if (tab.id === undefined) continue;
-
-    // Re-validate tab URL to prevent TOCTOU race: the tab may have navigated
-    // between findAllMatchingTabs() and now.
-    try {
-      const currentTab = await chrome.tabs.get(tab.id);
-      if (!currentTab.url || !urlMatchesPatterns(currentTab.url, plugin.urlPatterns)) {
-        firstError ??= { code: -32001, message: 'Tab navigated away from matching URL' };
-        continue;
-      }
-    } catch {
-      firstError ??= { code: -32001, message: 'Tab closed before tool execution' };
-      continue;
-    }
-
-    try {
-      await injectToolInvocationLog(tab.id, pluginName, toolName, link);
-      await injectProgressListener(tab.id, dispatchId);
+  await dispatchWithTabFallback({
+    id,
+    pluginName,
+    plugin,
+    operationName: 'tool execution',
+    executeOnTab: async tabId => {
+      await injectToolInvocationLog(tabId, pluginName, toolName, link);
+      await injectProgressListener(tabId, dispatchId);
       try {
-        const result = await executeToolOnTab(tab.id, pluginName, toolName, input, dispatchId);
-
-        if (result.type === 'success') {
-          sendToServer({ jsonrpc: '2.0', result: { output: result.output }, id });
-          return;
-        }
-
-        // Adapter-not-ready errors trigger fallback to the next matching tab
-        if (isAdapterNotReady(result) && matchingTabs.length > 1) {
-          firstError ??= { code: result.code, message: result.message };
-          continue;
-        }
-
-        sendToServer({
-          jsonrpc: '2.0',
-          error: { code: result.code, message: result.message, data: result.data },
-          id,
-        });
-        return;
+        return await executeToolOnTab(tabId, pluginName, toolName, input, dispatchId);
       } finally {
-        removeProgressListener(tab.id, dispatchId);
+        removeProgressListener(tabId, dispatchId);
       }
-    } catch (err) {
-      const msg = toErrorMessage(err);
-      const isTabGone = msg.includes('No tab with id') || msg.includes('Cannot access');
-      if (isTabGone && matchingTabs.length > 1) {
-        firstError ??= { code: -32001, message: 'Tab closed before tool execution' };
-        continue;
-      }
-      sendToServer({
-        jsonrpc: '2.0',
-        error: {
-          code: isTabGone ? -32001 : -32603,
-          message: isTabGone
-            ? 'Tab closed before tool execution'
-            : `Script execution failed: ${sanitizeErrorMessage(msg)}`,
-        },
-        id,
-      });
-      return;
-    }
-  }
-
-  // All matching tabs failed — return the error from the best-ranked tab
-  if (firstError) {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: firstError.code, message: firstError.message, data: firstError.data },
-      id,
-    });
-  } else {
-    sendToServer({
-      jsonrpc: '2.0',
-      error: { code: -32001, message: 'No usable tab found (all matching tabs have undefined IDs)' },
-      id,
-    });
-  }
+    },
+  });
 };
 
 export { handleToolDispatch, notifyDispatchProgress };
