@@ -34,36 +34,25 @@ const PluginCard = ({
     errorTimerRef.current = setTimeout(() => setToggleError(null), ERROR_DISPLAY_DURATION_MS);
   };
 
+  const updatePluginTools = (updater: (tools: PluginState['tools']) => PluginState['tools']) =>
+    setPlugins(prev => prev.map(p => (p.name === plugin.name ? { ...p, tools: updater(p.tools) } : p)));
+
   const allEnabled = plugin.tools.length > 0 && plugin.tools.every(t => t.enabled);
 
   const handleToggleAll = (checked: boolean) => {
     const originalTools = plugin.tools;
-    setPlugins(prev =>
-      prev.map(p => (p.name === plugin.name ? { ...p, tools: p.tools.map(t => ({ ...t, enabled: checked })) } : p)),
-    );
+    updatePluginTools(tools => tools.map(t => ({ ...t, enabled: checked })));
     void setAllToolsEnabled(plugin.name, checked).catch(() => {
-      setPlugins(prev => prev.map(p => (p.name === plugin.name ? { ...p, tools: originalTools } : p)));
+      updatePluginTools(() => originalTools);
       showToggleError('Failed to toggle all tools');
     });
   };
 
   const handleToggleTool = (toolName: string, currentEnabled: boolean) => {
     const newEnabled = !currentEnabled;
-    setPlugins(prev =>
-      prev.map(p =>
-        p.name === plugin.name
-          ? { ...p, tools: p.tools.map(t => (t.name === toolName ? { ...t, enabled: newEnabled } : t)) }
-          : p,
-      ),
-    );
+    updatePluginTools(tools => tools.map(t => (t.name === toolName ? { ...t, enabled: newEnabled } : t)));
     void setToolEnabled(plugin.name, toolName, newEnabled).catch(() => {
-      setPlugins(prev =>
-        prev.map(p =>
-          p.name === plugin.name
-            ? { ...p, tools: p.tools.map(t => (t.name === toolName ? { ...t, enabled: !newEnabled } : t)) }
-            : p,
-        ),
-      );
+      updatePluginTools(tools => tools.map(t => (t.name === toolName ? { ...t, enabled: !newEnabled } : t)));
       showToggleError(`Failed to toggle ${toolName}`);
     });
   };
