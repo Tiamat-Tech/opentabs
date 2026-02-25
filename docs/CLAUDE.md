@@ -108,6 +108,18 @@ All illustrations live in `docs/components/illustrations.tsx` and are registered
 | `InstallPaths`             | `docs/content/docs/install/index.mdx`             | Three installation path options       |
 | `FirstPluginFlow`          | `docs/content/docs/first-plugin.mdx`              | 5-step plugin creation workflow       |
 
+## Runtime and Tooling Context
+
+The docs site itself is a **platform contributor** tool — built and developed using Bun (`bun run build`, `bun run dev:docs`, etc.) and Node.js.
+
+The docs _content_, however, covers three audience tiers with different runtime and tooling expectations:
+
+- **Normal users** use **Node.js** and **npm**. Commands in user-facing docs (Quick Start, Installation) should use `npx` / `npm` — never `bun`.
+- **Plugin developers** use **Node.js** and **npm**. Plugin docs should show `npm run build`, `npx create-opentabs-plugin`, etc.
+- **Platform contributors** use **Bun** (for monorepo management, development, and testing) and **Node.js**. Contributing docs may reference `bun run` commands.
+
+Content targeting normal users or plugin developers must never assume Bun is installed. Only contributing/architecture docs should reference Bun.
+
 ## Documentation Tone
 
 The docs follow a progressive audience path: **normal user** (Quick Start, Installation) → **plugin developer** (Guides, SDK Reference) → **platform contributor** (Contributing). The tone is:
