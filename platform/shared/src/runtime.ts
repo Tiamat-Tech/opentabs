@@ -107,6 +107,9 @@ export const spawnProcessSync = (cmd: string, args: string[], opts?: SpawnOption
     env: opts?.env as NodeJS.ProcessEnv,
     stdio: [opts?.stdin ?? 'ignore', 'pipe', 'pipe'],
   });
+  if (result.error) {
+    return { exitCode: 1, stdout: '', stderr: result.error.message };
+  }
   return {
     exitCode: result.status ?? 1,
     stdout: result.stdout.toString(),
