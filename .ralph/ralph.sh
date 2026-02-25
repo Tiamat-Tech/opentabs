@@ -112,13 +112,12 @@ mkdir -p "$ARCHIVE_DIR" "$WORKTREE_BASE"
 # Always tee output to .ralph/ralph.log so diagnostics are never lost,
 # regardless of how the script is launched (nohup, /dev/null, foreground).
 # The re-exec guard (__RALPH_LOGGING) prevents infinite recursion.
+# Appends to the existing log file so `tail -f ralph.log` survives daemon
+# restarts (the file inode stays the same).
 
 LOG_FILE="$SCRIPT_DIR/ralph.log"
 
 if [ -z "${__RALPH_LOGGING:-}" ]; then
-  # Rotate previous log
-  [ -f "$LOG_FILE" ] && mv "$LOG_FILE" "$SCRIPT_DIR/ralph.prev.log"
-
   # Re-exec with output tee'd to log file. Use exec so the PID stays the same.
   export __RALPH_LOGGING=1
   exec > >(tee -a "$LOG_FILE") 2>&1
