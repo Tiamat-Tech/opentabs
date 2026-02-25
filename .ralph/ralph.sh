@@ -1,11 +1,17 @@
 #!/bin/bash
-# Ralph — Parallel PRD consumer daemon using git worktrees
+# Ralph — Parallel PRD consumer daemon using git worktrees + Docker isolation
 #
 # Usage: .ralph/ralph.sh [--tool amp|claude] [--once] [--poll N] [--workers N]
 #
 # Watches .ralph/ for PRD files and processes them in parallel using git worktrees.
 # Each PRD gets its own worktree so agents run in full isolation — no type-check,
 # lint, or build conflicts between concurrent agents.
+#
+# Each worker runs inside a Docker container. When ralph needs to kill a worker,
+# `docker kill` atomically destroys every process in the container via cgroups —
+# no orphaned Chromium instances, no pattern-matching cleanup loops, no escaped
+# process groups. This solves the fundamental problem that macOS has no kernel-
+# level mechanism to atomically kill a process subtree.
 #
 # PRD file name state machine:
 #   prd-YYYY-MM-DD-HHMMSS-objective~draft.json    — being written, ignored
@@ -108,6 +114,10 @@ ARCHIVE_DIR="$SCRIPT_DIR/archive"
 WORKTREE_BASE="$SCRIPT_DIR/worktrees"
 mkdir -p "$ARCHIVE_DIR" "$WORKTREE_BASE"
 
+# --- Docker Configuration ---
+DOCKER_IMAGE="ralph-worker:latest"
+CONTAINER_PREFIX="ralph-worker"
+
 # --- Auto-Logging ---
 # Always tee output to .ralph/ralph.log so diagnostics are never lost,
 # regardless of how the script is launched (nohup, /dev/null, foreground).
@@ -141,64 +151,53 @@ fi
 
 echo $$ > "$PIDFILE"
 
+# --- Docker Prerequisite Check ---
+# Verify Docker is available and the ralph-worker image exists.
+
+if ! command -v docker &>/dev/null; then
+  echo "Error: Docker is not installed or not in PATH."
+  echo "Install Docker Desktop or OrbStack: https://orbstack.dev/"
+  exit 1
+fi
+
+if ! docker info &>/dev/null; then
+  echo "Error: Docker daemon is not running."
+  echo "Start Docker Desktop or OrbStack, then retry."
+  exit 1
+fi
+
+if ! docker image inspect "$DOCKER_IMAGE" &>/dev/null; then
+  echo "Error: Docker image '$DOCKER_IMAGE' not found."
+  echo "Build it first: bash .ralph/docker-build.sh"
+  exit 1
+fi
+
 # --- Startup Orphan Cleanup ---
 # If the previous ralph daemon was killed with SIGKILL (kill -9), the trap
-# handler never runs and orphaned processes survive: Playwright workers,
-# Chromium instances, bun test servers, claude sessions. These consume
-# memory and CPU, and may hold file locks that prevent worktree removal.
-#
-# We clean them up here on startup by scanning for processes whose command
-# line references worktree paths. This is the ONLY reliable cleanup for
-# kill -9 — at-exit traps cannot handle it.
+# handler never runs and leftover containers may survive. With Docker, this
+# is a simple container list + kill — no pgrep pattern matching, no process
+# tree walking, no escaping via setsid(). Cgroups guarantee that killing a
+# container destroys every process inside.
 
 cleanup_orphans_from_previous_run() {
   local orphan_count=0
 
-  # Find all processes referencing ralph worktree paths
-  local wt_pids
-  wt_pids=$(pgrep -f "$WORKTREE_BASE" 2>/dev/null) || true
+  # Find all ralph-worker containers (running or stopped)
+  local containers
+  containers=$(docker ps -a --filter "name=${CONTAINER_PREFIX}-" --format '{{.Names}}' 2>/dev/null) || true
 
-  if [ -n "$wt_pids" ]; then
-    for p in $wt_pids; do
-      [ "$p" = "$$" ] && continue
-      kill_tree "$p" TERM 2>/dev/null || true
+  if [ -n "$containers" ]; then
+    while IFS= read -r cname; do
+      [ -z "$cname" ] && continue
+      # Kill if running, then remove
+      docker kill "$cname" 2>/dev/null || true
+      docker rm -f "$cname" 2>/dev/null || true
       orphan_count=$((orphan_count + 1))
-    done
-
-    if [ "$orphan_count" -gt 0 ]; then
-      sleep 2
-      # Force-kill survivors
-      wt_pids=$(pgrep -f "$WORKTREE_BASE" 2>/dev/null) || true
-      for p in $wt_pids; do
-        [ "$p" = "$$" ] && continue
-        kill_tree "$p" KILL 2>/dev/null || true
-      done
-    fi
-  fi
-
-  # Kill orphaned Chromium and test server processes spawned by E2E tests.
-  # These reference temp dirs (/var/folders/.../opentabs-e2e-*), not the
-  # worktree path, so pgrep -f WORKTREE_BASE misses them. But they were
-  # spawned by Playwright processes that DID reference the worktree, and
-  # after kill -9 they get reparented to PID 1.
-  local e2e_pids
-  e2e_pids=$(pgrep -f "opentabs-e2e-" 2>/dev/null) || true
-  if [ -n "$e2e_pids" ]; then
-    for p in $e2e_pids; do
-      [ "$p" = "$$" ] && continue
-      kill -TERM "$p" 2>/dev/null || true
-      orphan_count=$((orphan_count + 1))
-    done
-    sleep 1
-    e2e_pids=$(pgrep -f "opentabs-e2e-" 2>/dev/null) || true
-    for p in $e2e_pids; do
-      [ "$p" = "$$" ] && continue
-      kill -KILL "$p" 2>/dev/null || true
-    done
+    done <<< "$containers"
   fi
 
   if [ "$orphan_count" -gt 0 ]; then
-    echo -e "$(ts) ${YELLOW}Cleaned up $orphan_count orphaned process(es) from previous run.${RESET}"
+    echo -e "$(ts) ${YELLOW}Cleaned up $orphan_count orphaned container(s) from previous run.${RESET}"
   fi
 }
 
@@ -233,25 +232,32 @@ has_ready_prds() {
 # --- Worker Tracking ---
 # Parallel arrays indexed by slot number (0..MAX_WORKERS-1).
 # Empty string means the slot is free.
+# WORKER_CONTAINERS holds Docker container names instead of PIDs.
+# WORKER_LOG_PIDS holds the PID of the `docker logs -f` process that
+# streams container output into ralph.log.
 
-declare -a WORKER_PIDS=()
+declare -a WORKER_CONTAINERS=()
+declare -a WORKER_LOG_PIDS=()
 declare -a WORKER_PRDS=()
 declare -a WORKER_WORKTREES=()
 declare -a WORKER_BRANCHES=()
-declare -a WORKER_RESULT_FILES=()
 declare -a WORKER_TAGS=()
 
 for (( s=0; s<MAX_WORKERS; s++ )); do
-  WORKER_PIDS[$s]=""
+  WORKER_CONTAINERS[$s]=""
+  WORKER_LOG_PIDS[$s]=""
   WORKER_PRDS[$s]=""
   WORKER_WORKTREES[$s]=""
   WORKER_BRANCHES[$s]=""
-  WORKER_RESULT_FILES[$s]=""
   WORKER_TAGS[$s]=""
 done
 
 # --- Cleanup ---
-# On exit, kill all running workers and remove worktrees.
+# On exit, kill all running worker containers and remove worktrees.
+# Docker containers are killed atomically via `docker kill` — cgroups
+# guarantee every process inside (Chromium, Playwright, test servers)
+# dies immediately. No three-phase kill, no process tree walking, no
+# pattern matching.
 
 cleanup() {
   echo ""
@@ -263,24 +269,29 @@ cleanup() {
   git merge --abort 2>/dev/null || true
 
   for (( s=0; s<MAX_WORKERS; s++ )); do
-    local pid="${WORKER_PIDS[$s]}"
+    local container="${WORKER_CONTAINERS[$s]}"
+    local log_pid="${WORKER_LOG_PIDS[$s]}"
     local wt="${WORKER_WORKTREES[$s]}"
     local br="${WORKER_BRANCHES[$s]}"
     local prd="${WORKER_PRDS[$s]}"
 
-    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-      echo -e "$(ts) ${DIM}Killing worker $s (PID $pid) and child processes...${RESET}"
-      # Three-phase kill (see kill_worktree_processes comment for rationale):
-      # 1. PGID kill — catches everything in the same process group
-      # 2. Tree kill — catches processes that escaped via setsid()
-      # 3. Worktree path kill — catches orphans re-parented to PID 1
-      kill -- -"$pid" 2>/dev/null || true
-      kill_tree "$pid"
-      wait "$pid" 2>/dev/null || true
+    if [ -n "$container" ]; then
+      # Check if the container is still running
+      if docker inspect --format='{{.State.Running}}' "$container" 2>/dev/null | grep -q true; then
+        echo -e "$(ts) ${DIM}Killing container $container (worker $s)...${RESET}"
+        # docker kill sends SIGKILL to PID 1 in the container, and cgroups
+        # guarantee all processes inside die atomically.
+        docker kill "$container" 2>/dev/null || true
+      fi
+      # Remove the stopped container
+      docker rm -f "$container" 2>/dev/null || true
     fi
-    # Phase 3 runs unconditionally — the worker subshell may already be dead
-    # but orphaned Playwright workers / test servers may still be running.
-    kill_worktree_processes "$wt"
+
+    # Kill the log-streaming process
+    if [ -n "$log_pid" ] && kill -0 "$log_pid" 2>/dev/null; then
+      kill "$log_pid" 2>/dev/null || true
+      wait "$log_pid" 2>/dev/null || true
+    fi
 
     # Sync PRD and progress from worktree back to main .ralph/ so the
     # agent's progress (which stories passed) survives the shutdown.
@@ -318,24 +329,7 @@ cleanup() {
         echo -e "$(ts) ${DIM}Reverted to ready: $(basename "$ready_prd")${RESET}"
       fi
     fi
-
-    # Clean up temp files
-    [ -n "${WORKER_RESULT_FILES[$s]}" ] && rm -f "${WORKER_RESULT_FILES[$s]}"
-    [ -n "${WORKER_RESULT_FILES[$s]}" ] && rm -f "${WORKER_RESULT_FILES[$s]}.exit"
   done
-
-  # Final sweep: kill any orphaned Chromium/test-server processes that
-  # escaped the per-worker cleanup. These reference temp dirs
-  # (/var/folders/.../opentabs-e2e-*) rather than worktree paths, so
-  # kill_worktree_processes misses them when Playwright parents are already dead.
-  local e2e_orphans
-  e2e_orphans=$(pgrep -f "opentabs-e2e-" 2>/dev/null) || true
-  if [ -n "$e2e_orphans" ]; then
-    for p in $e2e_orphans; do
-      [ "$p" = "$$" ] && continue
-      kill -KILL "$p" 2>/dev/null || true
-    done
-  fi
 
   # Prune stale worktree references
   git worktree prune 2>/dev/null || true
@@ -343,11 +337,6 @@ cleanup() {
   rm -f "$PIDFILE"
   echo -e "$(ts) ${GREEN}Ralph stopped.${RESET}"
 }
-
-# Use set -m to enable job control so background subshells get their own
-# process groups. This allows cleanup to kill entire process trees via
-# kill -- -PID (negative PID targets the process group).
-set -m
 
 trap cleanup EXIT
 
@@ -366,70 +355,14 @@ ts_prefix() {
 
 # --- Helper Functions ---
 
-# Recursively kill an entire process tree rooted at a given PID.
-# Walks the tree bottom-up (children before parent) so orphans don't
-# re-parent to init before we reach them. This catches processes that
-# escaped the PGID via setsid() (e.g., Chromium) — pgrep -P follows
-# the parent-child relationship regardless of process group or session.
-kill_tree() {
-  local pid="$1"
-  local sig="${2:-TERM}"
-  [ -z "$pid" ] && return
-
-  # Collect children BEFORE killing the parent (dead parent = no children to find).
-  local children
-  children=$(pgrep -P "$pid" 2>/dev/null) || true
-
-  for child in $children; do
-    kill_tree "$child" "$sig"
-  done
-
-  kill -"$sig" "$pid" 2>/dev/null || true
-}
-
-# Kill orphaned processes whose command line references a worktree path.
-# When a worker subshell exits, its child processes (Playwright workers,
-# test servers, Chromium) get re-parented to PID 1. At that point,
-# pgrep -P can no longer find them via parent-child walk from the original
-# subshell PID. This function finds them by matching the worktree path in
-# their command line arguments — a reliable identifier since each worktree
-# has a unique directory path.
-# Kill ALL processes associated with a worktree — both direct references
-# and their orphaned children (Chromium, test servers) that may reference
-# temp dirs instead of the worktree path.
-#
-# Two search strategies:
-#   1. pgrep -f "$wt" — catches Playwright, bun, claude, node processes
-#      whose command line includes the worktree directory path.
-#   2. For each matched process, kill_tree walks its entire child tree.
-#      This catches Chromium instances that use temp dirs
-#      (/var/folders/.../opentabs-e2e-*) in their command line.
-#
-# After kill -9 on ralph, strategy 2 fails because parents are already
-# dead (children reparented to PID 1). The startup orphan cleanup
-# handles that case separately via pgrep -f "opentabs-e2e-".
-kill_worktree_processes() {
-  local wt="$1"
-  [ -z "$wt" ] && return
-
-  local pids
-  pids=$(pgrep -f "$wt" 2>/dev/null) || true
-  [ -z "$pids" ] && return
-
-  # Phase 1: SIGTERM the full process tree of each worktree-referencing process.
-  for p in $pids; do
-    [ "$p" = "$$" ] && continue
-    kill_tree "$p" TERM
-  done
-
-  sleep 1
-
-  # Phase 2: SIGKILL survivors.
-  pids=$(pgrep -f "$wt" 2>/dev/null) || true
-  for p in $pids; do
-    [ "$p" = "$$" ] && continue
-    kill_tree "$p" KILL
-  done
+# Kill a Docker container by name. Sends SIGKILL via cgroups which
+# atomically destroys every process inside — Chromium, Playwright workers,
+# test servers, and all their children. No orphans, no pattern matching.
+kill_container() {
+  local container="$1"
+  [ -z "$container" ] && return
+  docker kill "$container" 2>/dev/null || true
+  docker rm -f "$container" 2>/dev/null || true
 }
 
 # Robustly remove a git worktree directory.
@@ -471,7 +404,7 @@ find_running_prds() {
 count_active_workers() {
   local count=0
   for (( s=0; s<MAX_WORKERS; s++ )); do
-    [ -n "${WORKER_PIDS[$s]}" ] && count=$((count + 1))
+    [ -n "${WORKER_CONTAINERS[$s]}" ] && count=$((count + 1))
   done
   echo "$count"
 }
@@ -479,7 +412,7 @@ count_active_workers() {
 # Find a free worker slot. Returns slot number or empty string if none.
 find_free_slot() {
   for (( s=0; s<MAX_WORKERS; s++ )); do
-    if [ -z "${WORKER_PIDS[$s]}" ]; then
+    if [ -z "${WORKER_CONTAINERS[$s]}" ]; then
       echo "$s"
       return
     fi
@@ -590,354 +523,15 @@ archive_run() {
   echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${GREEN}Archived to: $archive_folder${RESET}"
 }
 
-# Stream filter: extracts concise progress lines from claude's stream-json output.
-# Outputs plain text lines (no timestamp/tag) — the caller pipes through ts_prefix.
-stream_filter() {
-  local result_file="$1"
-
-  while IFS= read -r line; do
-    [ -z "$line" ] && continue
-
-    local msg_type
-    msg_type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null) || continue
-
-    case "$msg_type" in
-      assistant)
-        local tool_uses
-        tool_uses=$(echo "$line" | jq -r '
-          .message.content[]? |
-          select(.type == "tool_use") |
-          .name + "\t" + (
-            if .name == "Read" then (.input.file_path // "")
-            elif .name == "Write" then (.input.file_path // "")
-            elif .name == "Edit" then (.input.file_path // "")
-            elif .name == "Bash" then ((.input.description // .input.command // "") | .[0:80])
-            elif .name == "Glob" then (.input.pattern // "")
-            elif .name == "Grep" then (.input.pattern // "") + " " + (.input.path // "")
-            elif .name == "Task" then (.input.description // "")
-            elif .name == "Skill" then (.input.skill // "")
-            else (.input | tostring | .[0:60])
-            end
-          )
-        ' 2>/dev/null)
-
-        if [ -n "$tool_uses" ]; then
-          while IFS=$'\t' read -r tool_name tool_detail; do
-            [ -z "$tool_name" ] && continue
-            printf "▸ %-8s %s\n" "$tool_name" "$tool_detail"
-          done <<< "$tool_uses"
-        fi
-
-        local text_content
-        text_content=$(echo "$line" | jq -r '
-          [.message.content[]? | select(.type == "text") | .text] | join("")
-        ' 2>/dev/null)
-
-        if [ -n "$text_content" ] && [ "$text_content" != "null" ]; then
-          printf "✦ %.120s\n" "$text_content"
-          if echo "$text_content" | grep -q "<promise>COMPLETE</promise>" 2>/dev/null; then
-            echo "$text_content" >> "$result_file"
-          fi
-        fi
-        ;;
-
-      result)
-        local result_text duration_s cost num_turns
-        result_text=$(echo "$line" | jq -r '.result // ""' 2>/dev/null)
-        duration_s=$(echo "$line" | jq -r '((.duration_ms // 0) / 1000 | floor)' 2>/dev/null)
-        cost=$(echo "$line" | jq -r '.total_cost_usd // 0' 2>/dev/null)
-        num_turns=$(echo "$line" | jq -r '.num_turns // 0' 2>/dev/null)
-
-        echo "$result_text" >> "$result_file"
-
-        printf "⏱  %ss  │  %s turns  │  \$%s\n" "$duration_s" "$num_turns" "$cost"
-        ;;
-    esac
-  done
-}
-
-# Execute all stories in a single PRD file inside a worktree.
-# This runs as the worker's main function (in a subshell / background).
-# All output (stdout+stderr) is piped through ts_prefix by the caller,
-# so this function just writes plain messages — no timestamps or tags.
-# Arguments: prd_file worktree_dir result_file
-execute_prd_in_worktree() {
-  local prd_file="$1"
-  local worktree_dir="$2"
-  local result_file="$3"
-
-  local prd_basename
-  prd_basename=$(basename "$prd_file")
-  local wt_prd="$worktree_dir/.ralph/$prd_basename"
-
-  # Sanity check: the worktree PRD must exist (copied by dispatch_prd).
-  if [ ! -f "$wt_prd" ]; then
-    echo "ERROR: PRD file not found in worktree: $wt_prd"
-    return 1
-  fi
-
-  # The progress file lives in the main .ralph/ (canonical location).
-  # We copy it into the worktree for the agent, then copy it back when done.
-  local progress_file
-  progress_file=$(progress_file_for "$prd_file")
-  local progress_basename
-  progress_basename=$(basename "$progress_file")
-  local wt_progress="$worktree_dir/.ralph/$progress_basename"
-
-  # Helper: copy PRD and progress from worktree back to main .ralph/.
-  # Called after each iteration and on exit so the canonical state stays current.
-  # Uses cp with || true — a failed copy-back is not fatal; the worktree
-  # state is still the source of truth until it's removed.
-  _sync_back() {
-    [ -f "$wt_prd" ] && cp "$wt_prd" "$prd_file" 2>/dev/null || true
-    [ -f "$wt_progress" ] && cp "$wt_progress" "$progress_file" 2>/dev/null || true
-  }
-
-  # Check if this PRD needs E2E safety net (root monorepo without custom qualityChecks).
-  local has_quality_checks
-  has_quality_checks=$(jq -r '.qualityChecks // ""' "$wt_prd" 2>/dev/null)
-
-  # Safety net: run the full verification suite (including E2E) in the worktree if
-  # the last completed story was not an e2eCheckpoint. Only applies to root monorepo
-  # PRDs (no custom qualityChecks). Returns 0 if all checks pass or are not needed,
-  # 1 if any check fails.
-  _run_e2e_safety_net() {
-    # Skip for standalone subprojects (they have their own qualityChecks)
-    if [ -n "$has_quality_checks" ]; then
-      echo "Safety net: skipped (custom qualityChecks — E2E is not separate)."
-      return 0
-    fi
-
-    # Check if the last completed story (highest priority with passes: true) was an e2eCheckpoint
-    local last_checkpoint
-    last_checkpoint=$(jq '
-      [.userStories[] | select(.passes == true)]
-      | sort_by(.priority)
-      | last
-      | .e2eCheckpoint // false
-    ' "$wt_prd" 2>/dev/null)
-
-    if [ "$last_checkpoint" = "true" ]; then
-      echo "Safety net: skipped (last story was an e2eCheckpoint)."
-      return 0
-    fi
-
-    echo ""
-    echo "── E2E Safety Net ──"
-    echo "Last completed story was not an e2eCheckpoint. Running full suite including E2E before merge..."
-
-    if (cd "$worktree_dir" && bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e); then
-      echo "Safety net: full suite passed."
-      return 0
-    else
-      echo "Safety net: full suite FAILED."
-      return 1
-    fi
-  }
-
-  # Launch a fix iteration: a fresh Claude session with a prompt to fix safety net
-  # failures. The agent runs in the worktree, fixes the issue, and commits. The
-  # safety net re-runs the full suite after this to verify.
-  _run_e2e_fix_iteration() {
-    local fix_num="$1"
-    echo ""
-    echo "── Safety Net Fix Iteration $fix_num ──"
-
-    local E2E_FIX_PROMPT
-    E2E_FIX_PROMPT="# Safety Net Fix Task
-
-You are an autonomous coding agent running in a git worktree. The safety net verification failed after all PRD stories were completed. Your ONLY task is to fix the failures.
-
-## Steps
-
-1. Run the full verification suite to reproduce the failures:
-   \`\`\`bash
-   bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e
-   \`\`\`
-2. Read the output carefully to identify which check failed and why
-3. Fix the root cause in the source code (not in the tests, unless the tests themselves are wrong)
-4. Re-run the full verification suite to confirm everything passes
-5. If any check still fails, fix it and re-run again
-6. Once all checks pass, commit your fix:
-   \`\`\`bash
-   git add <changed files>
-   git commit -m \"fix: resolve safety net failures\"
-   \`\`\`
-
-## Rules
-
-- Do NOT read or modify any PRD files in \`.ralph/\`
-- Do NOT pick up or implement any user stories
-- Only fix the verification failures — keep changes minimal and focused
-- Stage only the specific files you changed (never \`git add .\`)
-- Files in \`.ralph/\` must never be committed"
-
-    local FIX_RESULT_FILE
-    FIX_RESULT_FILE=$(mktemp)
-    local FIX_STDERR
-    FIX_STDERR=$(mktemp)
-
-    if [[ "$TOOL" == "amp" ]]; then
-      echo "$E2E_FIX_PROMPT" | (cd "$worktree_dir" && amp --dangerously-allow-all) 2>&1 || true
-    else
-      CLAUDE_ARGS=(--dangerously-skip-permissions --print --output-format stream-json --verbose)
-      [ -n "$MODEL" ] && CLAUDE_ARGS+=(--model "$MODEL")
-      echo "$E2E_FIX_PROMPT" | (cd "$worktree_dir" && claude "${CLAUDE_ARGS[@]}") \
-        2>"$FIX_STDERR" | stream_filter "$FIX_RESULT_FILE" || true
-    fi
-
-    rm -f "$FIX_RESULT_FILE" "$FIX_STDERR"
-  }
-
-  # Auto-calculate iterations from remaining stories
-  local remaining total buffer max_iterations
-  remaining=$(jq '[.userStories[] | select(.passes != true)] | length' "$wt_prd" 2>/dev/null || echo "0")
-  total=$(jq '.userStories | length' "$wt_prd" 2>/dev/null || echo "?")
-
-  if [ "$remaining" -eq 0 ]; then
-    echo "All stories already pass."
-
-    # Run E2E safety net — this PRD may be resuming after a shutdown that
-    # interrupted the safety net or merge. The branch hasn't been merged yet,
-    # so we must verify before letting reap_workers merge it.
-    if _run_e2e_safety_net; then
-      _sync_back
-      return 0
-    fi
-
-    # E2E failed — launch up to 3 fix iterations
-    local max_e2e_fixes=3
-    for fix_i in $(seq 1 $max_e2e_fixes); do
-      _run_e2e_fix_iteration "$fix_i"
-      if _run_e2e_safety_net; then
-        _sync_back
-        return 0
-      fi
-    done
-
-    echo "ERROR: Safety net still failing after $max_e2e_fixes fix attempts."
-    _sync_back
-    return 1
-  fi
-
-  buffer=$(( (remaining + 2) / 3 ))
-  [ "$buffer" -lt 1 ] && buffer=1
-  max_iterations=$(( remaining + buffer ))
-
-  echo "Stories: $remaining remaining (of $total total), $max_iterations iterations max"
-
-  # Initialize progress file in worktree
-  if [ ! -f "$wt_progress" ]; then
-    echo "# Ralph Progress Log" > "$wt_progress"
-    echo "PRD: $prd_basename" >> "$wt_progress"
-    echo "Started: $(date)" >> "$wt_progress"
-    echo "---" >> "$wt_progress"
-  fi
-
-  for i in $(seq 1 $max_iterations); do
-    # Check if all stories pass before each iteration
-    remaining=$(jq '[.userStories[] | select(.passes != true)] | length' "$wt_prd" 2>/dev/null || echo "0")
-    if [ "$remaining" -eq 0 ]; then
-      echo ""
-      echo "All stories pass! Completed before iteration $i."
-
-      # Run E2E safety net before declaring success
-      if _run_e2e_safety_net; then
-        _sync_back
-        return 0
-      fi
-
-      # E2E failed — launch up to 3 fix iterations
-      local max_e2e_fixes=3
-      for fix_i in $(seq 1 $max_e2e_fixes); do
-        _run_e2e_fix_iteration "$fix_i"
-        if _run_e2e_safety_net; then
-          _sync_back
-          return 0
-        fi
-      done
-
-      echo "ERROR: Safety net still failing after $max_e2e_fixes fix attempts."
-      _sync_back
-      return 1
-    fi
-
-    echo ""
-    echo "── Iteration $i/$max_iterations — $remaining stories remaining ──"
-
-    ITER_RESULT_FILE=$(mktemp)
-    STDERR_FILE=$(mktemp)
-
-    if [[ "$TOOL" == "amp" ]]; then
-      OUTPUT=$(cat "$worktree_dir/.ralph/RALPH.md" | (cd "$worktree_dir" && amp --dangerously-allow-all) 2>&1 | tee /dev/stderr) || true
-      echo "$OUTPUT" > "$ITER_RESULT_FILE"
-    else
-      CLAUDE_ARGS=(--dangerously-skip-permissions --print --output-format stream-json --verbose)
-      [ -n "$MODEL" ] && CLAUDE_ARGS+=(--model "$MODEL")
-      (cd "$worktree_dir" && claude "${CLAUDE_ARGS[@]}") \
-        < "$worktree_dir/.ralph/RALPH.md" 2>"$STDERR_FILE" \
-        | stream_filter "$ITER_RESULT_FILE" || true
-    fi
-
-    # Detect empty iterations
-    ITER_RESULT_SIZE=$(wc -c < "$ITER_RESULT_FILE" 2>/dev/null | tr -d ' ')
-    if [ "${ITER_RESULT_SIZE:-0}" -eq 0 ]; then
-      echo ""
-      echo "ERROR: Empty iteration — claude produced no output."
-      if [ -s "$STDERR_FILE" ]; then
-        echo "stderr:"
-        head -20 "$STDERR_FILE"
-      fi
-      rm -f "$ITER_RESULT_FILE" "$STDERR_FILE"
-      echo "Aborting PRD to avoid burning iterations."
-      _sync_back
-      return 1
-    fi
-
-    rm -f "$STDERR_FILE"
-
-    if [ -f "$ITER_RESULT_FILE" ] && grep -q "<promise>COMPLETE</promise>" "$ITER_RESULT_FILE" 2>/dev/null; then
-      echo ""
-      echo "All tasks complete!"
-      rm -f "$ITER_RESULT_FILE"
-
-      # Run E2E safety net before declaring success
-      if _run_e2e_safety_net; then
-        _sync_back
-        return 0
-      fi
-
-      # E2E failed — launch up to 3 fix iterations
-      local max_e2e_fixes=3
-      for fix_i in $(seq 1 $max_e2e_fixes); do
-        _run_e2e_fix_iteration "$fix_i"
-        if _run_e2e_safety_net; then
-          _sync_back
-          return 0
-        fi
-      done
-
-      echo "ERROR: Safety net still failing after $max_e2e_fixes fix attempts."
-      _sync_back
-      return 1
-    fi
-
-    rm -f "$ITER_RESULT_FILE"
-
-    # Sync progress back after each iteration so the main .ralph/ stays current
-    _sync_back
-
-    sleep 2
-  done
-
-  echo ""
-  echo "Reached max iterations ($max_iterations) without completing all stories."
-  _sync_back
-  return 1
-}
+# NOTE: stream_filter (extracts concise progress lines from claude's
+# stream-json output) is defined in worker.sh and runs inside the Docker
+# container. The host-side only needs ts_prefix to add timestamps/tags
+# to the already-filtered docker logs output.
 
 # Dispatch a PRD to a free worker slot.
-# Creates a worktree, copies PRD files, installs deps, launches agent.
+# Creates a worktree on the host (git operations), installs deps, builds,
+# then launches a Docker container with the worktree bind-mounted at /workspace.
+# The container runs worker.sh which executes the agent loop.
 dispatch_prd() {
   local prd_file="$1"
   local slot="$2"
@@ -948,11 +542,15 @@ dispatch_prd() {
   local worktree_dir="$WORKTREE_BASE/$slug"
   local tag
   tag=$(make_worker_tag "$slot" "$prd_file")
+  local container_name="${CONTAINER_PREFIX}-${slot}"
 
   echo ""
   echo -e "$(ts) ${BOLD}┌───────────────────────────────────────────────────────────┐${RESET}"
   echo -e "$(ts) ${BOLD}│  [${tag}] Dispatching: $(basename "$prd_file")${RESET}"
   echo -e "$(ts) ${BOLD}└───────────────────────────────────────────────────────────┘${RESET}"
+
+  # Clean up any leftover container from a previous crashed run.
+  docker rm -f "$container_name" 2>/dev/null || true
 
   # Mark PRD as running
   if ! prd_file=$(mark_running "$prd_file"); then
@@ -1015,29 +613,28 @@ dispatch_prd() {
     cp "$progress_file" "$worktree_dir/.ralph/"
   fi
 
-  # Install dependencies in the worktree.
-  # bun's global cache makes this fast (seconds, not minutes).
+  # Copy worker.sh into the worktree so the container can execute it.
+  cp "$SCRIPT_DIR/worker.sh" "$worktree_dir/.ralph/worker.sh"
+
+  # Install dependencies in the worktree (on the host — bun's global cache
+  # makes this fast, and the resulting node_modules/ is bind-mounted into
+  # the container along with the rest of the worktree).
   echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${DIM}Installing dependencies...${RESET}"
   if ! (cd "$worktree_dir" && bun install --frozen-lockfile 2>&1 | tail -1); then
     echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${RED}bun install failed. Aborting worker.${RESET}"
     remove_worktree "$worktree_dir"
-    # Preserve the branch if resuming (it has commits from a previous run).
     if [ "$resume_branch" = false ]; then
       git branch -D "$branch_name" 2>/dev/null || true
     fi
-    # Revert PRD from ~running back to ready so it can be retried
     mv "$prd_file" "${prd_file/\~running.json/.json}" 2>/dev/null || true
     return 1
   fi
 
-  # Pre-build: ensure the worktree has fresh dist/ artifacts and the e2e-test
-  # plugin is ready. Without this, every worker independently discovers stale
-  # or missing build artifacts and wastes time debugging infrastructure.
+  # Pre-build: ensure the worktree has fresh dist/ artifacts.
   echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${DIM}Building platform packages...${RESET}"
   if ! (cd "$worktree_dir" && bun run build 2>&1 | tail -3); then
     echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${RED}bun run build failed. Aborting worker.${RESET}"
     remove_worktree "$worktree_dir"
-    # Preserve the branch if resuming (it has commits from a previous run).
     if [ "$resume_branch" = false ]; then
       git branch -D "$branch_name" 2>/dev/null || true
     fi
@@ -1045,15 +642,7 @@ dispatch_prd() {
     return 1
   fi
 
-  # Build the e2e-test plugin (standalone, outside workspace). Its node_modules
-  # and dist/ are gitignored, so worktrees don't have them. Unit tests in
-  # platform/plugin-tools depend on this plugin being built.
-  # OPENTABS_CONFIG_DIR is set to a throwaway temp directory for the build step
-  # so `opentabs-plugin build` skips auto-registration into the real
-  # ~/.opentabs/config.json (the temp dir has no config.json, so
-  # registerInConfig() no-ops). Without this, every worktree build pollutes
-  # the real config with ephemeral worktree paths that become "Failed to load"
-  # errors when the worktree is cleaned up.
+  # Build the e2e-test plugin (standalone, outside workspace).
   if [ -f "$worktree_dir/plugins/e2e-test/package.json" ]; then
     echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${DIM}Building e2e-test plugin...${RESET}"
     local plugin_tmp_config
@@ -1065,36 +654,130 @@ dispatch_prd() {
     rm -rf "$plugin_tmp_config"
   fi
 
-  # Launch the worker in the background.
-  # All worker output (stdout+stderr) is piped through ts_prefix so every
-  # line in ralph.log gets "HH:MM:SS [W<n>:<objective>] <message>".
-  local result_file
-  result_file=$(mktemp)
+  # --- Launch Docker container ---
+  # The container runs worker.sh with the worktree bind-mounted at /workspace.
+  # All agent processes (claude, Playwright, Chromium, test servers) run inside
+  # the container's cgroup. `docker kill` destroys them all atomically.
 
+  local prd_basename
+  prd_basename=$(basename "$prd_file")
+
+  echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${DIM}Starting Docker container: $container_name${RESET}"
+
+  # Collect environment variables for the Claude CLI.
+  # The claude CLI reads auth/config from ~/.claude/ and ~/.claude.json.
+  # The settings.json may contain env vars (ANTHROPIC_BASE_URL, etc.) that
+  # claude reads at startup. We also pass them explicitly as container env
+  # vars so claude and any subprocess can access them.
+  local -a DOCKER_ENV_ARGS=()
+  DOCKER_ENV_ARGS+=(-e "WORKER_TOOL=$TOOL")
+  DOCKER_ENV_ARGS+=(-e "WORKER_MODEL=$MODEL")
+  DOCKER_ENV_ARGS+=(-e "WORKER_PRD_FILE=$prd_basename")
+  DOCKER_ENV_ARGS+=(-e "WORKER_RESULT_FILE=/tmp/worker-result.txt")
+  # Prevent Claude Code from detecting a nested session
+  DOCKER_ENV_ARGS+=(-e "CLAUDECODE=")
+
+  # Forward Anthropic env vars from the host (set in ~/.claude/settings.json
+  # or in the host shell). These are needed for the claude CLI to authenticate
+  # against the correct API endpoint.
+  for var in ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN ANTHROPIC_AUTH_MODEL ANTHROPIC_API_KEY; do
+    local val
+    val=$(printenv "$var" 2>/dev/null) || true
+    if [ -n "$val" ]; then
+      DOCKER_ENV_ARGS+=(-e "$var=$val")
+    fi
+  done
+
+  # Read env vars from claude settings.json and forward them.
+  # This handles the case where the user configured env vars in settings
+  # rather than in the shell (as in the current setup with ANTHROPIC_BASE_URL).
+  local CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+  if [ -f "$CLAUDE_SETTINGS" ]; then
+    local settings_envs
+    settings_envs=$(jq -r '.env // {} | to_entries[] | .key + "=" + .value' "$CLAUDE_SETTINGS" 2>/dev/null) || true
+    if [ -n "$settings_envs" ]; then
+      while IFS= read -r kv; do
+        [ -z "$kv" ] && continue
+        DOCKER_ENV_ARGS+=(-e "$kv")
+      done <<< "$settings_envs"
+    fi
+  fi
+
+  # Build the docker run command.
+  # Key mounts:
+  #   - Worktree at /workspace (read-write — the agent commits here)
+  #   - Claude CLI config at /root/.claude and /root/.claude.json (read-only — auth)
+  #   - Git config for commit identity
+  #   - Host's .git directory for worktree operations (git needs the main repo's objects)
+  local -a DOCKER_ARGS=()
+  DOCKER_ARGS+=(--name "$container_name")
+  DOCKER_ARGS+=(--detach)
+  # SHM size for Chromium (default 64MB causes crashes with multiple tabs)
+  DOCKER_ARGS+=(--shm-size=2g)
+  # Mount the worktree at its original host path so the .git file's absolute
+  # path back to the main repo resolves correctly inside the container.
+  # Git worktrees store a .git file (not directory) containing:
+  #   gitdir: /Users/.../project/.git/worktrees/<name>
+  # Both the worktree and the main .git must be mounted at their original
+  # host paths for bidirectional resolution to work.
+  DOCKER_ARGS+=(-v "$worktree_dir:$worktree_dir")
+  # Symlink /workspace -> worktree path so worker.sh can use a fixed path
+  DOCKER_ARGS+=(-e "WORKER_WORKTREE_DIR=$worktree_dir")
+  # Mount the main repo's .git directory at its original host path.
+  # The worktree's .git file points here via an absolute path, and
+  # .git/worktrees/<name>/commondir uses relative paths to reach .git/objects.
+  # Read-write because git commit writes to .git/objects and refs.
+  DOCKER_ARGS+=(-v "$PROJECT_DIR/.git:$PROJECT_DIR/.git")
+  # Claude CLI auth and config (read-only)
+  if [ -d "$HOME/.claude" ]; then
+    DOCKER_ARGS+=(-v "$HOME/.claude:/root/.claude:ro")
+  fi
+  if [ -f "$HOME/.claude.json" ]; then
+    DOCKER_ARGS+=(-v "$HOME/.claude.json:/root/.claude.json:ro")
+  fi
+  # Git config (read-only — for user identity in commits)
+  if [ -f "$HOME/.gitconfig" ]; then
+    DOCKER_ARGS+=(-v "$HOME/.gitconfig:/root/.gitconfig:ro")
+  fi
+  # Network: use host network so the container can reach the LLM proxy
+  # (e.g., http://192.168.2.2:4000) and any other local services.
+  DOCKER_ARGS+=(--network host)
+
+  # Start the container. It runs worker.sh which executes the agent loop.
+  # Container output (stdout+stderr) is captured by docker and streamed
+  # via `docker logs -f` below.
+  if ! docker run \
+    "${DOCKER_ARGS[@]}" \
+    "${DOCKER_ENV_ARGS[@]}" \
+    -w "$worktree_dir" \
+    "$DOCKER_IMAGE" \
+    "bash $worktree_dir/.ralph/worker.sh" \
+    >/dev/null 2>&1; then
+    echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${RED}Failed to start Docker container. Aborting worker.${RESET}"
+    remove_worktree "$worktree_dir"
+    if [ "$resume_branch" = false ]; then
+      git branch -D "$branch_name" 2>/dev/null || true
+    fi
+    mv "$prd_file" "${prd_file/\~running.json/.json}" 2>/dev/null || true
+    return 1
+  fi
+
+  # Stream container logs in the background with timestamp prefix.
+  # worker.sh runs stream_filter internally, so docker logs output is
+  # already filtered — we only add the timestamp and worker tag here.
   (
-    # Run the worker function and pipe through the timestamp prefixer.
-    # PIPESTATUS[0] captures execute_prd_in_worktree's exit code (ts_prefix
-    # always exits 0 when its stdin closes, so $? from the pipeline is 0
-    # regardless of the worker's exit code — PIPESTATUS is the only way
-    # to get the real exit code).
-    execute_prd_in_worktree "$prd_file" "$worktree_dir" "$result_file" 2>&1 \
-      | ts_prefix "$tag"
-    # Capture the worker's exit code. If the subshell is killed before this
-    # line runs (e.g., SIGTERM), the .exit file won't exist and reap_workers
-    # defaults to exit_code=1 — which is the correct safe fallback.
-    echo "${PIPESTATUS[0]}" > "${result_file}.exit"
+    docker logs -f "$container_name" 2>&1 | ts_prefix "$tag"
   ) &
+  local log_pid=$!
 
-  local pid=$!
-
-  WORKER_PIDS[$slot]="$pid"
+  WORKER_CONTAINERS[$slot]="$container_name"
+  WORKER_LOG_PIDS[$slot]="$log_pid"
   WORKER_PRDS[$slot]="$prd_file"
   WORKER_WORKTREES[$slot]="$worktree_dir"
   WORKER_BRANCHES[$slot]="$branch_name"
-  WORKER_RESULT_FILES[$slot]="$result_file"
   WORKER_TAGS[$slot]="$tag"
 
-  echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${GREEN}Launched (PID $pid)${RESET}"
+  echo -e "$(ts) ${CYAN}[${tag}]${RESET} ${GREEN}Launched container: $container_name${RESET}"
   return 0
 }
 
@@ -1164,53 +847,50 @@ merge_worktree_branch() {
   fi
 }
 
-# Check for completed workers, merge results, clean up.
+# Check for completed workers (Docker containers), merge results, clean up.
 reap_workers() {
   for (( s=0; s<MAX_WORKERS; s++ )); do
-    local pid="${WORKER_PIDS[$s]}"
-    [ -z "$pid" ] && continue
+    local container="${WORKER_CONTAINERS[$s]}"
+    [ -z "$container" ] && continue
 
-    # Check if still running
-    if kill -0 "$pid" 2>/dev/null; then
+    # Check if the container is still running
+    local running
+    running=$(docker inspect --format='{{.State.Running}}' "$container" 2>/dev/null) || running="false"
+    if [ "$running" = "true" ]; then
       continue
     fi
 
-    # Worker finished — collect results
-    wait "$pid" 2>/dev/null || true
+    # Container exited — collect results.
+    # Get the container's exit code directly from Docker.
+    local exit_code
+    exit_code=$(docker inspect --format='{{.State.ExitCode}}' "$container" 2>/dev/null) || exit_code=1
+    if ! [[ "$exit_code" =~ ^[0-9]+$ ]]; then
+      exit_code=1
+    fi
+
+    # Kill the log-streaming process
+    local log_pid="${WORKER_LOG_PIDS[$s]}"
+    if [ -n "$log_pid" ] && kill -0 "$log_pid" 2>/dev/null; then
+      kill "$log_pid" 2>/dev/null || true
+      wait "$log_pid" 2>/dev/null || true
+    fi
+
+    # Remove the stopped container
+    docker rm -f "$container" 2>/dev/null || true
 
     local prd_file="${WORKER_PRDS[$s]}"
     local worktree_dir="${WORKER_WORKTREES[$s]}"
-
-    # Three-phase kill for complete cleanup of orphaned child processes:
-    # Phase 1: PGID kill — catches everything sharing the worker's process group.
-    # Phase 2: Recursive tree kill — walks the parent-child tree for processes
-    #   that escaped the PGID via setsid() (e.g., Chromium).
-    # Phase 3: Worktree path kill — catches processes referencing the worktree
-    #   directory in their command line (Playwright workers, bun test servers).
-    #   Uses kill_tree on each match to also get their children (Chromium).
-    #
-    # NOTE: We intentionally do NOT do a global "opentabs-e2e-" sweep here
-    # because other active workers may have their own E2E processes running.
-    # The global sweep only happens in two safe contexts:
-    #   1. cleanup() — all workers are being killed (shutdown)
-    #   2. cleanup_orphans_from_previous_run() — no workers running yet (startup)
-    kill -- -"$pid" 2>/dev/null || true
-    kill_tree "$pid"
-    kill_worktree_processes "$worktree_dir"
     local branch_name="${WORKER_BRANCHES[$s]}"
-    local result_file="${WORKER_RESULT_FILES[$s]}"
     local tag="${WORKER_TAGS[$s]}"
 
-    # Read exit code (default 1 = failure if file missing or corrupt)
-    local exit_code=1
-    if [ -f "${result_file}.exit" ]; then
-      local raw_exit
-      raw_exit=$(cat "${result_file}.exit" 2>/dev/null)
-      rm -f "${result_file}.exit"
-      # Validate it's a number; fall back to 1 if corrupt
-      if [[ "$raw_exit" =~ ^[0-9]+$ ]]; then
-        exit_code="$raw_exit"
-      fi
+    # Sync PRD and progress from worktree back to main .ralph/.
+    # The container wrote these files via the bind-mounted worktree.
+    if [ -n "$worktree_dir" ] && [ -d "$worktree_dir" ] && [ -n "$prd_file" ]; then
+      local prd_bn progress_bn
+      prd_bn=$(basename "$prd_file")
+      progress_bn=$(basename "$(progress_file_for "$prd_file")")
+      [ -f "$worktree_dir/.ralph/$prd_bn" ] && cp "$worktree_dir/.ralph/$prd_bn" "$prd_file" 2>/dev/null || true
+      [ -f "$worktree_dir/.ralph/$progress_bn" ] && cp "$worktree_dir/.ralph/$progress_bn" "$(progress_file_for "$prd_file")" 2>/dev/null || true
     fi
 
     echo ""
@@ -1221,9 +901,6 @@ reap_workers() {
     fi
 
     # Merge worktree branch into current branch.
-    # merge_worktree_branch runs git merge which can fail in two ways:
-    # 1. Conflict → abort merge, keep branch for manual resolution
-    # 2. No commits → skip (fast path)
     local slug
     slug=$(prd_slug "$prd_file")
     local merge_failed=false
@@ -1237,7 +914,6 @@ reap_workers() {
     remove_worktree "$worktree_dir"
 
     # Delete the branch only if merge succeeded (or had no commits).
-    # On merge failure, preserve the branch so the user can resolve manually.
     if [ "$merge_failed" = false ]; then
       git branch -D "$branch_name" 2>/dev/null || true
     fi
@@ -1258,15 +934,12 @@ reap_workers() {
       archive_run "$done_prd" "$progress_file" "$tag"
     fi
 
-    # Clean up temp files
-    rm -f "$result_file"
-
     # Free the slot
-    WORKER_PIDS[$s]=""
+    WORKER_CONTAINERS[$s]=""
+    WORKER_LOG_PIDS[$s]=""
     WORKER_PRDS[$s]=""
     WORKER_WORKTREES[$s]=""
     WORKER_BRANCHES[$s]=""
-    WORKER_RESULT_FILES[$s]=""
     WORKER_TAGS[$s]=""
   done
 }
@@ -1275,12 +948,13 @@ reap_workers() {
 
 echo ""
 echo -e "$(ts) ${BOLD}╔═══════════════════════════════════════════════════════════╗${RESET}"
-echo -e "$(ts) ${BOLD}║  Ralph — Parallel PRD Consumer (worktree isolation)      ║${RESET}"
+echo -e "$(ts) ${BOLD}║  Ralph — Parallel PRD Consumer (Docker isolation)        ║${RESET}"
 echo -e "$(ts) ${BOLD}╚═══════════════════════════════════════════════════════════╝${RESET}"
 echo ""
 echo -e "$(ts)   Tool:     ${CYAN}${TOOL}${RESET}"
 [ -n "$MODEL" ] && echo -e "$(ts)   Model:    ${CYAN}${MODEL}${RESET}"
 echo -e "$(ts)   Workers:  ${CYAN}${MAX_WORKERS}${RESET}"
+echo -e "$(ts)   Image:    ${CYAN}${DOCKER_IMAGE}${RESET}"
 echo -e "$(ts)   Mode:     ${CYAN}$([ "$ONCE" = true ] && echo "single batch" || echo "daemon (poll every ${POLL_INTERVAL}s)")${RESET}"
 echo -e "$(ts)   Watching: ${CYAN}${SCRIPT_DIR}${RESET}"
 echo ""

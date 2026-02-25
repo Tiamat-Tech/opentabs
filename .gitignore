@@ -12,6 +12,9 @@ playwright-report/
 /.ralph/*
 !/.ralph/RALPH.md
 !/.ralph/ralph.sh
+!/.ralph/worker.sh
+!/.ralph/Dockerfile
+!/.ralph/docker-build.sh
 !/.ralph/perfect-docs.sh
 .claude/worktrees/
 opencode.json
