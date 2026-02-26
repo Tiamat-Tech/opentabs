@@ -391,7 +391,7 @@ npx create-opentabs-plugin my-plugin --domain .example.com --display "My App"
 
 ### opentabs plugin list
 
-List installed plugins. Works in online mode (fetches from the running server) and offline mode (reads from config and global npm packages).
+List installed plugins. Works in online mode (fetches from the running server) and offline mode (reads from config and global npm packages). **Alias:** `opentabs plugin ls`
 
 ```bash
 opentabs plugin list [options]
@@ -428,7 +428,7 @@ opentabs plugin list --json
 
 ### opentabs plugin install
 
-Install a plugin from npm.
+Install a plugin from npm. **Alias:** `opentabs plugin add`
 
 ```bash
 opentabs plugin install <name>
@@ -466,7 +466,7 @@ opentabs plugin install @my-org/opentabs-plugin-custom
 
 ### opentabs plugin remove
 
-Remove a globally installed plugin.
+Remove a globally installed plugin. **Alias:** `opentabs plugin rm`
 
 ```bash
 opentabs plugin remove <name>
@@ -489,6 +489,23 @@ opentabs plugin remove <name>
   </Table.Body>
 </Table>
 
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Option</Table.Head>
+      <Table.Head>Required</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`-y, --confirm`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+      <Table.Cell>Required safety flag — without it, the command prints a warning and exits.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
 Runs `npm uninstall -g` and also removes matching entries from the `localPlugins` array in `~/.opentabs/config.json`. If the MCP server is running, it is notified via `POST /reload`.
 
 ```bash
@@ -507,7 +524,7 @@ View and manage configuration. Has five subcommands: `show`, `set`, `path`, `res
 
 ### opentabs config show
 
-Display the current configuration (secret redacted).
+Display the current configuration (secret redacted). **Alias:** `opentabs config get`
 
 ```bash
 opentabs config show [options]
@@ -649,11 +666,28 @@ Generate a new 256-bit random secret and write it to `auth.json`.
 opentabs config rotate-secret
 ```
 
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Option</Table.Head>
+      <Table.Head>Required</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--confirm`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+      <Table.Cell>Required safety flag — without it, the command prints a warning and exits.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
 If the MCP server is running, it is notified using the old secret so the transition is seamless on the server side. The Chrome extension must be reloaded to pick up the new secret from `auth.json`.
 
 ```bash
 # Rotate the secret
-opentabs config rotate-secret
+opentabs config rotate-secret --confirm
 
 # Then reload the Chrome extension from chrome://extensions/
 ```
