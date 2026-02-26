@@ -695,6 +695,10 @@ dispatch_prd() {
   DOCKER_ENV_ARGS+=(-e "WORKER_RESULT_FILE=/tmp/worker-result.txt")
   # Prevent Claude Code from detecting a nested session
   DOCKER_ENV_ARGS+=(-e "CLAUDECODE=")
+  # CI=1 reduces Playwright from 4 to 2 workers (see playwright.config.ts).
+  # This halves file-watcher contention that causes iife-injection re-injection
+  # tests to flake when multiple PW workers trigger file writes simultaneously.
+  DOCKER_ENV_ARGS+=(-e "CI=1")
 
   # Forward Anthropic env vars from the host (set in ~/.claude/settings.json
   # or in the host shell). These are needed for the claude CLI to authenticate
