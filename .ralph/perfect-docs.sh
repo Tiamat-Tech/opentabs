@@ -1,7 +1,9 @@
 #!/bin/bash
 # perfect_docs.sh — Invoke Claude to audit docs/ and create PRD(s) to sync them with the codebase.
 #
-# Usage: bash .ralph/perfect_docs.sh
+# Usage: bash .ralph/perfect-docs.sh
+#
+# The process runs in the background. Output is logged to .ralph/perfect-docs.log.
 #
 # This script launches a single Claude session (default model) that:
 #   1. Reads the current platform source code and docs content
@@ -101,9 +103,16 @@ DO create stories for:
 - Architectural descriptions that no longer match reality
 PROMPT_EOF
 
+LOG_FILE="$REPO_ROOT/.ralph/perfect-docs.log"
+
 echo "=== perfect_docs.sh ==="
 echo "Launching Claude to audit docs/ and create PRD(s)..."
 echo ""
 
 cd "$REPO_ROOT"
-echo "$PROMPT" | claude --dangerously-skip-permissions --print --verbose
+echo "$PROMPT" | claude --dangerously-skip-permissions --print --verbose > "$LOG_FILE" 2>&1 &
+PID=$!
+
+echo "Running in background with PID $PID"
+echo "Log: $LOG_FILE"
+echo "Monitor: tail -f $LOG_FILE"
