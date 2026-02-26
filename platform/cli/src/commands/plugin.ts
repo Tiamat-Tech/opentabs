@@ -87,26 +87,26 @@ interface NpmSearchPackage {
  * Check whether a package exists on the npm registry via `npm view`.
  * Delegates auth to npm itself (reads ~/.npmrc), supporting private packages.
  */
-const packageExistsOnNpm = (pkg: string): boolean => {
-  const result = spawnProcessSync('npm', ['view', pkg, 'version']);
+const packageExistsOnNpmAsync = async (pkg: string): Promise<boolean> => {
+  const result = await spawnProcessAsync('npm', ['view', pkg, 'version']);
   return result.exitCode === 0 && result.stdout.trim().length > 0;
 };
 
 /**
  * Resolve a user-supplied plugin name to the actual npm package name.
  *
- * For shorthand names (e.g., "slack"), queries the npm registry for each
- * candidate in priority order (official scoped → community unscoped) and
- * returns the first one that exists. For already-qualified names, returns as-is.
+ * For shorthand names (e.g., "slack"), queries the npm registry for all
+ * candidates concurrently and returns the first one by priority order
+ * (official scoped → community unscoped) that exists. For already-qualified
+ * names, returns as-is.
  */
-const resolvePackageName = (name: string): string | null => {
+const resolvePackageName = async (name: string): Promise<string | null> => {
   const candidates = resolvePluginPackageCandidates(name);
   if (candidates.length === 1) return candidates[0] ?? null;
 
-  for (const candidate of candidates) {
-    if (packageExistsOnNpm(candidate)) return candidate;
-  }
-  return null;
+  const results = await Promise.all(candidates.map(candidate => packageExistsOnNpmAsync(candidate)));
+  const found = candidates.find((_, i) => results[i]);
+  return found ?? null;
 };
 
 /**
@@ -147,7 +147,7 @@ const handlePluginInstall = async (name: string, options: { port?: number }): Pr
     console.log(`Resolving plugin ${pc.bold(name)}...`);
   }
 
-  const pkg = resolvePackageName(name);
+  const pkg = await resolvePackageName(name);
   if (!pkg) {
     console.error(pc.red(`Plugin "${name}" not found on npm.`));
     if (isShorthand) {
@@ -222,7 +222,7 @@ const handlePluginRemove = async (name: string, options: PluginRemoveOptions): P
     console.log(`Resolving plugin ${pc.bold(name)}...`);
   }
 
-  const pkg = resolvePackageName(name) ?? normalizePluginName(name);
+  const pkg = (await resolvePackageName(name)) ?? normalizePluginName(name);
 
   if (!options.confirm) {
     console.error(`This will remove the plugin ${pc.bold(pkg)} globally.`);
@@ -726,4 +726,4 @@ Examples:
     });
 };
 
-export { registerPluginCommand, packageExistsOnNpm, resolvePackageName, buildDirectLookupCandidates };
+export { registerPluginCommand, resolvePackageName, buildDirectLookupCandidates };
