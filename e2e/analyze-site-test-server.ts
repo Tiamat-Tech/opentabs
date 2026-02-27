@@ -1834,7 +1834,7 @@ console.log(`[analyze-site-test-server] Listening on http://localhost:${String(s
 
 // Ensure the process exits on SIGTERM/SIGINT
 const shutdown = () => {
-  void server.stop();
+  server.stop();
   process.exit(0);
 };
 process.on('SIGTERM', shutdown);
