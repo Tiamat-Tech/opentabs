@@ -209,7 +209,13 @@ const summarizeThread = definePrompt({
       <Table.Cell>`arguments`</Table.Cell>
       <Table.Cell>`PromptArgument[]`</Table.Cell>
       <Table.Cell>No</Table.Cell>
-      <Table.Cell>Arguments the prompt accepts</Table.Cell>
+      <Table.Cell>Arguments the prompt accepts (manual definition). Use `args` instead to auto-generate from a Zod schema.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>`args`</Table.Cell>
+      <Table.Cell>`z.ZodObject`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Zod schema for typed prompt arguments. Auto-generates argument metadata during build. When provided, `render()` receives a typed object instead of `Record<string, string>`.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell>`render`</Table.Cell>
@@ -284,6 +290,41 @@ async render(args) {
   ];
 }
 ```
+
+### Typed Prompts with Zod Schema
+
+Instead of manually defining the `arguments` array, you can pass a Zod `args` schema. The MCP metadata (argument names, descriptions, required flags) is auto-generated from the schema at build time, and `render()` receives a typed object instead of `Record<string, string>`:
+
+```typescript
+import { definePrompt, fetchJSON } from '@opentabs-dev/plugin-sdk';
+import { z } from 'zod';
+
+const statusReport = definePrompt({
+  name: 'status_report',
+  description: 'Generate a project status report',
+  args: z.object({
+    project: z.string().describe('Project name'),
+    format: z.enum(['brief', 'detailed']).describe('Report format'),
+  }),
+  async render(args) {
+    // args is typed as { project: string; format: 'brief' | 'detailed' }
+    const data = await fetchJSON<{ items: { title: string; status: string }[] }>('/api/items');
+    const summary = data.items.map(item => `- [${item.status}] ${item.title}`).join('\n');
+
+    return [
+      {
+        role: 'user',
+        content: {
+          type: 'text',
+          text: `Status for ${args.project} (${args.format}):\n\n${summary}`,
+        },
+      },
+    ];
+  },
+});
+```
+
+Use `.describe()` on each schema field to provide descriptions — these become the argument descriptions in the MCP metadata. Fields without `.describe()` are registered with no description. All fields are marked as required unless wrapped with `.optional()`.
 
 ### Registering Prompts on Your Plugin
 
