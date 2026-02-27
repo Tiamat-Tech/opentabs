@@ -281,6 +281,16 @@ Local plugins override npm plugins of the same name. Discovery runs at server st
       <Table.Cell>_(unset)_</Table.Cell>
       <Table.Cell>Set to `1` to bypass all browser tool confirmation prompts. Equivalent to `--dangerously-skip-confirmation` or `skipConfirmation: true` in config. For CI/testing only.</Table.Cell>
     </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`OPENTABS_LOG_LEVEL`</Table.Cell>
+      <Table.Cell>`info`</Table.Cell>
+      <Table.Cell>Server log verbosity. Accepted values: `debug`, `info`, `warn`, `error`, `silent`.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`OPENTABS_SKIP_NPM_DISCOVERY`</Table.Cell>
+      <Table.Cell>_(unset)_</Table.Cell>
+      <Table.Cell>Set to `1` to disable npm auto-discovery of globally installed plugins. Useful for testing and CI environments.</Table.Cell>
+    </Table.Row>
   </Table.Body>
 </Table>
 
