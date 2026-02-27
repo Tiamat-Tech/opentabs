@@ -4,7 +4,7 @@
  * Reconnection: exponential backoff (1s → 2s → 4s → 8s → … → 30s cap), resets on success.
  * Keepalive: sends ping every 15s; if no pong within 5s, connection is considered dead
  *            and force-closed to trigger reconnect. This detects zombie connections
- *            caused by server hot reload (bun --hot) where the TCP socket stays alive
+ *            caused by server hot reload where the TCP socket stays alive
  *            but the server-side handler has been replaced.
  *
  * The WebSocket URL defaults to ws://localhost:9515/ws. The port is

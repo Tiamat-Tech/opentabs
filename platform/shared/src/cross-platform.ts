@@ -22,9 +22,9 @@ export const isWindows = (): boolean => process.platform === 'win32';
 /**
  * Resolves a bare command name for the current platform.
  *
- * On Windows, npm is distributed as `npm.cmd` (a cmd wrapper) and bun as
- * `bun.exe`. Process spawning requires the full name on Windows because it
- * does not search PATHEXT the way cmd.exe does.
+ * On Windows, npm is distributed as `npm.cmd` (a cmd wrapper). Process
+ * spawning requires the full name on Windows because it does not search
+ * PATHEXT the way cmd.exe does.
  *
  * On Unix, the command name is returned unchanged.
  */
@@ -35,9 +35,6 @@ export const platformExec = (cmd: string): string => {
     case 'npx':
     case 'node':
       return `${cmd}.cmd`;
-    case 'bun':
-    case 'bunx':
-      return `${cmd}.exe`;
     default:
       return cmd;
   }

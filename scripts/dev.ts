@@ -1,5 +1,5 @@
 /**
- * Dev orchestrator: runs tsc --build --watch + bun --hot together,
+ * Dev orchestrator: runs tsc --build --watch + proxy hot reload together,
  * and auto-rebuilds/reloads the Chrome extension on source changes.
  *
  * 1. Starts `tsc --build --watch` to incrementally recompile all platform

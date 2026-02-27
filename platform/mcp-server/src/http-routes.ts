@@ -189,7 +189,7 @@ const computeAuditSummary = (auditLog: AuditEntry[]) => {
   };
 };
 
-/** Server adapter subset needed by route handlers (Bun.serve() or Node.js adapter) */
+/** Server adapter subset needed by route handlers (Node.js adapter) */
 interface ServerAdapter {
   upgrade: (req: Request, opts: { data: unknown; headers?: HeadersInit }) => boolean;
   timeout: (req: Request, seconds: number) => void;

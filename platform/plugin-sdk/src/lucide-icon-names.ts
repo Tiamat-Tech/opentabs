@@ -2,7 +2,7 @@
  * Union type of all Lucide icon names (kebab-case).
  *
  * Auto-generated from lucide-react v0.574.0 (1929 icons).
- * Regenerate with: bun run generate:icons
+ * Regenerate with: npm run generate:icons
  */
 export type LucideIconName =
   | 'a-arrow-down'

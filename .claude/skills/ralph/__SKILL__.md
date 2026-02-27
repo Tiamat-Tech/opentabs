@@ -369,7 +369,7 @@ Each story specifies which AI model the worker should use. Choose based on compl
 
 - Architectural changes that require understanding cross-cutting concerns
 - Complex debugging where the root cause is unknown
-- Converting between fundamentally different APIs (e.g., Bun.serve → node:http)
+- Converting between fundamentally different APIs (e.g., REST → GraphQL)
 - Stories that require reading and understanding large amounts of code before making changes
 - Multi-file refactors where the agent needs to reason about dependencies
 - E2E test infrastructure changes that interact with process management, WebSocket proxying, or hot reload

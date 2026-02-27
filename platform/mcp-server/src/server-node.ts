@@ -1,8 +1,7 @@
 /**
- * Node.js HTTP + WebSocket server adapter.
+ * Node.js HTTP + WebSocket server.
  *
- * Provides the same interface as the Bun.serve() delegate shell but uses
- * node:http and the ws package. Converts between Node.js IncomingMessage /
+ * Uses node:http and the ws package. Converts between Node.js IncomingMessage /
  * ServerResponse and the Web Standard Request / Response objects that the
  * route handlers expect.
  *
@@ -20,7 +19,7 @@ import type { Duplex } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { RawData } from 'ws';
 
-/** Configuration mirroring the subset of Bun.serve() options used by index.ts */
+/** Configuration for the Node.js HTTP + WebSocket server */
 interface NodeServerOptions {
   hostname: string;
   port: number;
@@ -32,7 +31,7 @@ interface NodeServerOptions {
   };
 }
 
-/** Return type matching the subset of Bun.serve() return used by index.ts */
+/** Return type for the Node.js server */
 interface NodeServer {
   port: number;
   stop: () => void;
@@ -89,8 +88,6 @@ const toWebRequest = (req: IncomingMessage, body: Buffer | null): Request => {
   };
 
   // Node.js 20+ requires duplex: 'half' for requests with a body.
-  // This property is not in bun-types' RequestInit, but this file only
-  // runs under Node.js.
   if (hasBody) {
     (init as Record<string, unknown>)['duplex'] = 'half';
   }
@@ -216,14 +213,11 @@ const handleWsUpgradeEvent = (
  * Create a Node.js HTTP + WebSocket server that presents the ServerAdapter
  * interface to the MCP server route handlers.
  *
- * The tricky part is WebSocket upgrades. Bun.serve() handles upgrades inline
- * in the fetch handler — `server.upgrade(req)` completes the handshake and
- * returns a boolean. Node.js + ws handle upgrades via the 'upgrade' event on
- * the HTTP server, which is separate from normal request handling.
- *
- * Strategy: The 'upgrade' event constructs a Web Request, calls the fetch
- * handler (which calls `adapter.upgrade()`), and if upgrade was requested,
- * completes it via `wss.handleUpgrade()`.
+ * WebSocket upgrades are handled via the 'upgrade' event on the HTTP server,
+ * which is separate from normal request handling. The 'upgrade' event
+ * constructs a Web Request, calls the fetch handler (which calls
+ * `adapter.upgrade()`), and if upgrade was requested, completes it via
+ * `wss.handleUpgrade()`.
  */
 const createNodeServer = (options: NodeServerOptions): Promise<NodeServer> =>
   new Promise((resolveServer, rejectServer) => {

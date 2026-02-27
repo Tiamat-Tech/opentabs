@@ -191,7 +191,6 @@ const PRETTIERRC_CONTENT =
 const GITIGNORE_CONTENT = `dist/
 node_modules/
 *.tsbuildinfo
-bun.lock
 package-lock.json
 `;
 

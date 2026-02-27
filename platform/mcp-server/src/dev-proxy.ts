@@ -1,5 +1,5 @@
 /**
- * Dev proxy for hot reload without Bun.
+ * Dev proxy for hot reload.
  *
  * Listens on the configured port. Forks the MCP server (dist/index.js) on
  * an ephemeral port (PORT=0). The worker reports its actual port to the proxy

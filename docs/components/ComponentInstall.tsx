@@ -31,19 +31,16 @@ export const CliCommand = ({
   npmCommand,
   yarnCommand,
   pnpmCommand,
-  bunCommand,
 }: {
   npmCommand: string;
   yarnCommand?: string;
   pnpmCommand?: string;
-  bunCommand?: string;
 }) => {
   const isNpx = npmCommand.includes('npx');
   const resolvedPnpm =
     pnpmCommand ?? (isNpx ? npmCommand.replace('npx', 'pnpm dlx') : npmCommand.replace('npm', 'pnpm'));
   const resolvedYarn =
     yarnCommand ?? (isNpx ? npmCommand.replace('npx', 'yarn dlx') : npmCommand.replace('npm install', 'yarn add'));
-  const resolvedBun = bunCommand ?? (isNpx ? npmCommand.replace('npx', 'bunx') : npmCommand.replace('npm', 'bun'));
 
   return (
     <TabGroup className="bg-secondary text-secondary-foreground/90 my-2 rounded-(--radius) p-4">
@@ -57,9 +54,6 @@ export const CliCommand = ({
         <Tab className="text-muted-foreground border-accent data-selected:text-secondary-foreground relative cursor-pointer bg-transparent px-2 py-1 focus:outline-hidden data-selected:border-b-2">
           yarn
         </Tab>
-        <Tab className="text-muted-foreground border-accent data-selected:text-secondary-foreground relative cursor-pointer bg-transparent px-2 py-1 focus:outline-hidden data-selected:border-b-2">
-          bun
-        </Tab>
       </TabList>
       <TabPanels className="text-accent-foreground text-sm">
         <TabPanel>
@@ -70,9 +64,6 @@ export const CliCommand = ({
         </TabPanel>
         <TabPanel>
           <CopyableCommand command={resolvedYarn} />
-        </TabPanel>
-        <TabPanel>
-          <CopyableCommand command={resolvedBun} />
         </TabPanel>
       </TabPanels>
     </TabGroup>
