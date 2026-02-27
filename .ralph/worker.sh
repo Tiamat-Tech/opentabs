@@ -171,6 +171,11 @@ execute_prd() {
     wlog "── E2E Safety Net ──"
     wlog "Last completed story was not an e2eCheckpoint. Running full suite including E2E before merge..."
 
+    if [ ! -d "$WORKTREE_DIR" ]; then
+      wlog "ERROR: Worktree directory no longer exists: $WORKTREE_DIR"
+      return 1
+    fi
+
     if (cd "$WORKTREE_DIR" && npm run build && npm run type-check && npm run lint && npm run knip && npm run test && npm run test:e2e); then
       wlog "Safety net: full suite passed."
       return 0
