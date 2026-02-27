@@ -8,6 +8,8 @@ const config: KnipConfig = {
         // Peer dependencies required by ESLint plugins at runtime
         '@typescript-eslint/parser',
         'eslint-plugin-react-hooks',
+        // Added as a Node.js TypeScript executor; scripts still reference bun directly until migrated
+        'tsx',
       ],
     },
     'platform/shared': {
@@ -46,7 +48,13 @@ const config: KnipConfig = {
     'platform/create-plugin': {},
   },
   tags: ['+@public'],
-  ignore: ['plugins/**', 'docs/**', 'platform/browser-extension/side-panel/**/*.{js,css}'],
+  ignore: [
+    'plugins/**',
+    'docs/**',
+    'platform/browser-extension/side-panel/**/*.{js,css}',
+    // Ambient Bun type declaration included via tsconfig; knip doesn't trace .d.ts files as used
+    'platform/plugin-sdk/scripts/bun-global.d.ts',
+  ],
   ignoreExportsUsedInFile: true,
 };
 

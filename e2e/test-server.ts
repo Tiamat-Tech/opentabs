@@ -633,7 +633,7 @@ console.log(`[e2e-test-server] Listening on http://localhost:${String(server.por
 // Ensure the process exits on SIGTERM/SIGINT so parent kill() calls
 // reliably terminate the subprocess (Bun.serve keeps the event loop alive).
 const shutdown = () => {
-  void server.stop();
+  server.stop();
   process.exit(0);
 };
 process.on('SIGTERM', shutdown);

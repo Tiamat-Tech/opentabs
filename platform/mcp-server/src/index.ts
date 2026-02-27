@@ -261,7 +261,7 @@ const createHttpServer = async (): Promise<ServerInstance> => {
 
 // Reuse existing server on hot reload, create new on first load
 const server = hotState?.server ?? (await createHttpServer());
-const actualPort = server.port ?? PORT;
+const actualPort = server.port;
 
 if (!isHotReload) {
   const modeLabel = isDev() ? ' (dev mode)' : '';
