@@ -1,6 +1,22 @@
 /** Pending confirmation count for badge tracking */
 let pendingConfirmationCount = 0;
 
+/**
+ * Background-side timeouts keyed by confirmation id. When the side panel is
+ * closed, it never sends sp:confirmationResponse or sp:confirmationTimeout, so
+ * the badge count would stay elevated permanently. These timeouts fire slightly
+ * after the server-side confirmation expires to auto-clear the badge.
+ */
+const confirmationTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
+ * Extra buffer (ms) added on top of the server-provided timeoutMs so the
+ * background timeout fires after the server has already expired the
+ * confirmation. The side panel adds +1000 ms; we add +2000 ms to ensure
+ * the background fires after the side panel would have timed out.
+ */
+const CONFIRMATION_BACKGROUND_TIMEOUT_BUFFER_MS = 2000;
+
 /** Update the extension badge to show pending confirmation count */
 const updateConfirmationBadge = (): void => {
   if (pendingConfirmationCount > 0) {
@@ -14,6 +30,8 @@ const updateConfirmationBadge = (): void => {
 /**
  * Show badge and Chrome notification when a confirmation request arrives.
  * The badge count persists until confirmations are resolved via clearConfirmationBadge().
+ * Sets a background timeout so the badge clears automatically if the side panel
+ * is closed and never sends sp:confirmationResponse or sp:confirmationTimeout.
  */
 const notifyConfirmationRequest = (params: Record<string, unknown>): void => {
   pendingConfirmationCount++;
@@ -21,9 +39,22 @@ const notifyConfirmationRequest = (params: Record<string, unknown>): void => {
 
   const tool = typeof params.tool === 'string' ? params.tool : 'unknown tool';
   const domain = typeof params.domain === 'string' ? params.domain : 'unknown domain';
+  const id = typeof params.id === 'string' ? params.id : String(Date.now());
+  const timeoutMs = typeof params.timeoutMs === 'number' ? params.timeoutMs : 0;
+
+  // Set a background timeout slightly longer than the server-side timeout so
+  // the badge clears automatically when the side panel is closed and cannot
+  // send sp:confirmationResponse or sp:confirmationTimeout.
+  if (timeoutMs > 0) {
+    const bgTimeoutId = setTimeout(() => {
+      confirmationTimeouts.delete(id);
+      clearConfirmationBadge();
+    }, timeoutMs + CONFIRMATION_BACKGROUND_TIMEOUT_BUFFER_MS);
+    confirmationTimeouts.set(id, bgTimeoutId);
+  }
 
   chrome.notifications
-    .create(`opentabs-confirm-${typeof params.id === 'string' ? params.id : Date.now()}`, {
+    .create(`opentabs-confirm-${id}`, {
       type: 'basic',
       iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
       title: 'OpenTabs: Approval Required',
@@ -40,8 +71,26 @@ const clearConfirmationBadge = (): void => {
   updateConfirmationBadge();
 };
 
+/**
+ * Clear the background timeout for a specific confirmation id.
+ * Called when the side panel handles the confirmation first (via
+ * sp:confirmationResponse or sp:confirmationTimeout), so the background
+ * timeout does not double-clear the badge.
+ */
+const clearConfirmationBackgroundTimeout = (id: string): void => {
+  const timeoutId = confirmationTimeouts.get(id);
+  if (timeoutId !== undefined) {
+    clearTimeout(timeoutId);
+    confirmationTimeouts.delete(id);
+  }
+};
+
 /** Reset all pending confirmation tracking (e.g., on disconnect) */
 const clearAllConfirmationBadges = (): void => {
+  for (const timeoutId of confirmationTimeouts.values()) {
+    clearTimeout(timeoutId);
+  }
+  confirmationTimeouts.clear();
   pendingConfirmationCount = 0;
   updateConfirmationBadge();
 };
@@ -67,4 +116,10 @@ const initConfirmationBadge = (): void => {
   });
 };
 
-export { notifyConfirmationRequest, clearConfirmationBadge, clearAllConfirmationBadges, initConfirmationBadge };
+export {
+  notifyConfirmationRequest,
+  clearConfirmationBadge,
+  clearConfirmationBackgroundTimeout,
+  clearAllConfirmationBadges,
+  initConfirmationBadge,
+};

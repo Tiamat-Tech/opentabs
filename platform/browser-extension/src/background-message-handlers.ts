@@ -1,4 +1,8 @@
-import { clearAllConfirmationBadges, clearConfirmationBadge } from './confirmation-badge.js';
+import {
+  clearAllConfirmationBadges,
+  clearConfirmationBackgroundTimeout,
+  clearConfirmationBadge,
+} from './confirmation-badge.js';
 import { buildWsUrl, SERVER_PORT_KEY, WS_CONNECTED_KEY } from './constants.js';
 import { handleServerMessage } from './message-router.js';
 import { forwardToSidePanel, sendToServer } from './messaging.js';
@@ -167,12 +171,19 @@ const handleSpConfirmationResponse: MessageHandler = (message, sendResponse) => 
       params: message.data,
     });
   }
+  const data = message.data as Record<string, unknown> | undefined;
+  if (typeof data?.id === 'string') {
+    clearConfirmationBackgroundTimeout(data.id);
+  }
   clearConfirmationBadge();
   sendResponse({ ok: true });
 };
 
 /** Handle sp:confirmationTimeout — confirmation timed out without user response */
-const handleSpConfirmationTimeout: MessageHandler = (_message, sendResponse) => {
+const handleSpConfirmationTimeout: MessageHandler = (message, sendResponse) => {
+  if (typeof message.id === 'string') {
+    clearConfirmationBackgroundTimeout(message.id);
+  }
   clearConfirmationBadge();
   sendResponse({ ok: true });
 };
