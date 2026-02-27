@@ -10,7 +10,7 @@
  *   - A test prompt: name 'greet', takes a 'name' argument, returns a greeting
  *
  * Prerequisites:
- *   - `bun run build` has been run (platform dist/ files exist)
+ *   - `npm run build` has been run (platform dist/ files exist)
  *   - `plugins/e2e-test` has been built with resource/prompt support
  *   - Chromium is installed for Playwright
  */

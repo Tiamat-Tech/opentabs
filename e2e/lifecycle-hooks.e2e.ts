@@ -9,8 +9,8 @@
  *   - onToolInvocationStart / onToolInvocationEnd: fire around tool.handle()
  *
  * Prerequisites (all pre-built, not created at test time):
- *   - `bun run build` has been run (platform dist/ files exist)
- *   - `plugins/e2e-test` has been built (`cd plugins/e2e-test && bun run build`)
+ *   - `npm run build` has been run (platform dist/ files exist)
+ *   - `plugins/e2e-test` has been built (`cd plugins/e2e-test && npm run build`)
  *   - Chromium is installed for Playwright
  *
  * All tests use dynamic ports and are safe for parallel execution.

@@ -10,7 +10,7 @@
  *   - Tools without progress still time out at the default 30s/25s
  *
  * Prerequisites:
- *   - `bun run build` has been run (platform dist/ files exist)
+ *   - `npm run build` has been run (platform dist/ files exist)
  *   - `plugins/e2e-test` has been built with slow_with_progress and indeterminate_progress tools
  *   - Chromium is installed for Playwright
  */

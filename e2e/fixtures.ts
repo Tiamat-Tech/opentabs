@@ -1035,9 +1035,11 @@ const createMcpClient = (port: number, secret?: string): McpClient => {
 
   const mcpUrl = `http://localhost:${port}/mcp`;
 
-  // Assigned below after request is defined. request() checks this before
-  // attempting auto-reinit to avoid calling undefined on first use.
-  const doInitialize: (() => Promise<void>) | undefined;
+  // Container for the initialize function — shared between request() (auto-reinit
+  // after worker restart) and the returned client.initialize(). Using a container
+  // object allows both request and doInitialize to be const while still letting
+  // request() call the initialize logic that's defined after request itself.
+  const initRef: { fn?: () => Promise<void> } = {};
 
   const request = async (body: unknown, timeoutMs = 30_000, retried = false): Promise<Record<string, unknown>> => {
     const headers: Record<string, string> = {
@@ -1061,9 +1063,9 @@ const createMcpClient = (port: number, secret?: string): McpClient => {
       // After a worker restart (hot reload), the new worker has no knowledge of
       // existing sessions. Automatically re-initialize and retry once so tests
       // don't need to handle this explicitly.
-      if (res.status === 400 && text.includes('missing session') && !retried && doInitialize) {
+      if (res.status === 400 && text.includes('missing session') && !retried && initRef.fn) {
         sessionId = null;
-        await doInitialize();
+        await initRef.fn();
         return request(body, timeoutMs, true);
       }
       throw new Error(`MCP request failed (${res.status}): ${text}`);
@@ -1111,7 +1113,7 @@ const createMcpClient = (port: number, secret?: string): McpClient => {
 
   // Extracted initialize logic — shared by client.initialize and the auto-reinit
   // path in request() above (which triggers after a worker restart).
-  doInitialize = async (): Promise<void> => {
+  const doInitialize = async (): Promise<void> => {
     await request({
       jsonrpc: '2.0',
       method: 'initialize',
@@ -1146,6 +1148,7 @@ const createMcpClient = (port: number, secret?: string): McpClient => {
       signal: AbortSignal.timeout(5_000),
     }).catch(() => {});
   };
+  initRef.fn = doInitialize;
 
   // Arrow function properties instead of shorthand methods — Playwright's
   // fixture parser scans all functions in fixture files and misinterprets

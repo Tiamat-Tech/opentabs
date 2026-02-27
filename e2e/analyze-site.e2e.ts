@@ -6,7 +6,7 @@
  * verifies the structured analysis output.
  *
  * Prerequisites (all pre-built, not created at test time):
- *   - `bun run build` has been run (platform dist/ files exist)
+ *   - `npm run build` has been run (platform dist/ files exist)
  *   - `plugins/e2e-test` has been built
  *   - Chromium is installed for Playwright
  */

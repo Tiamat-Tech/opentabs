@@ -3,7 +3,7 @@
  *
  * When tests crash, time out, or are interrupted, subprocess servers
  * (MCP servers, test servers) may survive because their parent's
- * cleanup code never ran. This teardown sweeps for any bun processes
+ * cleanup code never ran. This teardown sweeps for any node processes
  * started from temp directories matching the E2E naming convention
  * and kills them.
  *

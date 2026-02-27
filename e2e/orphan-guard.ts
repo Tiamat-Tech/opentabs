@@ -8,9 +8,9 @@
  * This module polls whether the original parent process is still alive
  * using kill(ppid, 0). When the parent is gone, the process exits.
  *
- * Note: Bun caches process.ppid and does not reflect reparenting to
- * PID 1, so we cannot rely on process.ppid changing. Instead we check
- * whether the original parent PID still exists as a running process.
+ * We capture process.ppid at startup and poll whether that PID still
+ * exists, rather than watching for ppid changes. This is more reliable
+ * across platforms than relying on ppid reflecting reparenting immediately.
  *
  * Usage: import at the top of any long-lived subprocess entry point:
  *
