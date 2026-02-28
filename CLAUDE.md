@@ -201,6 +201,18 @@ cd plugins/<name> && npm run build
 
 ---
 
+## Pulling Latest Changes
+
+At the start of every session, pull the latest changes before doing any work:
+
+```bash
+git pull
+```
+
+This repository is configured with `pull.rebase = true`, so `git pull` automatically rebases local commits on top of the remote. If the pull fails due to conflicts, resolve them before proceeding.
+
+---
+
 ## Git Identity
 
 Before making any commits, verify the git identity is configured correctly:
