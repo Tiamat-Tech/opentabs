@@ -46,8 +46,9 @@ export interface FileWatcherEntry {
   pluginDir: string;
   pluginName: string;
   watchers: FSWatcher[];
-  /** Last-seen mtime (ms) for each watched file path — used by mtime polling fallback */
-  lastSeenMtimes: Map<string, number>;
+  /** Last-seen mtime (ms) for each watched file path — used by mtime polling fallback.
+   * null means the file did not exist when last recorded (sentinel for detecting creation). */
+  lastSeenMtimes: Map<string, number | null>;
 }
 
 /** Grouped state for file watching (plugin watchers, config watcher, mtime polling) */

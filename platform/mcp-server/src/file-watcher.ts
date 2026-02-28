@@ -106,12 +106,10 @@ const findEntry = (state: ServerState, pluginDir: string): FileWatcherEntry | un
 
 /**
  * Record the current mtime for a file on a FileWatcherEntry's lastSeenMtimes map.
+ * Stores null when the file does not exist so the poll loop can detect creation.
  */
 const recordMtime = (entry: FileWatcherEntry, filePath: string): void => {
-  const mtime = getFileMtimeMs(filePath);
-  if (mtime !== null) {
-    entry.lastSeenMtimes.set(filePath, mtime);
-  }
+  entry.lastSeenMtimes.set(filePath, getFileMtimeMs(filePath));
 };
 
 /**
@@ -625,9 +623,13 @@ const startMtimePolling = (state: ServerState, callbacks: FileWatcherCallbacks, 
       // Check tools.json mtime
       const toolsMtime = getFileMtimeMs(toolsJsonPath);
       const lastToolsMtime = entry.lastSeenMtimes.get(toolsJsonPath);
-      if (toolsMtime !== null && lastToolsMtime !== undefined && toolsMtime > lastToolsMtime) {
+      if (
+        toolsMtime !== null &&
+        lastToolsMtime !== undefined &&
+        (lastToolsMtime === null || toolsMtime > lastToolsMtime)
+      ) {
         log.info(
-          `Mtime poll: Detected change to ${toolsJsonPath} (old=${lastToolsMtime}, new=${toolsMtime}) — fs.watch may be stale`,
+          `Mtime poll: Detected change to ${toolsJsonPath} (old=${lastToolsMtime ?? 'none'}, new=${toolsMtime}) — fs.watch may be stale`,
         );
         recordPollDetection(state);
         entry.lastSeenMtimes.set(toolsJsonPath, toolsMtime);
@@ -641,9 +643,9 @@ const startMtimePolling = (state: ServerState, callbacks: FileWatcherCallbacks, 
       // Check IIFE mtime
       const iifeMtime = getFileMtimeMs(iifePath);
       const lastIifeMtime = entry.lastSeenMtimes.get(iifePath);
-      if (iifeMtime !== null && lastIifeMtime !== undefined && iifeMtime > lastIifeMtime) {
+      if (iifeMtime !== null && lastIifeMtime !== undefined && (lastIifeMtime === null || iifeMtime > lastIifeMtime)) {
         log.info(
-          `Mtime poll: Detected change to ${iifePath} (old=${lastIifeMtime}, new=${iifeMtime}) — fs.watch may be stale`,
+          `Mtime poll: Detected change to ${iifePath} (old=${lastIifeMtime ?? 'none'}, new=${iifeMtime}) — fs.watch may be stale`,
         );
         recordPollDetection(state);
         entry.lastSeenMtimes.set(iifePath, iifeMtime);
