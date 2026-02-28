@@ -715,9 +715,8 @@ const restoreTransport = setLogTransport ? setLogTransport(logTransport) : undef
 
 const existing = adapters[${name}];
 if (existing) {
-  if (typeof existing.onDeactivate === 'function') {
-    try { existing.onDeactivate(); } catch (e) { console.warn('[OpenTabs] onDeactivate failed for ' + ${name} + ':', e); }
-  }
+  // teardown() calls onDeactivate() as its first step, so invoking teardown()
+  // is sufficient — calling onDeactivate() here too would fire it twice.
   if (typeof existing.teardown === 'function') {
     try { existing.teardown(); } catch (e) { console.warn('[OpenTabs] teardown failed for ' + ${name} + ':', e); }
   }
