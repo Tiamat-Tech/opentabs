@@ -231,6 +231,21 @@ git config user.email "ralph@opentabs.dev"
 
 ---
 
+## Committing and Pushing
+
+When asked to commit and push, always pull first to rebase on the latest remote before pushing. The pre-push hook runs the full build and test suite, so pushes can take a few minutes.
+
+```bash
+git add <files>
+git commit -m "message"
+git pull              # rebases local commits on top of remote
+git push
+```
+
+If `git push` is rejected because the remote has new commits, `git pull` and then `git push` again.
+
+---
+
 ## Code Quality Rules
 
 ### Core Principles
