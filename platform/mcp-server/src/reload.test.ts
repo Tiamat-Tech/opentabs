@@ -86,8 +86,8 @@ describe('performReload', () => {
     process.env.OPENTABS_CONFIG_DIR = configDir;
     state = createState();
 
-    // Clear the globalThis reload guard
-    (globalThis as Record<string, unknown>).__opentabs_reload_guard__ = undefined;
+    // Clear the globalThis reload chain
+    (globalThis as Record<string, unknown>).__opentabs_reload_chain__ = undefined;
     // Isolate from real globally-installed npm plugins by pointing the global paths cache
     // to an empty list, so auto-discovery finds no global node_modules directories.
     (globalThis as Record<string, unknown>).__opentabs_global_paths__ = [];
@@ -285,7 +285,7 @@ describe('performReload — concurrent reload guard', () => {
     process.env.OPENTABS_CONFIG_DIR = configDir;
     state = createState();
 
-    (globalThis as Record<string, unknown>).__opentabs_reload_guard__ = undefined;
+    (globalThis as Record<string, unknown>).__opentabs_reload_chain__ = undefined;
     (globalThis as Record<string, unknown>).__opentabs_global_paths__ = [];
   });
 
@@ -320,10 +320,39 @@ describe('performReload — concurrent reload guard', () => {
     expect(executionOrder).toHaveLength(2);
   });
 
-  test('reload guard is cleared after reload completes', async () => {
+  test('reload blocks until the previous chain link resolves', async () => {
+    let resolveBlocker!: () => void;
+    const blocker = new Promise<void>(resolve => {
+      resolveBlocker = resolve;
+    });
+
+    // Simulate an in-flight reload by placing an unresolved promise in the chain
+    (globalThis as Record<string, unknown>).__opentabs_reload_chain__ = blocker;
+
+    let completed = false;
+    const reloadPromise = performReload(state, [], emptyTransports(), false).then(() => {
+      completed = true;
+    });
+
+    // Let microtasks flush — the reload should be blocked on the unresolved chain link
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(completed).toBe(false);
+
+    // Unblock the chain — the reload should now proceed and complete
+    resolveBlocker();
+    await reloadPromise;
+    expect(completed).toBe(true);
+  });
+
+  test('reload chain link is resolved after reload completes', async () => {
     await performReload(state, [], emptyTransports(), false);
 
-    expect((globalThis as Record<string, unknown>).__opentabs_reload_guard__).toBeUndefined();
+    // The chain stores the resolved promise (not undefined) so subsequent
+    // callers can chain onto it without a race window
+    const chain = (globalThis as Record<string, unknown>).__opentabs_reload_chain__;
+    expect(chain).toBeInstanceOf(Promise);
+    // Awaiting a resolved promise completes immediately
+    await chain;
   });
 });
 
@@ -337,7 +366,7 @@ describe('performConfigReload', () => {
     process.env.OPENTABS_CONFIG_DIR = configDir;
     state = createState();
 
-    (globalThis as Record<string, unknown>).__opentabs_reload_guard__ = undefined;
+    (globalThis as Record<string, unknown>).__opentabs_reload_chain__ = undefined;
     // Isolate from real globally-installed npm plugins by pointing the global paths cache
     // to an empty list, so auto-discovery finds no global node_modules directories.
     (globalThis as Record<string, unknown>).__opentabs_global_paths__ = [];
@@ -414,6 +443,32 @@ describe('performConfigReload', () => {
     expect(results[0].durationMs).toBeGreaterThanOrEqual(0);
     expect(results[1].durationMs).toBeGreaterThanOrEqual(0);
 
-    expect((globalThis as Record<string, unknown>).__opentabs_reload_guard__).toBeUndefined();
+    // Chain stores a resolved promise (not undefined)
+    const chain = (globalThis as Record<string, unknown>).__opentabs_reload_chain__;
+    expect(chain).toBeInstanceOf(Promise);
+  });
+
+  test('config reload blocks until the previous chain link resolves', async () => {
+    let resolveBlocker!: () => void;
+    const blocker = new Promise<void>(resolve => {
+      resolveBlocker = resolve;
+    });
+
+    // Simulate an in-flight reload by placing an unresolved promise in the chain
+    (globalThis as Record<string, unknown>).__opentabs_reload_chain__ = blocker;
+
+    let completed = false;
+    const reloadPromise = performConfigReload(state, [], emptyTransports()).then(() => {
+      completed = true;
+    });
+
+    // Let microtasks flush — the reload should be blocked on the unresolved chain link
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(completed).toBe(false);
+
+    // Unblock the chain — the reload should now proceed and complete
+    resolveBlocker();
+    await reloadPromise;
+    expect(completed).toBe(true);
   });
 });

@@ -470,6 +470,68 @@ describe('handleToolsJsonChange', () => {
   });
 });
 
+describe('mtime polling detects file creation for pending plugins', () => {
+  let tmpDir: string;
+  let state: ServerState;
+
+  afterEach(() => {
+    stopFileWatching(state);
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('recordMtime stores null for non-existent files so poll can detect creation', () => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'mtime-null-'));
+    const pluginDir = join(tmpDir, 'test-plugin');
+    mkdirSync(pluginDir, { recursive: true });
+    // dist/ does NOT exist — files will be non-existent at watcher setup
+
+    state = createState();
+    startFileWatching(state, noopCallbacks, [pluginDir]);
+
+    const entry = state.fileWatching.entries[0];
+    expect(entry).toBeDefined();
+    if (!entry) return;
+
+    const toolsJsonPath = join(pluginDir, 'dist', 'tools.json');
+    const iifePath = join(pluginDir, 'dist', 'adapter.iife.js');
+
+    // null means the file didn't exist — not undefined (which would mean never recorded)
+    expect(entry.lastSeenMtimes.get(toolsJsonPath)).toBeNull();
+    expect(entry.lastSeenMtimes.get(iifePath)).toBeNull();
+  });
+
+  test('mtime poll updates entry mtime when pending plugin tools.json is created after watcher setup', async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'mtime-creation-'));
+    const pluginDir = join(tmpDir, 'test-plugin');
+    mkdirSync(pluginDir, { recursive: true });
+    // dist/ does NOT exist — watcher on dist/ will fail, triggering fast poll (200ms)
+
+    state = createState();
+    startFileWatching(state, noopCallbacks, [pluginDir]);
+
+    const entry = state.fileWatching.entries[0];
+    expect(entry).toBeDefined();
+    if (!entry) return;
+
+    const toolsJsonPath = join(pluginDir, 'dist', 'tools.json');
+
+    // Verify null sentinel was recorded at setup (file didn't exist)
+    expect(entry.lastSeenMtimes.get(toolsJsonPath)).toBeNull();
+
+    // Create the dist/ dir and tools.json (simulating npm run build completing)
+    mkdirSync(join(pluginDir, 'dist'), { recursive: true });
+    writeFileSync(join(pluginDir, 'dist', 'tools.json'), '[]');
+
+    // Wait for the fast mtime poll (200ms interval) plus buffer
+    await new Promise(r => setTimeout(r, 600));
+
+    // The poll should have detected the null→number transition and updated the entry's mtime
+    const updatedMtime = entry.lastSeenMtimes.get(toolsJsonPath);
+    expect(updatedMtime).not.toBeNull();
+    expect(typeof updatedMtime).toBe('number');
+  });
+});
+
 describe('FSWatcher error event handlers', () => {
   let tmpDir: string;
   let state: ServerState;

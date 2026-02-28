@@ -8,7 +8,7 @@
  */
 
 import { log } from './logger.js';
-import { prefixedToolName, prefixedResourceUri, prefixedPromptName } from './state.js';
+import { prefixedToolName, prefixedResourceUri, prefixedPromptName, freezeRegistryMap } from './state.js';
 import AjvValidator from 'ajv';
 import type {
   FailedPlugin,
@@ -121,10 +121,10 @@ const buildRegistry = (
   }
 
   const registry: PluginRegistry = {
-    plugins,
-    toolLookup,
-    resourceLookup,
-    promptLookup,
+    plugins: freezeRegistryMap(plugins),
+    toolLookup: freezeRegistryMap(toolLookup),
+    resourceLookup: freezeRegistryMap(resourceLookup),
+    promptLookup: freezeRegistryMap(promptLookup),
     failures,
   };
 

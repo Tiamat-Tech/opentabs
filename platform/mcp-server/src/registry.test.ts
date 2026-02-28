@@ -131,6 +131,24 @@ describe('buildRegistry', () => {
     expect(Object.isFrozen(registry)).toBe(true);
   });
 
+  test('registry Maps throw on .set() to prevent accidental mutation', () => {
+    const plugin = makePlugin();
+    const registry = buildRegistry([plugin], []);
+
+    expect(() => {
+      (registry.toolLookup as Map<string, unknown>).set('injected', {});
+    }).toThrow(TypeError);
+    expect(() => {
+      (registry.plugins as Map<string, unknown>).set('injected', plugin);
+    }).toThrow(TypeError);
+    expect(() => {
+      (registry.resourceLookup as Map<string, unknown>).set('injected', {});
+    }).toThrow(TypeError);
+    expect(() => {
+      (registry.promptLookup as Map<string, unknown>).set('injected', {});
+    }).toThrow(TypeError);
+  });
+
   test('replaces previous tool lookup entries on rebuild', () => {
     const registryV1 = buildRegistry([makePlugin({ name: 'slack' })], []);
     expect(registryV1.toolLookup.size).toBe(1);

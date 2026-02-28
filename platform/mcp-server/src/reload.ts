@@ -43,18 +43,22 @@ interface ReloadResult {
 }
 
 /**
- * globalThis key for the concurrent reload guard promise.
+ * globalThis key for the reload serialization chain.
  * Stored on globalThis so it survives across hot reload re-evaluations.
- * If a reload is in progress when a dev mode reload triggers, the new module
- * evaluation waits for the previous reload to finish before starting.
+ *
+ * Each reload appends to the chain synchronously (before any await), then
+ * awaits the previous link. This guarantees serial execution: even if
+ * multiple callers enter the function in the same microtask, each one sees
+ * the predecessor that was set by the previous synchronous frame, so the
+ * await graph forms a strict sequence with no concurrent window.
  */
-const RELOAD_GUARD_KEY = '__opentabs_reload_guard__' as const;
+const RELOAD_CHAIN_KEY = '__opentabs_reload_chain__' as const;
 
-const getReloadGuard = (): Promise<void> | undefined =>
-  (globalThis as Record<string, unknown>)[RELOAD_GUARD_KEY] as Promise<void> | undefined;
+const getReloadChain = (): Promise<void> =>
+  ((globalThis as Record<string, unknown>)[RELOAD_CHAIN_KEY] as Promise<void> | undefined) ?? Promise.resolve();
 
-const setReloadGuard = (promise: Promise<void> | undefined): void => {
-  (globalThis as Record<string, unknown>)[RELOAD_GUARD_KEY] = promise;
+const setReloadChain = (promise: Promise<void>): void => {
+  (globalThis as Record<string, unknown>)[RELOAD_CHAIN_KEY] = promise;
 };
 
 /**
@@ -298,8 +302,8 @@ const restartSweepTimer = (
  * If discovery fails, the server continues with whatever plugins were in state
  * before the reload attempt.
  *
- * A globalThis-based guard prevents concurrent reloads: if a previous reload
- * is still running, this call waits for it to finish before proceeding.
+ * A globalThis-based serialization chain prevents concurrent reloads: each
+ * call appends to the chain synchronously, then awaits its predecessor.
  */
 const performReload = async (
   state: ServerState,
@@ -307,19 +311,17 @@ const performReload = async (
   transports: Map<string, WebStandardStreamableHTTPServerTransport>,
   isHotReload: boolean,
 ): Promise<ReloadResult> => {
-  // Wait for any in-flight reload to complete before starting a new one
-  const existingGuard = getReloadGuard();
-  if (existingGuard) {
-    log.info('Waiting for in-flight reload to complete before starting new reload...');
-    await existingGuard;
-  }
-
-  // Create a deferred promise that other callers can await
+  // Serialize reloads: capture the current chain and replace it with a new
+  // link before any await. Because getReloadChain() and setReloadChain() run
+  // synchronously, concurrent callers each see the previous link and chain
+  // after it — no two reloads can run in parallel.
   let resolveGuard!: () => void;
   const guard = new Promise<void>(resolve => {
     resolveGuard = resolve;
   });
-  setReloadGuard(guard);
+  const previousLink = getReloadChain();
+  setReloadChain(guard);
+  await previousLink;
   const startTs = Date.now();
 
   try {
@@ -405,9 +407,8 @@ const performReload = async (
       lastReloadDurationMs: durationMs,
     };
   } finally {
-    // Clear the guard so subsequent reloads can proceed immediately
+    // Resolve this link so the next chained reload can proceed
     resolveGuard();
-    setReloadGuard(undefined);
   }
 };
 
@@ -424,16 +425,14 @@ const performConfigReload = async (
   sessionServers: McpServerInstance[],
   transports: Map<string, WebStandardStreamableHTTPServerTransport>,
 ): Promise<{ plugins: number; durationMs: number }> => {
-  const existingGuard = getReloadGuard();
-  if (existingGuard) {
-    await existingGuard;
-  }
-
+  // Serialize reloads using the same chain as performReload (see comment there)
   let resolveGuard!: () => void;
   const guard = new Promise<void>(resolve => {
     resolveGuard = resolve;
   });
-  setReloadGuard(guard);
+  const previousLink = getReloadChain();
+  setReloadChain(guard);
+  await previousLink;
   const startTs = Date.now();
 
   try {
@@ -455,8 +454,8 @@ const performConfigReload = async (
 
     return { plugins: state.registry.plugins.size, durationMs: Date.now() - startTs };
   } finally {
+    // Resolve this link so the next chained reload can proceed
     resolveGuard();
-    setReloadGuard(undefined);
   }
 };
 
