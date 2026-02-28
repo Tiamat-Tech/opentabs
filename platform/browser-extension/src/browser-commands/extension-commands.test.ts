@@ -342,13 +342,13 @@ describe('handleBrowserExecuteScript', () => {
         result: { value: { error: expect.stringContaining('10000') as string } },
       });
 
-      // The last executeScript call must be the cleanup script (no args parameter)
+      // The last executeScript call must be the cleanup script with namespaced key args
       const calls = mockExecuteScript.mock.calls;
       expect(calls.length).toBeGreaterThan(2);
       const lastCall = (calls[calls.length - 1] as unknown[])[0] as Record<string, unknown>;
       expect(lastCall.world).toBe('MAIN');
       expect(typeof lastCall.func).toBe('function');
-      expect(lastCall).not.toHaveProperty('args');
+      expect(lastCall.args).toEqual(['__execResult_abc123', '__execAsync_abc123']);
     });
   });
 });

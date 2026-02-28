@@ -6,9 +6,9 @@
  * chrome.scripting.executeScript({ files: [...], world: 'MAIN' }).
  * File-based injection bypasses all page CSP restrictions.
  *
- * The result is captured into globalThis.__openTabs.__lastExecResult by
- * the wrapper IIFE, read back by a follow-up func injection, and the
- * temp file + global are cleaned up.
+ * The result is captured into a namespaced key on globalThis.__openTabs
+ * (`__execResult_<uuid>`) by the wrapper IIFE, read back by a follow-up
+ * func injection, and the temp file + global are cleaned up.
  */
 
 import { defineBrowserTool } from './definition.js';

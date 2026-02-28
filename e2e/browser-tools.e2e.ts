@@ -646,7 +646,7 @@ test.describe('browser_execute_script', () => {
     await mcpClient.callTool('browser_close_tab', { tabId });
   });
 
-  test('cleans up globalThis.__openTabs.__lastExecResult after execution', async ({
+  test('cleans up namespaced exec result keys after execution', async ({
     mcpServer,
     testServer,
     extensionContext: _extensionContext,
@@ -661,10 +661,10 @@ test.describe('browser_execute_script', () => {
       code: 'return "cleanup-test"',
     });
 
-    // Verify the global is cleaned up by checking it's absent
+    // Verify no __execResult_* or __execAsync_* keys remain on __openTabs
     const checkResult = await mcpClient.callTool('browser_execute_script', {
       tabId,
-      code: 'return (globalThis.__openTabs && globalThis.__openTabs.__lastExecResult) || "clean"',
+      code: 'var ot = globalThis.__openTabs || {}; var keys = Object.keys(ot).filter(function(k) { return k.indexOf("__execResult_") === 0 || k.indexOf("__execAsync_") === 0; }); return keys.length === 0 ? "clean" : keys',
     });
     expect(checkResult.isError).toBe(false);
 
@@ -746,10 +746,10 @@ test.describe('browser_execute_script', () => {
       expect(value.value).toBe(i);
     }
 
-    // Verify no leftover globals
+    // Verify no leftover namespaced exec globals
     const checkResult = await mcpClient.callTool('browser_execute_script', {
       tabId,
-      code: 'var ot = globalThis.__openTabs || {}; return { hasResult: "__lastExecResult" in ot, hasAsync: "__lastExecAsync" in ot }',
+      code: 'var ot = globalThis.__openTabs || {}; var resultKeys = Object.keys(ot).filter(function(k) { return k.indexOf("__execResult_") === 0; }); var asyncKeys = Object.keys(ot).filter(function(k) { return k.indexOf("__execAsync_") === 0; }); return { hasResult: resultKeys.length > 0, hasAsync: asyncKeys.length > 0 }',
     });
     expect(checkResult.isError).toBe(false);
     const checkData = parseToolResult(checkResult.content);
