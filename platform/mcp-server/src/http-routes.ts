@@ -253,11 +253,7 @@ const handleHealth = (
   const authenticated = checkBearerAuth(req, state.wsSecret) === null;
 
   if (!authenticated) {
-    return Response.json({
-      status: 'ok',
-      version,
-      extensionConnected: state.extensionWs !== null,
-    });
+    return Response.json({ status: 'ok' });
   }
 
   const hs = getHotState();

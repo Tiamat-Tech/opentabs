@@ -416,9 +416,9 @@ describe('/health endpoint', () => {
     const body = await fetchJson<Record<string, unknown>>(handlers, 'http://localhost:9876/health');
 
     expect(body.status).toBe('ok');
-    expect(body.version).toBe(version);
-    expect(body.extensionConnected).toBe(false);
-    // Minimal response excludes detailed fields
+    // Unauthenticated response omits version and extensionConnected to prevent fingerprinting
+    expect(body).not.toHaveProperty('version');
+    expect(body).not.toHaveProperty('extensionConnected');
     expect(body).not.toHaveProperty('pluginDetails');
     expect(body).not.toHaveProperty('toolCount');
     expect(body).not.toHaveProperty('uptime');

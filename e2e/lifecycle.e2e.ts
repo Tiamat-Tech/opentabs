@@ -392,13 +392,11 @@ test.describe('WebSocket authentication', () => {
 
     const info = (await res.json()) as { wsUrl: string; wsSecret?: string };
     expect(info.wsUrl).toBe(`ws://localhost:${mcpServer.port}/ws`);
-    // The secret is returned in the authenticated JSON body (for extension
-    // bootstrapping via Sec-WebSocket-Protocol), but never embedded in the
-    // WebSocket URL as a query parameter — keeping it out of logs and history.
+    // The secret must never appear in the WebSocket URL as a query parameter
+    // (keeps it out of logs and browser history) and must not be returned in
+    // the HTTP response body (prevents leaking it in proxy logs or debug tools).
     expect(info.wsUrl).not.toContain('token=');
-    if (mcpServer.secret) {
-      expect(info.wsSecret).toBe(mcpServer.secret);
-    }
+    expect(info.wsSecret).toBeUndefined();
   });
 
   test('authenticated WS connection via sec-websocket-protocol succeeds and exchanges ping/pong', async ({
