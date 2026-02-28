@@ -14,6 +14,7 @@ import { deleteCookies } from './delete-cookies.js';
 import { disableNetworkCapture } from './disable-network-capture.js';
 import { enableNetworkCapture } from './enable-network-capture.js';
 import { executeScript } from './execute-script.js';
+import { exportHar } from './export-har.js';
 import { extensionCheckAdapter } from './extension-check-adapter.js';
 import { extensionForceReconnect } from './extension-force-reconnect.js';
 import { extensionGetLogs } from './extension-get-logs.js';
@@ -28,6 +29,7 @@ import { getResourceContent } from './get-resource-content.js';
 import { getStorage } from './get-storage.js';
 import { getTabContent } from './get-tab-content.js';
 import { getTabInfo } from './get-tab-info.js';
+import { getWebSocketFrames } from './get-websocket-frames.js';
 import { handleDialog } from './handle-dialog.js';
 import { hoverElement } from './hover-element.js';
 import { listResources } from './list-resources.js';
@@ -69,6 +71,8 @@ const browserTools: BrowserToolDefinition[] = [
   deleteCookies,
   enableNetworkCapture,
   getNetworkRequests,
+  getWebSocketFrames,
+  exportHar,
   disableNetworkCapture,
   getConsoleLogs,
   clearConsoleLogs,

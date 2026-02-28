@@ -34,6 +34,7 @@ export const DISPATCH_METHODS = [
   'browser.deleteCookies',
   'browser.enableNetworkCapture',
   'browser.getNetworkRequests',
+  'browser.getWebSocketFrames',
   'browser.disableNetworkCapture',
   'browser.getConsoleLogs',
   'browser.clearConsoleLogs',
