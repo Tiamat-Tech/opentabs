@@ -149,13 +149,13 @@ import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ResourceDefinition } from '@opentabs-dev/plugin-sdk';
 
 class MyPlugin extends OpenTabsPlugin {
-  override readonly name = 'my-plugin';
+  readonly name = 'my-plugin';
   override readonly resources: ResourceDefinition[] = [channelList, userProfile];
   // ... tools, isReady, etc.
 }
 ```
 
-`override` is required because TypeScript's `noImplicitOverride` rule (enabled in the project's tsconfig) requires the keyword when overriding any inherited class member. Omitting `override` causes a TS4114 type error at build time.
+`override` is required on the `resources` property because it has a default value in the base class and TypeScript's `noImplicitOverride` rule requires the keyword when overriding non-abstract inherited members. Abstract properties like `name` do not require `override`.
 
 ### How Resources Are Exposed to AI Agents
 
@@ -367,13 +367,13 @@ Add your prompts to the `prompts` array on your plugin class:
 
 ```typescript
 class MyPlugin extends OpenTabsPlugin {
-  override readonly name = 'my-plugin';
+  readonly name = 'my-plugin';
   override readonly prompts: PromptDefinition[] = [summarizeThread, draftReply];
   // ... tools, resources, isReady, etc.
 }
 ```
 
-`override` is required because TypeScript's `noImplicitOverride` rule (enabled in the project's tsconfig) requires the keyword when overriding any inherited class member. Omitting `override` causes a TS4114 type error at build time.
+`override` is required on the `prompts` property because it has a default value in the base class and TypeScript's `noImplicitOverride` rule requires the keyword when overriding non-abstract inherited members. Abstract properties like `name` do not require `override`.
 
 ### How Prompts Are Exposed to AI Agents
 
@@ -492,12 +492,12 @@ const createItem = defineTool({
 });
 
 export default class TrackerPlugin extends OpenTabsPlugin {
-  override readonly name = 'tracker';
-  override readonly version = '1.0.0';
-  override readonly displayName = 'Project Tracker';
-  override readonly description = 'Manage project items';
-  override readonly urlPatterns = ['*://tracker.example.com/*'];
-  override readonly tools: ToolDefinition[] = [createItem];
+  readonly name = 'tracker';
+  readonly version = '1.0.0';
+  readonly displayName = 'Project Tracker';
+  readonly description = 'Manage project items';
+  readonly urlPatterns = ['*://tracker.example.com/*'];
+  readonly tools: ToolDefinition[] = [createItem];
   override readonly resources: ResourceDefinition[] = [itemList];
   override readonly prompts: PromptDefinition[] = [statusReport];
 
