@@ -4,6 +4,58 @@ import { Button } from './retroui';
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react';
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
+
+/**
+ * Tokenizes a shell command string into spans matching the Dracula-soft Shiki
+ * theme colors used by rehype-pretty-code for fenced ```bash blocks.
+ *
+ * Color mapping (from Dracula-soft):
+ *   #62E884 — command name (first word)
+ *   #E7EE98 — arguments / subcommands
+ *   #BF9EEE — flags (tokens starting with -)
+ */
+const DRACULA_CMD = '#62E884';
+const DRACULA_ARG = '#E7EE98';
+const DRACULA_FLAG = '#BF9EEE';
+
+const highlightCommand = (command: string): ReactNode[] => {
+  const tokens = command.split(/(\s+)/);
+  const nodes: ReactNode[] = [];
+  let isFirstWord = true;
+
+  for (const [i, token] of tokens.entries()) {
+    if (/^\s+$/.test(token)) {
+      nodes.push(
+        <span key={i} style={{ color: DRACULA_ARG }}>
+          {token}
+        </span>,
+      );
+      continue;
+    }
+    if (isFirstWord) {
+      nodes.push(
+        <span key={i} style={{ color: DRACULA_CMD }}>
+          {token}
+        </span>,
+      );
+      isFirstWord = false;
+    } else if (token.startsWith('-')) {
+      nodes.push(
+        <span key={i} style={{ color: DRACULA_FLAG }}>
+          {token}
+        </span>,
+      );
+    } else {
+      nodes.push(
+        <span key={i} style={{ color: DRACULA_ARG }}>
+          {token}
+        </span>,
+      );
+    }
+  }
+  return nodes;
+};
 
 const CopyableCommand = ({ command }: { command: string }) => {
   const [copied, setCopied] = useState(false);
@@ -16,11 +68,11 @@ const CopyableCommand = ({ command }: { command: string }) => {
 
   return (
     <div className="group flex items-center justify-between gap-2">
-      <code className="flex-1">{command}</code>
-      <Button size="sm" onClick={copyToClipboard} className="hidden md:block" title="Copy to clipboard">
+      <code className="flex-1 font-mono">{highlightCommand(command)}</code>
+      <Button size="sm" onClick={copyToClipboard} className="hidden shrink-0 md:block" title="Copy to clipboard">
         {copied ? 'Copied' : 'Copy'}
       </Button>
-      <Button className="md:hidden" size="icon" onClick={copyToClipboard} title="Copy to clipboard mobile">
+      <Button className="shrink-0 md:hidden" size="icon" onClick={copyToClipboard} title="Copy to clipboard mobile">
         {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
       </Button>
     </div>
@@ -43,19 +95,19 @@ export const CliCommand = ({
     yarnCommand ?? (isNpx ? npmCommand.replace('npx', 'yarn dlx') : npmCommand.replace('npm install', 'yarn add'));
 
   return (
-    <TabGroup className="bg-secondary text-secondary-foreground/90 my-2 rounded-(--radius) p-4">
-      <TabList className="mb-6 flex space-x-4 text-sm">
-        <Tab className="text-muted-foreground border-accent data-selected:text-secondary-foreground relative cursor-pointer bg-transparent px-2 py-1 focus:outline-hidden data-selected:border-b-2">
+    <TabGroup className="bg-code-bg my-2 rounded-(--radius) p-4">
+      <TabList className="mb-4 flex space-x-4 text-sm">
+        <Tab className="data-selected:text-code-fg relative cursor-pointer border-[#62E884] bg-transparent px-2 py-1 text-[#6272A4] focus:outline-hidden data-selected:border-b-2">
           npm
         </Tab>
-        <Tab className="text-muted-foreground border-accent data-selected:text-secondary-foreground relative cursor-pointer bg-transparent px-2 py-1 focus:outline-hidden data-selected:border-b-2">
+        <Tab className="data-selected:text-code-fg relative cursor-pointer border-[#62E884] bg-transparent px-2 py-1 text-[#6272A4] focus:outline-hidden data-selected:border-b-2">
           pnpm
         </Tab>
-        <Tab className="text-muted-foreground border-accent data-selected:text-secondary-foreground relative cursor-pointer bg-transparent px-2 py-1 focus:outline-hidden data-selected:border-b-2">
+        <Tab className="data-selected:text-code-fg relative cursor-pointer border-[#62E884] bg-transparent px-2 py-1 text-[#6272A4] focus:outline-hidden data-selected:border-b-2">
           yarn
         </Tab>
       </TabList>
-      <TabPanels className="text-secondary-foreground text-sm">
+      <TabPanels className="text-code-fg text-sm">
         <TabPanel>
           <CopyableCommand command={npmCommand} />
         </TabPanel>
