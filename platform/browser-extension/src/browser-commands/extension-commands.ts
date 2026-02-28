@@ -148,10 +148,18 @@ export const handleExtensionGetLogs = async (params: Record<string, unknown>, id
 
 export const handleExtensionGetSidePanel = async (id: string | number): Promise<void> => {
   try {
-    const sidePanelResult = await Promise.race([
-      chrome.runtime.sendMessage({ type: 'sp:getState' } satisfies SpGetStateMessage).then((raw: unknown) => raw),
-      new Promise<null>(resolve => setTimeout(() => resolve(null), SIDE_PANEL_TIMEOUT_MS)),
-    ]);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let sidePanelResult: unknown;
+    try {
+      sidePanelResult = await Promise.race([
+        chrome.runtime.sendMessage({ type: 'sp:getState' } satisfies SpGetStateMessage).then((raw: unknown) => raw),
+        new Promise<null>(resolve => {
+          timeoutId = setTimeout(() => resolve(null), SIDE_PANEL_TIMEOUT_MS);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!sidePanelResult || typeof sidePanelResult !== 'object') {
       sendSuccessResult(id, { open: false });
@@ -255,22 +263,30 @@ export const handleExtensionCheckAdapter = async (
         // Probe isReady() with timeout
         let isReady = false;
         try {
-          const readyResults = await Promise.race([
-            chrome.scripting.executeScript({
-              target: { tabId },
-              world: 'MAIN',
-              func: async (pName: string) => {
-                const ot = (globalThis as Record<string, unknown>).__openTabs as
-                  | { adapters?: Record<string, { isReady?: unknown }> }
-                  | undefined;
-                const adapter = ot?.adapters?.[pName];
-                if (!adapter || typeof adapter.isReady !== 'function') return false;
-                return await (adapter.isReady as () => Promise<boolean>)();
-              },
-              args: [pluginName],
-            }),
-            new Promise<null>(resolve => setTimeout(() => resolve(null), IS_READY_TIMEOUT_MS)),
-          ]);
+          let isReadyTimeoutId: ReturnType<typeof setTimeout> | undefined;
+          let readyResults: unknown;
+          try {
+            readyResults = await Promise.race([
+              chrome.scripting.executeScript({
+                target: { tabId },
+                world: 'MAIN',
+                func: async (pName: string) => {
+                  const ot = (globalThis as Record<string, unknown>).__openTabs as
+                    | { adapters?: Record<string, { isReady?: unknown }> }
+                    | undefined;
+                  const adapter = ot?.adapters?.[pName];
+                  if (!adapter || typeof adapter.isReady !== 'function') return false;
+                  return await (adapter.isReady as () => Promise<boolean>)();
+                },
+                args: [pluginName],
+              }),
+              new Promise<null>(resolve => {
+                isReadyTimeoutId = setTimeout(() => resolve(null), IS_READY_TIMEOUT_MS);
+              }),
+            ]);
+          } finally {
+            clearTimeout(isReadyTimeoutId);
+          }
           if (readyResults !== null) {
             const readyResult = (readyResults as Array<{ result?: unknown }>)[0];
             isReady = readyResult?.result === true;

@@ -76,7 +76,10 @@ Object.assign(globalThis, {
 });
 
 // Import after mocking
-const { handleExtensionCheckAdapter, handleBrowserExecuteScript } = await import('./extension-commands.js');
+const { getPluginMeta } = await import('../plugin-storage.js');
+const { findAllMatchingTabs } = await import('../tab-matching.js');
+const { handleExtensionCheckAdapter, handleBrowserExecuteScript, handleExtensionGetSidePanel } =
+  await import('./extension-commands.js');
 
 /** Extract the first argument from the first call to mockSendToServer */
 const firstSentMessage = (): Record<string, unknown> => {
@@ -86,6 +89,52 @@ const firstSentMessage = (): Record<string, unknown> => {
   if (!firstCall) throw new Error('Expected at least one call');
   return firstCall[0] as Record<string, unknown>;
 };
+
+// ---------------------------------------------------------------------------
+// handleExtensionGetSidePanel
+// ---------------------------------------------------------------------------
+
+describe('handleExtensionGetSidePanel', () => {
+  beforeEach(() => {
+    mockSendToServer.mockReset();
+    mockSendMessage.mockReset();
+  });
+
+  test('returns side panel state and clears timeout when sendMessage resolves first', async () => {
+    vi.useFakeTimers();
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+
+    mockSendMessage.mockResolvedValueOnce({ state: { theme: 'dark' }, html: '<div/>' });
+
+    await handleExtensionGetSidePanel('req-sp-1');
+
+    vi.useRealTimers();
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    expect(firstSentMessage()).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'req-sp-1',
+      result: { open: true, state: { theme: 'dark' }, html: '<div/>' },
+    });
+
+    clearTimeoutSpy.mockRestore();
+  });
+
+  test('returns open: false when timeout fires before sendMessage', async () => {
+    vi.useFakeTimers();
+
+    // sendMessage never resolves — timeout wins
+    mockSendMessage.mockReturnValueOnce(new Promise(() => {}));
+
+    const promise = handleExtensionGetSidePanel('req-sp-2');
+    await vi.advanceTimersByTimeAsync(3001); // past SIDE_PANEL_TIMEOUT_MS (3000ms)
+    await promise;
+
+    vi.useRealTimers();
+
+    expect(firstSentMessage()).toMatchObject({ result: { open: false } });
+  });
+});
 
 // ---------------------------------------------------------------------------
 // handleExtensionCheckAdapter
@@ -127,6 +176,40 @@ describe('handleExtensionCheckAdapter', () => {
       id: 'req-4',
       error: { code: -32602, message: 'Plugin not found: "nonexistent"' },
     });
+  });
+
+  test('clears isReady timeout when executeScript resolves before IS_READY_TIMEOUT_MS', async () => {
+    vi.useFakeTimers();
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+
+    vi.mocked(getPluginMeta).mockResolvedValueOnce({
+      name: 'test-plugin',
+      version: '1.0.0',
+      displayName: 'Test Plugin',
+      urlPatterns: ['https://example.com/*'],
+      trustTier: 'local',
+      tools: [],
+    } as Awaited<ReturnType<typeof getPluginMeta>>);
+    vi.mocked(findAllMatchingTabs).mockResolvedValueOnce([{ id: 100, url: 'https://example.com' } as chrome.tabs.Tab]);
+
+    // First executeScript: adapter inspection — returns adapterPresent: true
+    // Second executeScript: isReady probe — returns true
+    mockExecuteScript
+      .mockResolvedValueOnce([
+        { result: { adapterPresent: true, adapterHash: 'abc', toolCount: 1, toolNames: ['do_thing'] } },
+      ])
+      .mockResolvedValueOnce([{ result: true }]);
+
+    await handleExtensionCheckAdapter({ plugin: 'test-plugin' }, 'req-ca-ready');
+
+    vi.useRealTimers();
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    expect(firstSentMessage()).toMatchObject({
+      result: { plugin: 'test-plugin', matchingTabs: [expect.objectContaining({ tabId: 100, isReady: true })] },
+    });
+
+    clearTimeoutSpy.mockRestore();
   });
 });
 
