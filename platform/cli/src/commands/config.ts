@@ -93,6 +93,62 @@ const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
             console.log(`    ${toolName}: ${indicator}`);
           }
         }
+      } else if (key === 'permissions' && typeof value === 'object' && value !== null) {
+        const perms = value as Record<string, unknown>;
+        console.log(`  ${pc.cyan('permissions')}`);
+
+        const trustedDomains = Array.isArray(perms.trustedDomains) ? (perms.trustedDomains as unknown[]) : [];
+        console.log(`    trustedDomains`);
+        if (trustedDomains.length === 0) {
+          console.log(`      ${pc.dim('(none)')}`);
+        } else {
+          for (const d of trustedDomains) {
+            console.log(`      - ${String(d)}`);
+          }
+        }
+
+        const sensitiveDomains = Array.isArray(perms.sensitiveDomains) ? (perms.sensitiveDomains as unknown[]) : [];
+        console.log(`    sensitiveDomains`);
+        if (sensitiveDomains.length === 0) {
+          console.log(`      ${pc.dim('(none)')}`);
+        } else {
+          for (const d of sensitiveDomains) {
+            console.log(`      - ${String(d)}`);
+          }
+        }
+
+        const toolPolicyEntries =
+          typeof perms.toolPolicy === 'object' && perms.toolPolicy !== null && !Array.isArray(perms.toolPolicy)
+            ? Object.entries(perms.toolPolicy as Record<string, unknown>)
+            : [];
+        console.log(`    toolPolicy`);
+        if (toolPolicyEntries.length === 0) {
+          console.log(`      ${pc.dim('(none)')}`);
+        } else {
+          for (const [toolName, policy] of toolPolicyEntries) {
+            console.log(`      ${toolName}: ${String(policy)}`);
+          }
+        }
+
+        const domainToolPolicyEntries =
+          typeof perms.domainToolPolicy === 'object' &&
+          perms.domainToolPolicy !== null &&
+          !Array.isArray(perms.domainToolPolicy)
+            ? Object.entries(perms.domainToolPolicy as Record<string, unknown>)
+            : [];
+        console.log(`    domainToolPolicy`);
+        if (domainToolPolicyEntries.length === 0) {
+          console.log(`      ${pc.dim('(none)')}`);
+        } else {
+          for (const [domain, toolsPolicy] of domainToolPolicyEntries) {
+            console.log(`      ${domain}`);
+            if (typeof toolsPolicy === 'object' && toolsPolicy !== null && !Array.isArray(toolsPolicy)) {
+              for (const [toolName, policy] of Object.entries(toolsPolicy as Record<string, unknown>)) {
+                console.log(`        ${toolName}: ${String(policy)}`);
+              }
+            }
+          }
+        }
       } else {
         const display =
           typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
