@@ -72,9 +72,15 @@ const connectWs = async (
   const ws = protocols.length > 1 ? new WebSocket(wsUrl, protocols) : new WebSocket(wsUrl);
 
   await new Promise<void>((resolve, reject) => {
-    ws.onopen = () => resolve();
-    ws.onerror = () => reject(new Error('WebSocket connect failed'));
-    setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+    const timer = setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+    ws.onopen = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    ws.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error('WebSocket connect failed'));
+    };
   });
 
   // Queue of pending response resolvers keyed by request id

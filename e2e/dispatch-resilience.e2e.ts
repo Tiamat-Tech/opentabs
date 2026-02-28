@@ -299,9 +299,15 @@ test.describe('Tool call during reconnect window', () => {
     if (wsSecret) stealProtocols.push(wsSecret);
     const fakeWs = stealProtocols.length > 1 ? new WebSocket(wsUrl, stealProtocols) : new WebSocket(wsUrl);
     await new Promise<void>((resolve, reject) => {
-      fakeWs.onopen = () => resolve();
-      fakeWs.onerror = () => reject(new Error('WebSocket connect failed'));
-      setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+      const timer = setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+      fakeWs.onopen = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      fakeWs.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('WebSocket connect failed'));
+      };
     });
 
     // Wait for server to recognize the replacement
@@ -344,9 +350,15 @@ test.describe('Tool call during reconnect window', () => {
     if (fakeSecret) fakeProtocols.push(fakeSecret);
     const fakeWs = fakeProtocols.length > 1 ? new WebSocket(fakeUrl, fakeProtocols) : new WebSocket(fakeUrl);
     await new Promise<void>((resolve, reject) => {
-      fakeWs.onopen = () => resolve();
-      fakeWs.onerror = () => reject(new Error('WebSocket connect failed'));
-      setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+      const timer = setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+      fakeWs.onopen = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      fakeWs.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('WebSocket connect failed'));
+      };
     });
     await waitForLog(mcpServer, 'Closing previous extension WebSocket', 5_000);
     fakeWs.close();
@@ -540,9 +552,15 @@ test.describe('Server-side dispatch timeout', () => {
     if (timeoutWsSecret) timeoutProtocols.push(timeoutWsSecret);
     const fakeWs = timeoutProtocols.length > 1 ? new WebSocket(wsUrl, timeoutProtocols) : new WebSocket(wsUrl);
     await new Promise<void>((resolve, reject) => {
-      fakeWs.onopen = () => resolve();
-      fakeWs.onerror = () => reject(new Error('Fake WebSocket connect failed'));
-      setTimeout(() => reject(new Error('Fake WebSocket connect timeout')), 5_000);
+      const timer = setTimeout(() => reject(new Error('Fake WebSocket connect timeout')), 5_000);
+      fakeWs.onopen = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      fakeWs.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('Fake WebSocket connect failed'));
+      };
     });
 
     await waitForLog(mcpServer, 'Closing previous extension WebSocket', 5_000);
@@ -746,9 +764,15 @@ test.describe('Malformed WebSocket messages', () => {
     if (rawWsSecret) rawProtocols.push(rawWsSecret);
     const rawWs = rawProtocols.length > 1 ? new WebSocket(rawWsUrl, rawProtocols) : new WebSocket(rawWsUrl);
     await new Promise<void>((resolve, reject) => {
-      rawWs.onopen = () => resolve();
-      rawWs.onerror = () => reject(new Error('Raw WebSocket connect failed'));
-      setTimeout(() => reject(new Error('Raw WebSocket connect timeout')), 5_000);
+      const timer = setTimeout(() => reject(new Error('Raw WebSocket connect timeout')), 5_000);
+      rawWs.onopen = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      rawWs.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('Raw WebSocket connect failed'));
+      };
     });
 
     try {

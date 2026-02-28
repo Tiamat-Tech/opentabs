@@ -246,9 +246,15 @@ test.describe('WebSocket connection management', () => {
     if (wsSecret) protocols.push(wsSecret);
     const ws = protocols.length > 1 ? new WebSocket(wsUrl, protocols) : new WebSocket(wsUrl);
     await new Promise<void>((resolve, reject) => {
-      ws.onopen = () => resolve();
-      ws.onerror = () => reject(new Error('WebSocket connect failed'));
-      setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+      const timer = setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+      ws.onopen = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      ws.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('WebSocket connect failed'));
+      };
     });
 
     // 3. Wait for the server to log the replacement
@@ -278,9 +284,15 @@ test.describe('WebSocket connection management', () => {
     if (pingWsSecret) pingProtocols.push(pingWsSecret);
     const ws = pingProtocols.length > 1 ? new WebSocket(pingWsUrl, pingProtocols) : new WebSocket(pingWsUrl);
     await new Promise<void>((resolve, reject) => {
-      ws.onopen = () => resolve();
-      ws.onerror = () => reject(new Error('WebSocket connect failed'));
-      setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+      const timer = setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+      ws.onopen = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      ws.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('WebSocket connect failed'));
+      };
     });
 
     // Send a JSON-RPC ping and wait for pong
@@ -328,9 +340,15 @@ test.describe('Pong watchdog (zombie detection)', () => {
     if (zombieWsSecret) zombieProtocols.push(zombieWsSecret);
     const ws = zombieProtocols.length > 1 ? new WebSocket(zombieWsUrl, zombieProtocols) : new WebSocket(zombieWsUrl);
     await new Promise<void>((resolve, reject) => {
-      ws.onopen = () => resolve();
-      ws.onerror = () => reject(new Error('connect failed'));
-      setTimeout(() => reject(new Error('timeout')), 5_000);
+      const timer = setTimeout(() => reject(new Error('timeout')), 5_000);
+      ws.onopen = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      ws.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('connect failed'));
+      };
     });
 
     // Wait for the server to log the replacement (confirms old WS was closed)
@@ -409,9 +427,15 @@ test.describe('WebSocket authentication', () => {
     // Connect using the secret via Sec-WebSocket-Protocol header
     const ws = wsSecret ? new WebSocket(wsUrl, ['opentabs', wsSecret]) : new WebSocket(wsUrl);
     await new Promise<void>((resolve, reject) => {
-      ws.onopen = () => resolve();
-      ws.onerror = () => reject(new Error('WebSocket connect failed'));
-      setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+      const timer = setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+      ws.onopen = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      ws.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('WebSocket connect failed'));
+      };
     });
 
     // Send a JSON-RPC ping and verify we get a pong back
