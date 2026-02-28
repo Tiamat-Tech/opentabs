@@ -83,6 +83,67 @@ describe('followFile', () => {
     expect(mockCreateReadStream).toHaveBeenCalledTimes(2);
   });
 
+  test('does not produce replacement characters when a multi-byte UTF-8 character spans read cycles', async () => {
+    // 🍎 is U+1F34E, encoded as 0xF0 0x9F 0x8D 0x8E (4 bytes).
+    // Simulate the file growing by only the first 2 bytes in the first read cycle
+    // and the remaining 2 bytes in the second cycle.  The persistent StringDecoder
+    // must buffer the incomplete sequence across cycles and emit the complete emoji.
+    const emojiBytes = Buffer.from([0xf0, 0x9f, 0x8d, 0x8e]); // 🍎
+    const firstHalf = emojiBytes.subarray(0, 2);
+    const secondHalf = emojiBytes.subarray(2, 4);
+
+    let firstStream: EventEmitter | undefined;
+    let secondStream: EventEmitter | undefined;
+
+    mockStatSync
+      .mockReturnValueOnce({ size: 2 } as ReturnType<typeof statSync>)
+      .mockReturnValueOnce({ size: 4 } as ReturnType<typeof statSync>);
+
+    mockCreateReadStream
+      .mockImplementationOnce(() => {
+        firstStream = new EventEmitter();
+        return firstStream as unknown as ReturnType<typeof createReadStream>;
+      })
+      .mockImplementationOnce(() => {
+        secondStream = new EventEmitter();
+        return secondStream as unknown as ReturnType<typeof createReadStream>;
+      });
+
+    mockWatch.mockReturnValue(createMockWatcher() as unknown as ReturnType<typeof watch>);
+
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+    try {
+      void followFile('/tmp/test.log', 0);
+      await Promise.resolve();
+
+      expect(firstStream).toBeDefined();
+
+      // First cycle: emit partial emoji bytes (first 2 of 4)
+      (firstStream as EventEmitter).emit('data', firstHalf);
+      (firstStream as EventEmitter).emit('end');
+      await Promise.resolve();
+
+      // Trigger second read via watcher callback
+      const [, watchListener] = mockWatch.mock.calls[0] as [unknown, () => void];
+      watchListener();
+      await Promise.resolve();
+
+      expect(secondStream).toBeDefined();
+
+      // Second cycle: emit remaining emoji bytes (last 2 of 4)
+      (secondStream as EventEmitter).emit('data', secondHalf);
+      (secondStream as EventEmitter).emit('end');
+      await Promise.resolve();
+
+      // Combine all writes — must be the complete emoji without replacement chars
+      const allOutput = writeSpy.mock.calls.map(call => String(call[0])).join('');
+      expect(allOutput).toBe('🍎');
+      expect(allOutput).not.toContain('\uFFFD');
+    } finally {
+      writeSpy.mockRestore();
+    }
+  });
+
   test('does not propagate watcher errors (e.g., when the log file is deleted)', async () => {
     const mockWatcher = createMockWatcher();
     mockStatSync.mockReturnValue({ size: 0 } as ReturnType<typeof statSync>);
