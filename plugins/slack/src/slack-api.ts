@@ -386,13 +386,30 @@ const slackApi = async <T extends Record<string, unknown>>(
     throw ToolError.validation('HTTPS required for Slack API calls');
   }
 
-  const response = await fetch(`${auth.workspaceUrl}/api/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: form.toString(),
-    credentials: 'include',
-    signal: AbortSignal.timeout(30_000),
-  });
+  const signal = AbortSignal.timeout(30_000);
+
+  let response: Response;
+  try {
+    response = await fetch(`${auth.workspaceUrl}/api/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+      credentials: 'include',
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      throw ToolError.timeout(`slackApi: request timed out after 30000ms for ${method}`);
+    }
+    if (signal.aborted) {
+      throw new ToolError(`slackApi: request aborted for ${method}`, 'aborted');
+    }
+    throw new ToolError(
+      `slackApi: network error for ${method}: ${error instanceof Error ? error.message : String(error)}`,
+      'network_error',
+      { category: 'internal', retryable: true },
+    );
+  }
 
   if (response.status === 429) {
     const retryAfterHeader = response.headers.get('Retry-After');
