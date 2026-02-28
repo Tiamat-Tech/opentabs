@@ -76,8 +76,8 @@ describe('writeExecFile', () => {
     expect(content.endsWith('})();')).toBe(true);
     // User code is JSON-escaped inside new Function()
     expect(content).toContain(`new Function(${JSON.stringify('return 42')})`);
-    // Contains the result capture mechanism
-    expect(content).toContain('__lastExecResult');
+    // Contains the namespaced result capture mechanism
+    expect(content).toContain('__execResult_test-1');
     expect(content).toContain('__openTabs');
   });
 
@@ -98,7 +98,7 @@ describe('writeExecFile', () => {
     const content = await readFile(join(getAdaptersDir(), filename), 'utf-8');
     // The wrapper checks for thenable results
     expect(content).toContain('typeof __r.then === "function"');
-    expect(content).toContain('__lastExecAsync');
+    expect(content).toContain('__execAsync_async-test');
     // Async path: .then() and .catch()
     expect(content).toContain('__r.then(function(v)');
     expect(content).toContain('.catch(function(e)');

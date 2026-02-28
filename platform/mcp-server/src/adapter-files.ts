@@ -151,7 +151,9 @@ const cleanupStaleAdapterFiles = async (currentPluginNames: Set<string>): Promis
 /**
  * Write a dynamic exec script to the adapters/ directory.
  * Wraps the user's code in an IIFE that captures the result (sync or async)
- * into globalThis.__openTabs.__lastExecResult for the extension to read back.
+ * into namespaced keys on globalThis.__openTabs for the extension to read back.
+ * Each execution uses keys derived from its UUID (`__execResult_<uuid>` and
+ * `__execAsync_<uuid>`) so concurrent executions on the same tab do not collide.
  *
  * Returns the filename (relative to adapters/) for the extension to inject.
  */
@@ -160,9 +162,13 @@ const writeExecFile = async (state: ServerState, execId: string, code: string): 
   const filename = `${EXEC_FILE_PREFIX}${execId}.js`;
   const finalPath = join(getAdaptersDir(), filename);
 
+  const resultKey = `__execResult_${execId}`;
+  const asyncKey = `__execAsync_${execId}`;
+
   // Wrap user code to capture sync/async results and errors.
-  // The wrapper stores results at globalThis.__openTabs.__lastExecResult.
-  // The extension reads this value after injection and cleans it up.
+  // The wrapper stores results at namespaced keys on globalThis.__openTabs
+  // so concurrent executions do not collide. The extension reads the
+  // namespaced key matching this execution's UUID and cleans it up.
   //
   // User code is passed as a JSON-escaped string literal to new Function(),
   // preventing IIFE wrapper breakout attacks. The Function constructor
@@ -171,18 +177,20 @@ const writeExecFile = async (state: ServerState, execId: string, code: string): 
   const wrapped = [
     '(function() {',
     '  var __ot = globalThis.__openTabs = globalThis.__openTabs || {};',
+    `  var __resultKey = ${JSON.stringify(resultKey)};`,
+    `  var __asyncKey = ${JSON.stringify(asyncKey)};`,
     '  try {',
     `    var __userFn = new Function(${JSON.stringify(code)});`,
     '    var __r = __userFn();',
     '    if (__r && typeof __r === "object" && typeof __r.then === "function") {',
-    '      __ot.__lastExecAsync = true;',
-    '      __r.then(function(v) { __ot.__lastExecResult = { value: v }; })',
-    '        .catch(function(e) { __ot.__lastExecResult = { error: e instanceof Error ? e.message : String(e) }; });',
+    '      __ot[__asyncKey] = true;',
+    '      __r.then(function(v) { __ot[__resultKey] = { value: v }; })',
+    '        .catch(function(e) { __ot[__resultKey] = { error: e instanceof Error ? e.message : String(e) }; });',
     '    } else {',
-    '      __ot.__lastExecResult = { value: __r };',
+    '      __ot[__resultKey] = { value: __r };',
     '    }',
     '  } catch (e) {',
-    '    __ot.__lastExecResult = { error: e instanceof Error ? e.message : String(e) };',
+    '    __ot[__resultKey] = { error: e instanceof Error ? e.message : String(e) };',
     '  }',
     '})();',
   ].join('\n');

@@ -8,9 +8,18 @@
  * Runs AFTER tsc (which produces dist/ with type-checked JS) and BEFORE the
  * extension is loaded into Chrome. Each entry point is bundled into its
  * original dist/ location, overwriting the tsc output.
+ *
+ * Because the bundle overwrites the tsc-emitted entry points, subsequent
+ * incremental `tsc --build` runs may skip re-emitting them (the source files
+ * haven't changed, even though the on-disk output was replaced by a bundle).
+ * To guarantee esbuild always receives fresh tsc output with resolvable
+ * imports, we delete the entry points and the tsbuildinfo, then re-run
+ * `tsc --build` for this project before bundling.
  */
 
 import { build } from 'esbuild';
+import { execSync } from 'node:child_process';
+import { unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Plugin } from 'esbuild';
 
@@ -18,11 +27,23 @@ const base = import.meta.dirname;
 
 const bgPath = join(base, 'dist/background.js');
 const offscreenPath = join(base, 'dist/offscreen/index.js');
+const tsbuildinfo = join(base, 'tsconfig.tsbuildinfo');
 
 const entries = [
   { entrypoint: bgPath, outfile: bgPath, label: 'background' },
   { entrypoint: offscreenPath, outfile: offscreenPath, label: 'offscreen' },
 ];
+
+// Delete stale bundle artifacts and tsbuildinfo so tsc re-emits fresh entry
+// points with resolvable import statements for esbuild to bundle.
+for (const f of [bgPath, offscreenPath, tsbuildinfo]) {
+  try {
+    unlinkSync(f);
+  } catch {
+    // File may not exist on first build — ignore
+  }
+}
+execSync('npx tsc --build', { cwd: base, stdio: 'inherit' });
 
 /**
  * esbuild plugin that marks `node:*` imports as external with no side effects.

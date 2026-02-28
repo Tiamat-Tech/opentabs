@@ -346,6 +346,8 @@ export const handleExtensionForceReconnect = async (id: string | number): Promis
 
 /**
  * Executes a pre-written JavaScript file in a tab's MAIN world, supporting both sync and async code.
+ * Each execution uses namespaced keys (`__execResult_<uuid>`, `__execAsync_<uuid>`) on
+ * `globalThis.__openTabs` so concurrent executions on the same tab do not collide.
  * @param params - Expects `{ tabId: number, execFile: string }` where execFile matches the `__exec-<uuid>.js` pattern.
  * @returns The script's return value, serialized as JSON. Async scripts are polled until resolved or timed out.
  */
@@ -363,6 +365,11 @@ export const handleBrowserExecuteScript = async (
       return;
     }
 
+    // Extract the UUID from the filename for namespaced result keys
+    const execUuid = execFile.replace(/^__exec-/, '').replace(/\.js$/, '');
+    const resultKey = `__execResult_${execUuid}`;
+    const asyncKey = `__execAsync_${execUuid}`;
+
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const cancelled = { value: false };
 
@@ -374,9 +381,9 @@ export const handleBrowserExecuteScript = async (
         files: [`adapters/${execFile}`],
       });
 
-      // Step 2: Read the result. For sync code, __lastExecResult is set
+      // Step 2: Read the result. For sync code, the namespaced result key is set
       // immediately by the wrapper. For async code (Promises), the wrapper
-      // sets __lastExecAsync=true and resolves __lastExecResult when the
+      // sets the namespaced async flag and resolves the result key when the
       // Promise settles. Poll until the result is available.
       let elapsed = 0;
 
@@ -385,17 +392,12 @@ export const handleBrowserExecuteScript = async (
         const results = await chrome.scripting.executeScript({
           target: { tabId },
           world: 'MAIN',
-          func: (truncLimit: number) => {
-            const ot = (globalThis as Record<string, unknown>).__openTabs as
-              | {
-                  __lastExecResult?: { value?: unknown; error?: string };
-                  __lastExecAsync?: boolean;
-                }
-              | undefined;
+          func: (truncLimit: number, rKey: string, aKey: string) => {
+            const ot = (globalThis as Record<string, unknown>).__openTabs as Record<string, unknown> | undefined;
             if (!ot) return { pending: false, result: { error: '__openTabs not found' } };
 
-            const result = ot.__lastExecResult;
-            const isAsync = ot.__lastExecAsync === true;
+            const result = ot[rKey] as { value?: unknown; error?: string } | undefined;
+            const isAsync = ot[aKey] === true;
 
             // Result available (sync or async resolved) — read and clean up
             if (result && ('value' in result || 'error' in result)) {
@@ -412,19 +414,19 @@ export const handleBrowserExecuteScript = async (
                   captured.value = String(captured.value);
                 }
               }
-              // Clean up globals
-              delete ot.__lastExecResult;
-              delete ot.__lastExecAsync;
+              // Clean up namespaced globals for this execution
+              Reflect.deleteProperty(ot, rKey);
+              Reflect.deleteProperty(ot, aKey);
               return { pending: false, result: captured };
             }
 
             // Async code hasn't resolved yet — keep polling
             if (isAsync) return { pending: true };
 
-            // Sync code produced no __lastExecResult (should not happen)
+            // Sync code produced no result (should not happen)
             return { pending: false, result: { error: 'No result captured' } };
           },
-          args: [EXEC_RESULT_TRUNCATION_LIMIT],
+          args: [EXEC_RESULT_TRUNCATION_LIMIT, resultKey, asyncKey],
         });
 
         const first = results[0] as { result?: { pending: boolean; result?: unknown } } | undefined;
@@ -439,21 +441,21 @@ export const handleBrowserExecuteScript = async (
         elapsed += EXEC_POLL_INTERVAL_MS;
       }
 
-      // Async timed out — clean up globals only if the outer SCRIPT_TIMEOUT_MS did not fire.
-      // If cancelled, the outer timeout already sent the error response and there may be a
-      // subsequent execution in flight whose globals we must not touch.
+      // Async timed out — clean up namespaced globals only if the outer SCRIPT_TIMEOUT_MS
+      // did not fire. If cancelled, the outer timeout already sent the error response.
       if (!cancelled.value) {
         await chrome.scripting
           .executeScript({
             target: { tabId },
             world: 'MAIN',
-            func: () => {
+            func: (rKey: string, aKey: string) => {
               const ot = (globalThis as Record<string, unknown>).__openTabs as Record<string, unknown> | undefined;
               if (ot) {
-                delete ot.__lastExecResult;
-                delete ot.__lastExecAsync;
+                Reflect.deleteProperty(ot, rKey);
+                Reflect.deleteProperty(ot, aKey);
               }
             },
+            args: [resultKey, asyncKey],
           })
           .catch(() => {});
       }
