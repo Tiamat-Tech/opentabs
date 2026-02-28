@@ -520,10 +520,10 @@ Runs `npm uninstall -g` and also removes matching entries from the `localPlugins
 
 ```bash
 # Remove using shorthand
-opentabs plugin remove slack
+opentabs plugin remove slack --confirm
 
 # Remove using full package name
-opentabs plugin remove opentabs-plugin-slack
+opentabs plugin remove opentabs-plugin-slack --confirm
 ```
 
 ---
@@ -570,7 +570,7 @@ opentabs config show --show-secret
 Set a configuration value.
 
 ```bash
-opentabs config set <key> <value>
+opentabs config set <key> [value]
 ```
 
 <Table>
