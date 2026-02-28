@@ -48,8 +48,8 @@ The MCP server runs on `localhost:9515` (configurable via `PORT` or `OPENTABS_PO
     <Table.Row>
       <Table.Cell className="font-medium">`/health`</Table.Cell>
       <Table.Cell>GET</Table.Cell>
-      <Table.Cell>None</Table.Cell>
-      <Table.Cell>Server status: plugins, tools, uptime, reload count, audit summary.</Table.Cell>
+      <Table.Cell>Optional Bearer token</Table.Cell>
+      <Table.Cell>Server status. Returns basic status without auth; includes full plugin details, audit summary, and file watcher state when authenticated.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`/audit`</Table.Cell>
@@ -364,7 +364,8 @@ Tool dispatch timeout resets on each progress notification. The extension's scri
 
 - **`/mcp`**: Bearer token in the `Authorization` header — the 64-character hex `secret` from `~/.opentabs/extension/auth.json`
 - **`/ws`**: Auth via `Sec-WebSocket-Protocol` — the client sends `['opentabs', '<secret>']`, server echoes `'opentabs'` as the accepted subprotocol
-- **Admin endpoints** (`/reload`, `/extension/reload`, `/ws-info`, `/audit`): Bearer token required, plus rate limiting (10 requests/minute)
+- **`/reload` and `/extension/reload`**: Bearer token required, plus rate limiting (10 requests/minute)
+- **`/ws-info` and `/audit`**: Bearer token required, no rate limiting
 
 ### CORS Protection
 
