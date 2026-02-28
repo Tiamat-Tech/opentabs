@@ -18,6 +18,13 @@ const mockStatSync = vi.mocked(statSync);
 const mockCreateReadStream = vi.mocked(createReadStream);
 const mockWatch = vi.mocked(watch);
 
+/** Create a mock watcher (EventEmitter with a close spy). */
+const createMockWatcher = () => {
+  const watcher = new EventEmitter() as EventEmitter & { close: ReturnType<typeof vi.fn> };
+  watcher.close = vi.fn();
+  return watcher;
+};
+
 describe('followFile', () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -28,7 +35,7 @@ describe('followFile', () => {
     const mockStream = new EventEmitter();
     mockStatSync.mockReturnValue({ size: 100 } as ReturnType<typeof statSync>);
     mockCreateReadStream.mockReturnValue(mockStream as unknown as ReturnType<typeof createReadStream>);
-    mockWatch.mockReturnValue({ close: vi.fn() } as unknown as ReturnType<typeof watch>);
+    mockWatch.mockReturnValue(createMockWatcher() as unknown as ReturnType<typeof watch>);
 
     // Don't await — followFile never resolves
     void followFile('/tmp/test.log', 0);
@@ -51,7 +58,7 @@ describe('followFile', () => {
       return firstStream as unknown as ReturnType<typeof createReadStream>;
     });
     mockCreateReadStream.mockImplementation(() => new EventEmitter() as unknown as ReturnType<typeof createReadStream>);
-    mockWatch.mockReturnValue({ close: vi.fn() } as unknown as ReturnType<typeof watch>);
+    mockWatch.mockReturnValue(createMockWatcher() as unknown as ReturnType<typeof watch>);
 
     void followFile('/tmp/test.log', 0);
     await Promise.resolve();
@@ -74,5 +81,21 @@ describe('followFile', () => {
 
     // A second createReadStream call should have happened for the retry
     expect(mockCreateReadStream).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not propagate watcher errors (e.g., when the log file is deleted)', async () => {
+    const mockWatcher = createMockWatcher();
+    mockStatSync.mockReturnValue({ size: 0 } as ReturnType<typeof statSync>);
+    mockCreateReadStream.mockReturnValue(new EventEmitter() as unknown as ReturnType<typeof createReadStream>);
+    mockWatch.mockReturnValue(mockWatcher as unknown as ReturnType<typeof watch>);
+
+    void followFile('/tmp/test.log', 0);
+    await Promise.resolve();
+
+    // An 'error' event on the watcher must not crash the process.
+    // Without the watcher.on('error', ...) handler, EventEmitter throws on unhandled errors.
+    expect(() => {
+      mockWatcher.emit('error', new Error('ENOENT: no such file or directory'));
+    }).not.toThrow();
   });
 });

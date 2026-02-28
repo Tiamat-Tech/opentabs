@@ -138,6 +138,11 @@ const followFile = async (filePath: string, initialOffset: number, filter?: stri
   };
 
   const watcher = watch(filePath, () => readNewContent());
+  // Silently absorb watcher errors (e.g. ENOENT when the file is deleted on Linux
+  // via inotify). readNewContent already handles the missing-file case via the
+  // statSync try/catch, so no recovery is needed here — just prevent the default
+  // behaviour of an unhandled 'error' event crashing the process.
+  watcher.on('error', () => undefined);
   // Read immediately to catch content written between tailFile and watcher setup
   readNewContent();
 
