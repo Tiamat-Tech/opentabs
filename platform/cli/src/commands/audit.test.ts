@@ -54,38 +54,48 @@ describe('formatTimestamp', () => {
   });
 
   test('same day — shows HH:MM:SS only', () => {
-    // Fix "now" to 2024-06-15 12:00:00 UTC
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2024-06-15T12:00:00.000Z'));
+    // Set "now" to noon local time today
+    const now = new Date(2024, 5, 15, 12, 0, 0);
+    vi.setSystemTime(now);
 
-    const result = formatTimestamp('2024-06-15T09:30:45.000Z');
-    // Should contain only the time portion (no date)
+    // Timestamp from earlier the same local day
+    const earlier = new Date(2024, 5, 15, 9, 30, 45);
+    const result = formatTimestamp(earlier.toISOString());
     expect(result).toMatch(/^\d{2}:\d{2}:\d{2}$/);
   });
 
   test('different day — shows MM-DD HH:MM:SS', () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2024-06-15T12:00:00.000Z'));
+    const now = new Date(2024, 5, 15, 12, 0, 0);
+    vi.setSystemTime(now);
 
-    const result = formatTimestamp('2024-06-14T09:30:45.000Z');
+    // Timestamp from the previous local day
+    const yesterday = new Date(2024, 5, 14, 9, 30, 45);
+    const result = formatTimestamp(yesterday.toISOString());
     expect(result).toMatch(/^\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
 
   test('midnight boundary — previous day shows date prefix', () => {
     vi.useFakeTimers();
-    // "now" is just after midnight on the 15th
-    vi.setSystemTime(new Date('2024-06-15T00:01:00.000Z'));
+    // "now" is just after local midnight on the 15th
+    const now = new Date(2024, 5, 15, 0, 1, 0);
+    vi.setSystemTime(now);
 
-    // Timestamp from the 14th (just before midnight)
-    const result = formatTimestamp('2024-06-14T23:59:00.000Z');
+    // Timestamp from the 14th just before local midnight
+    const beforeMidnight = new Date(2024, 5, 14, 23, 59, 0);
+    const result = formatTimestamp(beforeMidnight.toISOString());
     expect(result).toMatch(/^\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   });
 
   test('same day — time values are zero-padded', () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2024-01-05T12:00:00.000Z'));
+    const now = new Date(2024, 0, 5, 12, 0, 0);
+    vi.setSystemTime(now);
 
-    const result = formatTimestamp('2024-01-05T03:04:05.000Z');
+    // 03:04:05 local time on the same day
+    const early = new Date(2024, 0, 5, 3, 4, 5);
+    const result = formatTimestamp(early.toISOString());
     // All three components should be two digits
     const parts = result.split(':');
     expect(parts).toHaveLength(3);
