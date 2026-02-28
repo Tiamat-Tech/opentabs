@@ -1014,10 +1014,16 @@ const runBuild = async (projectDir: string): Promise<void> => {
   mkdirSync(distDir, { recursive: true });
 
   await bundleIIFE(sourceEntry, distDir, plugin.name);
-  // Read the bundled IIFE and compute its SHA-256 hash. The hash is computed
-  // from the core IIFE content (before the __adapterHash setter is appended).
+  // Read the bundled IIFE. esbuild appends a //# sourceMappingURL= comment at
+  // the end when sourcemap:'linked' is used. Strip it so we can move it to the
+  // very end of the file (after hashAndFreeze), keeping the source map reference
+  // valid and the source map's line mappings correct for the IIFE code.
   const iifePath = join(distDir, ADAPTER_FILENAME);
-  const iifeContent = await readFile(iifePath, 'utf-8');
+  const iifeRaw = await readFile(iifePath, 'utf-8');
+  const sourceMappingUrlMatch = /\n\/\/# sourceMappingURL=[^\n]+\n?$/.exec(iifeRaw);
+  const sourceMappingUrlSuffix = sourceMappingUrlMatch ? sourceMappingUrlMatch[0] : '';
+  const iifeContent = sourceMappingUrlSuffix ? iifeRaw.slice(0, -sourceMappingUrlSuffix.length) : iifeRaw;
+  // Hash only the core IIFE content (without the source map reference comment).
   const adapterHash = createHash('sha256').update(iifeContent).digest('hex');
 
   // Append a self-contained snippet that sets the adapter hash and then freezes
@@ -1030,10 +1036,12 @@ const runBuild = async (projectDir: string): Promise<void> => {
   // Re-injection and cleanup are handled by the IIFE wrapper and the
   // extension's cleanup script, which rebuild the adapters container on
   // globalThis when deletion of a non-configurable property fails.
+  // The sourceMappingURL comment is placed last so source map tooling finds it
+  // at the end of the file, as required by the source map specification.
   const hashAndFreeze = `
 (function(){var o=(globalThis).__openTabs;if(o&&o.adapters&&o.adapters[${JSON.stringify(plugin.name)}]){var a=o.adapters[${JSON.stringify(plugin.name)}];a.__adapterHash=${JSON.stringify(adapterHash)};if(a.tools&&Array.isArray(a.tools)){for(var i=0;i<a.tools.length;i++){Object.freeze(a.tools[i]);}Object.freeze(a.tools);}Object.freeze(a);Object.defineProperty(o.adapters,${JSON.stringify(plugin.name)},{value:a,writable:false,configurable:false,enumerable:true});Object.defineProperty(o,"adapters",{value:o.adapters,writable:false,configurable:false});}})();
 `;
-  await writeFile(iifePath, iifeContent + hashAndFreeze, 'utf-8');
+  await writeFile(iifePath, iifeContent + hashAndFreeze + sourceMappingUrlSuffix, 'utf-8');
   if (
     await access(iifePath).then(
       () => true,
