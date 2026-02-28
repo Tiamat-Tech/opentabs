@@ -472,6 +472,7 @@ export const stopCapture = (tabId: number): void => {
   if (!state) return;
 
   clearInterval(state.pruneIntervalId);
+  state.wsFramesByRequestId.clear();
   void chrome.debugger.detach({ tabId }).catch(() => {});
   captures.delete(tabId);
 };

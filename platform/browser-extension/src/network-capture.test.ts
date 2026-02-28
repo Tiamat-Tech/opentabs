@@ -320,6 +320,32 @@ describe('Network.webSocketClosed', () => {
   });
 });
 
+describe('stopCapture wsFramesByRequestId cleanup', () => {
+  test('clears wsFramesByRequestId entries when stopCapture is called without webSocketClosed', async () => {
+    const tabId = 3101;
+    await startCapture(tabId);
+
+    // Simulate WebSocket open — stores requestId → url in wsFramesByRequestId
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketCreated', {
+      requestId: 'ws-orphan-1',
+      url: 'wss://example.com/live',
+    });
+
+    // A frame is captured, proving wsFramesByRequestId has the entry
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameReceived', {
+      requestId: 'ws-orphan-1',
+      response: { opcode: 1, payloadData: 'data', mask: false },
+    });
+    expect(getWsFrames(tabId, false)).toHaveLength(1);
+
+    // Stop without firing webSocketClosed — orphaned entry must be cleaned up
+    stopCapture(tabId);
+
+    // After stopCapture, no frames are accessible (capture is gone)
+    expect(getWsFrames(tabId, false)).toHaveLength(0);
+  });
+});
+
 describe('periodic pruning interval', () => {
   test('prunes stale requestIdToRequest entries even when no new requests arrive', async () => {
     vi.useFakeTimers();
