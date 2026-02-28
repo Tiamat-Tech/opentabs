@@ -15,7 +15,14 @@
  */
 
 import { test, expect } from './fixtures.js';
-import { waitForExtensionConnected, waitForLog, parseToolResult, waitFor, BROWSER_TOOL_NAMES } from './helpers.js';
+import {
+  waitForExtensionConnected,
+  waitForLog,
+  parseToolResult,
+  waitFor,
+  BROWSER_TOOL_NAMES,
+  openSidePanel,
+} from './helpers.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { McpClient, McpServer, TestServer } from './fixtures.js';
@@ -149,6 +156,35 @@ const waitForNetworkRequests = async (
     'network requests captured',
   );
   return requests;
+};
+
+/**
+ * Poll browser_get_websocket_frames until at least one frame is captured.
+ * Replaces fixed `setTimeout` waits after WebSocket connections are established.
+ */
+const waitForWebSocketFrames = async (
+  mcpClient: McpClient,
+  tabId: number,
+  timeoutMs = 10_000,
+): Promise<Array<Record<string, unknown>>> => {
+  let frames: Array<Record<string, unknown>> = [];
+  await waitFor(
+    async () => {
+      try {
+        const result = await mcpClient.callTool('browser_get_websocket_frames', { tabId });
+        if (result.isError) return false;
+        const data = parseToolResult(result.content);
+        frames = data.frames as Array<Record<string, unknown>>;
+        return frames.length > 0;
+      } catch {
+        return false;
+      }
+    },
+    timeoutMs,
+    300,
+    'WebSocket frames captured',
+  );
+  return frames;
 };
 
 /**
@@ -1729,6 +1765,99 @@ test.describe('Browser tools — network capture lifecycle', () => {
 });
 
 // ---------------------------------------------------------------------------
+// browser_get_websocket_frames
+// ---------------------------------------------------------------------------
+
+test.describe('Browser tools — WebSocket frame capture', () => {
+  test('captures sent and received WebSocket frames', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    // Enable network capture before navigating to the WebSocket page
+    const enableResult = await mcpClient.callTool('browser_enable_network_capture', { tabId });
+    expect(enableResult.isError).toBe(false);
+
+    // Navigate to the WebSocket test page — this opens a WebSocket connection,
+    // sends a ping message, and receives a hello + echo back from the server.
+    await mcpClient.callTool('browser_navigate_tab', {
+      tabId,
+      url: testServer.url + '/ws-test',
+    });
+
+    // Poll until WebSocket frames are captured
+    const frames = await waitForWebSocketFrames(mcpClient, tabId);
+    expect(frames.length).toBeGreaterThanOrEqual(2);
+
+    // Verify frame shape — every frame should have the required fields
+    for (const frame of frames) {
+      expect(typeof frame.url).toBe('string');
+      expect(frame.url).toContain('/ws');
+      expect(['sent', 'received']).toContain(frame.direction);
+      expect(typeof frame.data).toBe('string');
+      expect(typeof frame.opcode).toBe('number');
+      expect(typeof frame.timestamp).toBe('number');
+    }
+
+    // Verify we captured at least one received frame (the server's hello message)
+    const received = frames.filter(f => f.direction === 'received');
+    expect(received.length).toBeGreaterThanOrEqual(1);
+    const helloFrame = received.find(f => (f.data as string).includes('ws-test-server'));
+    expect(helloFrame).toBeDefined();
+
+    // Verify we captured at least one sent frame (the client's ping message)
+    const sent = frames.filter(f => f.direction === 'sent');
+    expect(sent.length).toBeGreaterThanOrEqual(1);
+    const pingFrame = sent.find(f => (f.data as string).includes('ping'));
+    expect(pingFrame).toBeDefined();
+
+    // Clean up
+    await mcpClient.callTool('browser_disable_network_capture', { tabId });
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('clear=true empties the WebSocket frame buffer', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    // Enable capture and navigate to the WebSocket test page
+    await mcpClient.callTool('browser_enable_network_capture', { tabId });
+    await mcpClient.callTool('browser_navigate_tab', {
+      tabId,
+      url: testServer.url + '/ws-test',
+    });
+
+    // Wait for frames to be captured
+    await waitForWebSocketFrames(mcpClient, tabId);
+
+    // Get frames with clear=true
+    const getResult = await mcpClient.callTool('browser_get_websocket_frames', { tabId, clear: true });
+    expect(getResult.isError).toBe(false);
+    const data = parseToolResult(getResult.content);
+    expect((data.frames as Array<unknown>).length).toBeGreaterThan(0);
+
+    // Verify the buffer is now empty
+    const getResult2 = await mcpClient.callTool('browser_get_websocket_frames', { tabId });
+    expect(getResult2.isError).toBe(false);
+    const data2 = parseToolResult(getResult2.content);
+    expect((data2.frames as Array<unknown>).length).toBe(0);
+
+    // Clean up
+    await mcpClient.callTool('browser_disable_network_capture', { tabId });
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // browser_get_console_logs / browser_clear_console_logs
 // ---------------------------------------------------------------------------
 
@@ -2708,6 +2837,44 @@ test.describe('Extension debugging tools', () => {
 
     const data = parseToolResult(result.content);
     expect(data.open).toBe(false);
+  });
+
+  test('extension_get_side_panel returns { open: true } when side panel is open', async ({
+    mcpServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+
+    // Open the side panel as a regular extension page in the Playwright browser context.
+    // The React app registers a chrome.runtime.onMessage listener for 'sp:getState',
+    // which the background service worker uses to detect whether the panel is open.
+    const sidePanelPage = await openSidePanel(extensionContext);
+
+    try {
+      // Poll until the side panel's message listener is registered and responds.
+      // The React app needs time to mount before it handles the 'sp:getState' message.
+      let data: Record<string, unknown> = {};
+      await waitFor(
+        async () => {
+          try {
+            const r = await mcpClient.callTool('extension_get_side_panel');
+            if (r.isError) return false;
+            data = parseToolResult(r.content);
+            return data.open === true;
+          } catch {
+            return false;
+          }
+        },
+        15_000,
+        500,
+        'extension_get_side_panel returns open: true',
+      );
+
+      expect(data.open).toBe(true);
+    } finally {
+      await sidePanelPage.close();
+    }
   });
 
   test('extension_check_adapter returns diagnostics for e2e-test plugin', async ({
