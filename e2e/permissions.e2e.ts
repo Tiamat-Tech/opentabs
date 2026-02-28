@@ -21,6 +21,8 @@ import {
   startTestServer,
   launchExtensionContext,
   createMcpClient,
+  readTestConfig,
+  writeTestConfig,
   symlinkCrossPlatform,
 } from './fixtures.js';
 import { waitForExtensionConnected, waitForLog, openSidePanel, setupAdapterSymlink } from './helpers.js';
@@ -128,10 +130,10 @@ test.describe('Permission evaluation', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    // Open a tab on the test server via 127.0.0.2 (non-trusted domain).
-    // The test server listens on 0.0.0.0 via PORT=0, so 127.0.0.2 works.
-    const nonTrustedUrl = testServer.url.replace('localhost', '127.0.0.2');
-    const openResult = await mcpClient.callTool('browser_open_tab', { url: nonTrustedUrl });
+    // Open a tab on localhost (trusted domain) so browser_open_tab itself
+    // auto-allows. We then navigate to 127.0.0.2 (non-trusted) to test the
+    // confirmation flow on browser_navigate_tab specifically.
+    const openResult = await mcpClient.callTool('browser_open_tab', { url: testServer.url });
     expect(openResult.isError).toBe(false);
     const tabInfo = JSON.parse(openResult.content) as { id: number };
     const tabId = tabInfo.id;
@@ -139,11 +141,12 @@ test.describe('Permission evaluation', () => {
     // Wait for the page to load
     await new Promise(r => setTimeout(r, 1_000));
 
-    // Call an interact-tier tool (browser_navigate_tab) on the non-trusted
-    // domain. This should trigger the confirmation flow and send a progress
-    // notification with 'approval' while waiting for human response.
-    // The confirmation will time out after 30s, but we use callToolWithProgress
-    // to capture the progress notification before that happens.
+    // Call an interact-tier tool (browser_navigate_tab) to a non-trusted
+    // domain (127.0.0.2). This should trigger the confirmation flow and
+    // send a progress notification with 'approval' while waiting for
+    // human response. The confirmation will time out after 30s, but we
+    // use callToolWithProgress to capture the progress notification.
+    const nonTrustedUrl = testServer.url.replace('localhost', '127.0.0.2');
     const result = await mcpClient.callToolWithProgress(
       'browser_navigate_tab',
       { tabId, url: `${nonTrustedUrl}/interactive` },
@@ -232,7 +235,7 @@ test.describe('Confirmation dialog — Allow Once', () => {
         // Verify the dialog displays the correct tool name and domain.
         const dialogEl = sidePanel.locator('[role="alert"]');
         await expect(dialogEl.getByText('browser_get_cookies')).toBeVisible();
-        await expect(dialogEl.getByText('127.0.0.2')).toBeVisible();
+        await expect(dialogEl.getByText('127.0.0.2', { exact: true })).toBeVisible();
         await expect(dialogEl.getByText('Approval Required')).toBeVisible();
         // Grant "Allow Once" to unblock the tool call.
         await sidePanel.getByRole('button', { name: 'Allow Once' }).click();
@@ -328,5 +331,83 @@ test.describe('Confirmation dialog — Allow Always', () => {
     // persists the permission for the session.
     const secondResult = await mcpClient.callTool('browser_get_cookies', { url: nonTrustedUrl }, { timeout: 10_000 });
     expect(secondResult.isError).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Trusted domain auto-allow — interact-tier tool on localhost
+// ---------------------------------------------------------------------------
+
+test.describe('Trusted domain auto-allow', () => {
+  test('interact-tier tool on trusted domain (localhost) succeeds without confirmation', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _ctx,
+    mcpClient,
+  }) => {
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    // Open a tab on the test server via localhost (a default trusted domain).
+    const openResult = await mcpClient.callTool('browser_open_tab', { url: testServer.url });
+    expect(openResult.isError).toBe(false);
+    const tabInfo = JSON.parse(openResult.content) as { id: number };
+
+    // Wait for the page to fully load.
+    await new Promise(r => setTimeout(r, 1_000));
+
+    // Call an interact-tier tool (browser_navigate_tab) on the trusted
+    // domain. Even without skipConfirmation, trusted domains upgrade
+    // 'ask' → 'allow', so this should succeed immediately.
+    const result = await mcpClient.callTool(
+      'browser_navigate_tab',
+      { tabId: tabInfo.id, url: `${testServer.url}/interactive` },
+      { timeout: 10_000 },
+    );
+
+    expect(result.isError).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// browserToolPolicy — disabling a browser tool via configuration
+// ---------------------------------------------------------------------------
+
+test.describe('browserToolPolicy', () => {
+  test('disabled tool is hidden from tools/list and returns error on call', async () => {
+    const configDir = createTestConfigDir();
+    try {
+      // Write a config with browser_screenshot_tab explicitly disabled.
+      const config = readTestConfig(configDir);
+      const configWithPolicy = {
+        ...config,
+        browserToolPolicy: { browser_screenshot_tab: false },
+      };
+      writeTestConfig(configDir, configWithPolicy as typeof config);
+
+      // Start the server (no extension needed — purely server-side test).
+      const server = await startMcpServer(configDir, true);
+      try {
+        const client = createMcpClient(server.port, server.secret);
+        await client.initialize();
+        try {
+          // Verify browser_screenshot_tab is absent from tools/list.
+          const tools = await client.listTools();
+          const screenshotTool = tools.find(t => t.name === 'browser_screenshot_tab');
+          expect(screenshotTool).toBeUndefined();
+
+          // Verify calling it directly returns an error.
+          const result = await client.callTool('browser_screenshot_tab', { tabId: 1 });
+          expect(result.isError).toBe(true);
+          expect(result.content).toContain('disabled');
+        } finally {
+          await client.close();
+        }
+      } finally {
+        await server.kill();
+      }
+    } finally {
+      cleanupTestConfigDir(configDir);
+    }
   });
 });

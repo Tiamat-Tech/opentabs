@@ -171,6 +171,7 @@ const waitForWebSocketFrames = async (
   mcpClient: McpClient,
   tabId: number,
   timeoutMs = 10_000,
+  minFrames = 1,
 ): Promise<Array<Record<string, unknown>>> => {
   let frames: Array<Record<string, unknown>> = [];
   await waitFor(
@@ -180,7 +181,7 @@ const waitForWebSocketFrames = async (
         if (result.isError) return false;
         const data = parseToolResult(result.content);
         frames = data.frames as Array<Record<string, unknown>>;
-        return frames.length > 0;
+        return frames.length >= minFrames;
       } catch {
         return false;
       }
@@ -1955,9 +1956,8 @@ test.describe('Browser tools — WebSocket frame capture', () => {
       url: testServer.url + '/ws-test',
     });
 
-    // Poll until WebSocket frames are captured
-    const frames = await waitForWebSocketFrames(mcpClient, tabId);
-    expect(frames.length).toBeGreaterThanOrEqual(2);
+    // Poll until at least 2 WebSocket frames are captured (sent + received)
+    const frames = await waitForWebSocketFrames(mcpClient, tabId, 10_000, 2);
 
     // Verify frame shape — every frame should have the required fields
     for (const frame of frames) {
