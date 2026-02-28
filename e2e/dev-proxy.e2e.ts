@@ -9,7 +9,15 @@
  * All tests use dynamic ports and isolated config directories.
  */
 
-import { test, expect, startMcpServer, createTestConfigDir, cleanupTestConfigDir } from './fixtures.js';
+import {
+  test,
+  expect,
+  startMcpServer,
+  createTestConfigDir,
+  cleanupTestConfigDir,
+  createMcpClient,
+  readPluginToolNames,
+} from './fixtures.js';
 import { waitForLog } from './helpers.js';
 import { execSync } from 'node:child_process';
 
@@ -55,6 +63,76 @@ test.describe('Dev proxy request buffering', () => {
       // Verify the hot reload actually completed (the request wasn't just
       // served by the old worker before it died)
       await waitForLog(server, 'Hot reload complete', 10_000);
+    } finally {
+      await server.kill();
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+test.describe('Dev proxy concurrent overlapping reloads', () => {
+  test('two rapid SIGUSR1 signals resolve without deadlock or state corruption', async () => {
+    const configDir = createTestConfigDir();
+    const server = await startMcpServer(configDir, true);
+
+    try {
+      // Verify server is healthy before triggering overlapping reloads
+      const initialHealth = await server.health();
+      expect(initialHealth).not.toBeNull();
+      if (!initialHealth) throw new Error('health returned null');
+      expect(initialHealth.status).toBe('ok');
+
+      // Create an MCP client and initialize a session to verify tools/list
+      const client = createMcpClient(server.port, server.secret);
+      await client.initialize();
+
+      // Verify tools are available before the overlapping reloads
+      const toolsBefore = await client.listTools();
+      const expectedToolNames = readPluginToolNames();
+      for (const name of expectedToolNames) {
+        expect(toolsBefore.some(t => t.name === name)).toBe(true);
+      }
+
+      // Clear logs to isolate hot-reload output
+      server.logs.length = 0;
+
+      // Fire two SIGUSR1 signals in rapid succession (< 100ms apart).
+      // The first signal calls startWorker(), which kills the current worker
+      // and forks child1. The second signal calls startWorker() again, which
+      // kills child1 (before it reports ready) and forks child2. The pending[]
+      // callbacks from the first restart are still queued and will be drained
+      // when child2 sends its 'ready' IPC message.
+      server.triggerHotReload();
+      server.triggerHotReload();
+
+      // Wait for the final reload to complete. Only the last worker's 'ready'
+      // message triggers "Hot reload complete" — the first worker was killed
+      // before it could report ready.
+      await waitForLog(server, 'Hot reload complete', 15_000);
+
+      // Verify the server is healthy after overlapping reloads
+      const healthAfter = await server.health();
+      expect(healthAfter).not.toBeNull();
+      if (!healthAfter) throw new Error('health returned null after overlapping reloads');
+      expect(healthAfter.status).toBe('ok');
+
+      // Verify tools/list still returns the expected tools. The MCP client
+      // auto-reinitializes the session after a worker restart (the new worker
+      // has no knowledge of the old session).
+      const toolsAfter = await client.listTools();
+      for (const name of expectedToolNames) {
+        expect(toolsAfter.some(t => t.name === name)).toBe(true);
+      }
+
+      // Verify no error logs related to process management or state corruption.
+      // Look for unexpected error patterns (not normal proxy log messages).
+      const errorPatterns = ['ECONNREFUSED', 'deadlock', 'state corruption', 'uncaughtException'];
+      const joinedLogs = server.logs.join('\n');
+      for (const pattern of errorPatterns) {
+        expect(joinedLogs).not.toContain(pattern);
+      }
+
+      await client.close();
     } finally {
       await server.kill();
       cleanupTestConfigDir(configDir);
