@@ -113,6 +113,8 @@ const disconnectAndReconnect = (closeReason: string): void => {
 let mcpServerUrl = DEFAULT_MCP_SERVER_URL;
 /** WebSocket auth token — sent via Sec-WebSocket-Protocol header, not URL query */
 let wsSecret: string | null = null;
+/** Suppresses repeated auth.json warnings until a successful read resets it */
+let authJsonWarned = false;
 let ws: WebSocket | null = null;
 let backoffMs = INITIAL_BACKOFF_MS;
 let pingIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -263,6 +265,7 @@ const connect = async (): Promise<void> => {
 
   connecting = true;
   try {
+    await bootstrapFromAuthFile();
     const reason = await refreshWsUrl();
     if (reason) {
       lastDisconnectReason = reason;
@@ -514,10 +517,20 @@ const bootstrapFromAuthFile = async (): Promise<void> => {
       const auth = (await res.json()) as { secret?: string };
       if (typeof auth.secret === 'string' && auth.secret !== '') {
         wsSecret = auth.secret;
+        authJsonWarned = false;
+      } else if (!authJsonWarned) {
+        authJsonWarned = true;
+        console.warn('[opentabs:offscreen] auth.json missing or invalid secret field');
       }
+    } else if (!authJsonWarned) {
+      authJsonWarned = true;
+      console.warn('[opentabs:offscreen] auth.json returned HTTP', res.status);
     }
-  } catch {
-    // auth.json may not exist yet (server not started) — use defaults
+  } catch (e) {
+    if (!authJsonWarned) {
+      authJsonWarned = true;
+      console.warn('[opentabs:offscreen] Failed to read auth.json:', e);
+    }
   }
 };
 
