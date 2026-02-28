@@ -52,6 +52,7 @@ vi.mock('./browser-commands/index.js', () => ({
   handleBrowserDeleteCookies: vi.fn(asyncNoop),
   handleBrowserEnableNetworkCapture: vi.fn(asyncNoop),
   handleBrowserGetNetworkRequests: vi.fn(asyncNoop),
+  handleBrowserGetWebSocketFrames: vi.fn(asyncNoop),
   handleBrowserDisableNetworkCapture: vi.fn(asyncNoop),
   handleBrowserGetConsoleLogs: vi.fn(asyncNoop),
   handleBrowserClearConsoleLogs: vi.fn(asyncNoop),

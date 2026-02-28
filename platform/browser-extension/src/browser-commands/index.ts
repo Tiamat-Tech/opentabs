@@ -30,6 +30,7 @@ export {
   handleBrowserEnableNetworkCapture,
   handleBrowserGetConsoleLogs,
   handleBrowserGetNetworkRequests,
+  handleBrowserGetWebSocketFrames,
 } from './network-commands.js';
 export {
   handleBrowserGetResourceContent,

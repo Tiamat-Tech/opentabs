@@ -28,6 +28,7 @@ import { getResourceContent } from './get-resource-content.js';
 import { getStorage } from './get-storage.js';
 import { getTabContent } from './get-tab-content.js';
 import { getTabInfo } from './get-tab-info.js';
+import { getWebSocketFrames } from './get-websocket-frames.js';
 import { handleDialog } from './handle-dialog.js';
 import { hoverElement } from './hover-element.js';
 import { listResources } from './list-resources.js';
@@ -69,6 +70,7 @@ const browserTools: BrowserToolDefinition[] = [
   deleteCookies,
   enableNetworkCapture,
   getNetworkRequests,
+  getWebSocketFrames,
   disableNetworkCapture,
   getConsoleLogs,
   clearConsoleLogs,

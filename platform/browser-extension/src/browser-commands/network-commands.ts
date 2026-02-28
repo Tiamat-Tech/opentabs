@@ -1,5 +1,12 @@
 import { requireTabId, sendErrorResult, sendSuccessResult } from './helpers.js';
-import { clearConsoleLogs, getConsoleLogs, getRequests, startCapture, stopCapture } from '../network-capture.js';
+import {
+  clearConsoleLogs,
+  getConsoleLogs,
+  getRequests,
+  getWsFrames,
+  startCapture,
+  stopCapture,
+} from '../network-capture.js';
 
 export const handleBrowserEnableNetworkCapture = async (
   params: Record<string, unknown>,
@@ -11,8 +18,9 @@ export const handleBrowserEnableNetworkCapture = async (
     const maxRequests = typeof params.maxRequests === 'number' ? params.maxRequests : 100;
     const urlFilter = typeof params.urlFilter === 'string' ? params.urlFilter : undefined;
     const maxConsoleLogs = typeof params.maxConsoleLogs === 'number' ? params.maxConsoleLogs : 500;
+    const maxWsFrames = typeof params.maxWsFrames === 'number' ? params.maxWsFrames : 200;
 
-    await startCapture(tabId, maxRequests, urlFilter, maxConsoleLogs);
+    await startCapture(tabId, maxRequests, urlFilter, maxConsoleLogs, maxWsFrames);
     sendSuccessResult(id, { enabled: true, tabId });
   } catch (err) {
     sendErrorResult(id, err);
@@ -61,6 +69,18 @@ export const handleBrowserClearConsoleLogs = (params: Record<string, unknown>, i
     if (tabId === null) return;
     clearConsoleLogs(tabId);
     sendSuccessResult(id, { cleared: true });
+  } catch (err) {
+    sendErrorResult(id, err);
+  }
+};
+
+export const handleBrowserGetWebSocketFrames = (params: Record<string, unknown>, id: string | number): void => {
+  try {
+    const tabId = requireTabId(params, id);
+    if (tabId === null) return;
+    const clear = typeof params.clear === 'boolean' ? params.clear : false;
+    const frames = getWsFrames(tabId, clear);
+    sendSuccessResult(id, { frames });
   } catch (err) {
     sendErrorResult(id, err);
   }

@@ -36,6 +36,7 @@ const {
   mockHandleBrowserDeleteCookies,
   mockHandleBrowserEnableNetworkCapture,
   mockHandleBrowserGetNetworkRequests,
+  mockHandleBrowserGetWebSocketFrames,
   mockHandleBrowserDisableNetworkCapture,
   mockHandleBrowserGetConsoleLogs,
   mockHandleBrowserClearConsoleLogs,
@@ -121,6 +122,7 @@ const {
       asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
     ),
     mockHandleBrowserGetNetworkRequests: vi.fn(syncNoop),
+    mockHandleBrowserGetWebSocketFrames: vi.fn(syncNoop),
     mockHandleBrowserDisableNetworkCapture: vi.fn(syncNoop),
     mockHandleBrowserGetConsoleLogs: vi.fn(syncNoop),
     mockHandleBrowserClearConsoleLogs: vi.fn(syncNoop),
@@ -229,6 +231,7 @@ vi.mock('./browser-commands/index.js', () => ({
   handleBrowserDeleteCookies: mockHandleBrowserDeleteCookies,
   handleBrowserEnableNetworkCapture: mockHandleBrowserEnableNetworkCapture,
   handleBrowserGetNetworkRequests: mockHandleBrowserGetNetworkRequests,
+  handleBrowserGetWebSocketFrames: mockHandleBrowserGetWebSocketFrames,
   handleBrowserDisableNetworkCapture: mockHandleBrowserDisableNetworkCapture,
   handleBrowserGetConsoleLogs: mockHandleBrowserGetConsoleLogs,
   handleBrowserClearConsoleLogs: mockHandleBrowserClearConsoleLogs,
@@ -636,6 +639,7 @@ const resetRoutingMocks = (): void => {
   mockHandleBrowserDeleteCookies.mockReset();
   mockHandleBrowserEnableNetworkCapture.mockReset();
   mockHandleBrowserGetNetworkRequests.mockReset();
+  mockHandleBrowserGetWebSocketFrames.mockReset();
   mockHandleBrowserDisableNetworkCapture.mockReset();
   mockHandleBrowserGetConsoleLogs.mockReset();
   mockHandleBrowserClearConsoleLogs.mockReset();
