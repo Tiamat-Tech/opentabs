@@ -85,34 +85,48 @@ interface SiteAnalysis {
 }
 
 /**
- * Call plugin_analyze_site and parse the result as SiteAnalysis.
- * Uses a longer timeout because the tool opens a tab, waits for network
- * activity, and runs multiple detection scripts.
+ * Call plugin_analyze_site for a path on the shared analyzeSiteServer and
+ * parse the result as SiteAnalysis. Uses a longer timeout because the tool
+ * opens a tab, waits for network activity, and runs multiple detection scripts.
  *
  * The server-side handler closes the analysis tab in a finally block, but
  * this helper also snapshots tabs before/after and closes any leftovers
  * as a safety net to prevent tab accumulation across 11+ tests.
+ *
+ * Throws immediately with a clear message if the shared server failed to start.
  */
-const analyzeSite = async (mcpClient: McpClient, url: string, waitSeconds = 3): Promise<SiteAnalysis> => {
-  // Snapshot tab IDs before the analysis
+const analyzeSite = async (mcpClient: McpClient, path: string, waitSeconds = 3): Promise<SiteAnalysis> => {
+  if (!analyzeSiteServer) throw new Error('analyzeSiteServer not initialized — beforeAll may have failed');
+
+  const url = `${analyzeSiteServer.url}${path}`;
+
+  // Snapshot tab IDs before the analysis (outside try/finally so it's available in cleanup)
   const beforeResult = await mcpClient.callTool('browser_list_tabs');
   const tabsBefore = new Set((JSON.parse(beforeResult.content) as Array<{ id: number }>).map(t => t.id));
 
-  const result = await mcpClient.callTool('plugin_analyze_site', { url, waitSeconds }, { timeout: 60_000 });
-  if (result.isError) {
-    throw new Error(`plugin_analyze_site returned error: ${result.content}`);
-  }
-
-  // Close any tabs that appeared during the analysis (safety net)
-  const afterResult = await mcpClient.callTool('browser_list_tabs');
-  const tabsAfter = JSON.parse(afterResult.content) as Array<{ id: number }>;
-  for (const tab of tabsAfter) {
-    if (!tabsBefore.has(tab.id)) {
-      await mcpClient.callTool('browser_close_tab', { tabId: tab.id }).catch(() => {});
+  let resultContent = '';
+  try {
+    const result = await mcpClient.callTool('plugin_analyze_site', { url, waitSeconds }, { timeout: 60_000 });
+    if (result.isError) {
+      throw new Error(`plugin_analyze_site returned error: ${result.content}`);
+    }
+    resultContent = result.content;
+  } finally {
+    // Close any tabs that appeared during the analysis (safety net — runs even if the tool call throws)
+    try {
+      const afterResult = await mcpClient.callTool('browser_list_tabs');
+      const tabsAfter = JSON.parse(afterResult.content) as Array<{ id: number }>;
+      for (const tab of tabsAfter) {
+        if (!tabsBefore.has(tab.id)) {
+          await mcpClient.callTool('browser_close_tab', { tabId: tab.id }).catch(() => {});
+        }
+      }
+    } catch {
+      // best-effort cleanup — ignore errors so the original exception is not suppressed
     }
   }
 
-  return parseToolResult(result.content) as unknown as SiteAnalysis;
+  return parseToolResult(resultContent) as unknown as SiteAnalysis;
 };
 
 // ---------------------------------------------------------------------------
@@ -140,8 +154,7 @@ test.describe('plugin_analyze_site — cookie session auth', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/cookie-session/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/cookie-session/');
 
     // --- Auth detection ---
     expect(analysis.auth.authenticated).toBe(true);
@@ -206,9 +219,7 @@ test.describe('plugin_analyze_site — JWT localStorage auth', () => {
   }) => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
-
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/jwt-localstorage/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/jwt-localstorage/');
 
     // --- Auth detection ---
     expect(analysis.auth.authenticated).toBe(true);
@@ -257,8 +268,7 @@ test.describe('plugin_analyze_site — GraphQL API', () => {
     await waitForLog(mcpServer, 'tab.syncAll received');
 
     // The GraphQL page is served at /graphql-app/ (distinct from the /graphql API endpoint)
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/graphql-app/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/graphql-app/');
 
     // --- API detection ---
     // The page makes 3 POST requests to /graphql (GetUsers, GetItems, CreateItem)
@@ -299,9 +309,7 @@ test.describe('plugin_analyze_site — JSON-RPC API', () => {
   }) => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
-
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/jsonrpc-app/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/jsonrpc-app/');
 
     // --- API detection ---
     // The page makes 2 POST requests to /rpc (getItems, createItem), deduplicated to 1 entry
@@ -331,9 +339,7 @@ test.describe('plugin_analyze_site — API key header auth', () => {
   }) => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
-
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/apikey-app/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/apikey-app/');
 
     // --- Auth detection ---
     expect(analysis.auth.authenticated).toBe(true);
@@ -368,9 +374,7 @@ test.describe('plugin_analyze_site — Next.js SSR app', () => {
   }) => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
-
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/nextjs-app/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/nextjs-app/');
 
     // --- Framework detection ---
     // The page sets window.__NEXT_DATA__ which the framework probe detects as nextjs
@@ -417,9 +421,7 @@ test.describe('plugin_analyze_site — tRPC API', () => {
   test('detects tRPC protocol in API calls', async ({ mcpServer, extensionContext: _extensionContext, mcpClient }) => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
-
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/trpc-app/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/trpc-app/');
 
     // --- API detection ---
     // The page makes 2 GET queries (user.list, item.list) and 1 POST mutation (item.create)
@@ -452,9 +454,7 @@ test.describe('plugin_analyze_site — WebSocket real-time connection', () => {
   }) => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
-
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/websocket-app/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/websocket-app/');
 
     // --- WebSocket detection ---
     // The page creates exactly one WebSocket connection (ws://host/ws?token=...)
@@ -492,9 +492,7 @@ test.describe('plugin_analyze_site — mixed auth (cookie + CSRF + Bearer)', () 
   }) => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
-
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/mixed-auth/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/mixed-auth/');
 
     // --- Cookie-session auth ---
     expect(analysis.auth.authenticated).toBe(true);
@@ -563,9 +561,7 @@ test.describe('plugin_analyze_site — SPA with client-side routing', () => {
   }) => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
-
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/spa-app/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/spa-app/');
 
     // --- Framework detection ---
     // The page sets window.__REACT_DEVTOOLS_GLOBAL_HOOK__ with renderers
@@ -590,9 +586,7 @@ test.describe('plugin_analyze_site — suggestion generation quality', () => {
   }) => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
-
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/suggestions-app/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/suggestions-app/');
 
     // --- Suggestions array: 3 REST + form suggestions ---
     // The page has 3 REST API calls (GET items, POST items, GET users) and 2 forms,
@@ -659,9 +653,7 @@ test.describe('plugin_analyze_site — sessionStorage JWT auth', () => {
   }) => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
-
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/jwt-sessionstorage/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/jwt-sessionstorage/');
 
     // --- Auth detection ---
     expect(analysis.auth.authenticated).toBe(true);
@@ -708,9 +700,7 @@ test.describe('plugin_analyze_site — Basic Auth', () => {
   }) => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
-
-    const siteUrl = `${analyzeSiteServer?.url ?? ''}/basicauth-app/`;
-    const analysis = await analyzeSite(mcpClient, siteUrl);
+    const analysis = await analyzeSite(mcpClient, '/basicauth-app/');
 
     // --- Auth detection ---
     expect(analysis.auth.authenticated).toBe(true);
