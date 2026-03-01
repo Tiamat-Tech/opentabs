@@ -24,7 +24,29 @@ import {
 } from './fixtures.js';
 import { waitForLog, waitForExtensionConnected, waitForToolList, parseToolResult, setupToolTest } from './helpers.js';
 import { execSync } from 'node:child_process';
-import fs from 'node:fs';
+import fs, { readFileSync } from 'node:fs';
+
+/**
+ * Checks whether a process is dead (exited or zombie). On Linux, reads
+ * /proc/<pid>/status to detect zombie state (State: Z), which
+ * process.kill(pid, 0) cannot distinguish from a running process. Falls
+ * back to the signal-zero check on platforms without /proc (e.g. macOS).
+ */
+const isProcessDead = (pid: number): boolean => {
+  try {
+    const status = readFileSync(`/proc/${pid}/status`, 'utf-8');
+    if (/^State:\s+Z/m.test(status)) return true;
+    return false;
+  } catch {
+    // /proc not available (macOS) or process entry gone (fully reaped)
+    try {
+      process.kill(pid, 0);
+      return false;
+    } catch {
+      return true;
+    }
+  }
+};
 
 test.describe('Dev proxy request buffering', () => {
   test('HTTP request during worker restart is buffered and succeeds after drain', async () => {
@@ -208,17 +230,15 @@ test.describe('Dev proxy graceful shutdown', () => {
       // SIGTERM to the worker and calls process.exit(0), the worker should
       // also be dead. Poll each worker PID until it exits (up to 5 seconds)
       // to accommodate slower process teardown in Docker containers.
+      // Uses isProcessDead() to detect zombie processes, which linger in
+      // the process table in Docker containers without an init process.
       for (const workerPid of workerPids) {
-        let alive = true;
-        for (let attempt = 0; attempt < 50 && alive; attempt++) {
-          try {
-            process.kill(workerPid, 0);
-            await new Promise(r => setTimeout(r, 100));
-          } catch {
-            alive = false;
-          }
+        let dead = false;
+        for (let attempt = 0; attempt < 50 && !dead; attempt++) {
+          dead = isProcessDead(workerPid);
+          if (!dead) await new Promise(r => setTimeout(r, 100));
         }
-        expect(alive).toBe(false);
+        expect(dead).toBe(true);
       }
     } finally {
       // The proxy is already dead from SIGTERM, but call kill() defensively
