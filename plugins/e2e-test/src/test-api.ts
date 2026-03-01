@@ -14,11 +14,29 @@ const testApi = async <T extends Record<string, unknown>>(
   endpoint: string,
   body: Record<string, unknown> = {},
 ): Promise<T & { ok: true }> => {
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const signal = AbortSignal.timeout(30_000);
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      throw ToolError.timeout(`testApi: request timed out after 30000ms for ${endpoint}`);
+    }
+    if (signal.aborted) {
+      throw new ToolError(`testApi: request aborted for ${endpoint}`, 'aborted');
+    }
+    throw new ToolError(
+      `testApi: network error for ${endpoint}: ${error instanceof Error ? error.message : String(error)}`,
+      'network_error',
+      { category: 'internal', retryable: true },
+    );
+  }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => response.statusText);
