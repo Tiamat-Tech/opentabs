@@ -7,6 +7,12 @@
  */
 
 // ---------------------------------------------------------------------------
+// Browser tools catalog — static metadata generated at build time
+// ---------------------------------------------------------------------------
+
+export { BROWSER_TOOLS_CATALOG, type BrowserToolMeta } from './generated/browser-tools-catalog.js';
+
+// ---------------------------------------------------------------------------
 // Cross-platform utilities
 // ---------------------------------------------------------------------------
 
