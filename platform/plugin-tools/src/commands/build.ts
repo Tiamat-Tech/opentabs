@@ -42,9 +42,10 @@ import type { FSWatcher } from 'node:fs';
 
 const DEBOUNCE_MS = 100;
 
-// Rotating cache key for bounded module cache growth in watch mode.
-// Alternates between 0 and 1 so the ESM module cache holds at most 2 entries
-// for the plugin entry point, instead of accumulating one entry per rebuild.
+// Monotonically increasing counter used to cache-bust ESM imports in watch mode.
+// Each rebuild uses a unique query string (?t=N) so Node.js never returns a cached
+// module from a previous build. The cache grows by one entry per rebuild, which is
+// acceptable for a dev-only watch loop bounded by developer activity.
 let pluginCacheKey = 0;
 
 /** Write config atomically with restrictive permissions via the shared helper. */
@@ -1053,9 +1054,9 @@ const runBuild = async (projectDir: string): Promise<void> => {
   }
 
   // Step 2: Dynamically import the plugin module (cache-bust for watch mode rebuilds)
-  // Alternates between 0 and 1 so the ESM module cache holds at most 2 entries for the
-  // plugin entry point, preventing Node.js from returning stale cached modules on rebuild.
-  pluginCacheKey = 1 - pluginCacheKey;
+  // Increment the counter before each import to guarantee a unique query string (?t=N)
+  // that Node.js has never seen before, ensuring it reads the rebuilt file from disk.
+  pluginCacheKey++;
   console.log(pc.dim('Loading plugin module...'));
   const mod = (await import(`${entryPoint}?t=${String(pluginCacheKey)}`)) as { default?: OpenTabsPlugin };
   const defaultExport = mod.default;
