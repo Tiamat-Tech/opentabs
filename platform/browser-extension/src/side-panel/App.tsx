@@ -46,6 +46,7 @@ const App = () => {
   const lastFetchRef = useRef(0);
   const pendingTabStates = useRef<Map<string, TabState>>(new Map());
   const npmSearchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const npmSearchCounter = useRef(0);
 
   const connectedRef = useRef(connected);
   const loadingRef = useRef(loading);
@@ -74,16 +75,23 @@ const App = () => {
       return;
     }
     setNpmSearching(true);
+    const searchId = ++npmSearchCounter.current;
     npmSearchTimer.current = setTimeout(() => {
       searchPlugins(query)
         .then(result => {
-          setNpmResults(result.results);
+          if (npmSearchCounter.current === searchId) {
+            setNpmResults(result.results);
+          }
         })
         .catch(() => {
-          setNpmResults([]);
+          if (npmSearchCounter.current === searchId) {
+            setNpmResults([]);
+          }
         })
         .finally(() => {
-          setNpmSearching(false);
+          if (npmSearchCounter.current === searchId) {
+            setNpmSearching(false);
+          }
         });
     }, 400);
   };
@@ -264,7 +272,10 @@ const App = () => {
     };
 
     chrome.runtime.onMessage.addListener(listener);
-    return () => chrome.runtime.onMessage.removeListener(listener);
+    return () => {
+      clearTimeout(npmSearchTimer.current);
+      chrome.runtime.onMessage.removeListener(listener);
+    };
   }, [handleNotification]);
 
   const handleConfirmationRespond = (
