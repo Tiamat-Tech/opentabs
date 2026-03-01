@@ -310,6 +310,13 @@ const handleStart = async (options: StartOptions): Promise<void> => {
 
   if (options.background) {
     const logStream = createWriteStream(logFilePath, { flags: 'a', mode: 0o600 });
+    await new Promise<void>((resolve, reject) => {
+      logStream.once('open', () => resolve());
+      logStream.once('error', reject);
+    }).catch((err: unknown) => {
+      console.error(pc.red(`Error: Failed to open log file ${logFilePath}: ${toErrorMessage(err)}`));
+      process.exit(1);
+    });
     const child = spawn(platformExec('node'), [serverEntry], {
       env: env as NodeJS.ProcessEnv,
       stdio: ['ignore', logStream, logStream],
