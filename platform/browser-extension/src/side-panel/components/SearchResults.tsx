@@ -1,7 +1,7 @@
 import { NpmPluginCard } from './NpmPluginCard';
 import { PluginList } from './PluginList';
 import { Loader } from './retro/Loader';
-import { matchesPlugin } from '../bridge';
+import { extractShortName, matchesPlugin } from '../bridge';
 import type { FailedPluginState, PluginSearchResult, PluginState } from '../bridge';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 
@@ -20,14 +20,6 @@ interface SearchResultsProps {
   onRemove?: (pluginName: string) => void;
   removingPlugins?: Set<string>;
 }
-
-/**
- * Extracts a normalized short name from an npm package name for deduplication.
- * "@opentabs-dev/opentabs-plugin-slack" → "slack"
- * "opentabs-plugin-datadog" → "datadog"
- * "slack" → "slack"
- */
-const extractShortName = (name: string): string => (name.split('/').pop() ?? name).replace(/^opentabs-plugin-/, '');
 
 const SectionHeader = ({ children }: { children: ReactNode }) => (
   <div className="font-head text-muted-foreground mb-1.5 text-[10px] tracking-widest uppercase">{children}</div>

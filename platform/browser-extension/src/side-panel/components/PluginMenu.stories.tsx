@@ -52,7 +52,9 @@ const WithUpdate: Story = {
 const LocalPlugin: Story = {
   render: () => (
     <div>
-      <p className="text-muted-foreground mb-2 text-xs">Local plugin — PluginMenu renders nothing (null):</p>
+      <p className="text-muted-foreground mb-2 text-xs">
+        Local plugin — menu shows &ldquo;Remove&rdquo; instead of &ldquo;Uninstall&rdquo;:
+      </p>
       <PluginMenu
         plugin={mockNpmPlugin({ source: 'local' })}
         onUpdate={() => undefined}
@@ -60,7 +62,6 @@ const LocalPlugin: Story = {
         updating={false}
         removing={false}
       />
-      <p className="text-muted-foreground mt-2 text-xs">(nothing rendered above)</p>
     </div>
   ),
 };
@@ -126,7 +127,7 @@ const AllStates: Story = {
         />
       </div>
       <div>
-        <p className="text-muted-foreground mb-1 text-xs">Local plugin (renders nothing)</p>
+        <p className="text-muted-foreground mb-1 text-xs">Local plugin (shows &ldquo;Remove&rdquo;)</p>
         <PluginMenu
           plugin={mockNpmPlugin({ source: 'local' })}
           onUpdate={() => undefined}

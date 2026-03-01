@@ -45,11 +45,23 @@ const matchesTool = (tool: PluginState['tools'][number], filterLower: string): b
   tool.name.toLowerCase().includes(filterLower) ||
   tool.description.toLowerCase().includes(filterLower);
 
-/** Returns true if a plugin's displayName, name, or any tool matches the filter string */
+/** Returns true if a plugin's displayName, name, or any tool name matches the filter string.
+ * Tool descriptions are excluded to avoid false positives (e.g., "slack" matching unrelated
+ * plugins that mention Slack in a tool description). */
 const matchesPlugin = (plugin: PluginState, filterLower: string): boolean =>
   plugin.displayName.toLowerCase().includes(filterLower) ||
   plugin.name.toLowerCase().includes(filterLower) ||
-  plugin.tools.some(tool => matchesTool(tool, filterLower));
+  plugin.tools.some(
+    tool => tool.displayName.toLowerCase().includes(filterLower) || tool.name.toLowerCase().includes(filterLower),
+  );
+
+/**
+ * Extracts a normalized short name from an npm package name for deduplication.
+ * "@opentabs-dev/opentabs-plugin-slack" → "slack"
+ * "opentabs-plugin-datadog" → "datadog"
+ * "slack" → "slack"
+ */
+const extractShortName = (name: string): string => (name.split('/').pop() ?? name).replace(/^opentabs-plugin-/, '');
 
 /** Timeout for pending JSON-RPC requests relayed through the background script (ms) */
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -203,6 +215,7 @@ export type { FailedPluginState, PluginInstallResult, PluginSearchResult, Plugin
 export {
   getConnectionState,
   fetchConfigState,
+  extractShortName,
   matchesPlugin,
   matchesTool,
   setToolEnabled,

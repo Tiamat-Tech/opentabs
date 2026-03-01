@@ -1,11 +1,19 @@
 import {
+  extractShortName,
   fetchConfigState,
   handleServerResponse,
+  installPlugin,
+  matchesPlugin,
+  matchesTool,
   rejectAllPending,
+  removePlugin,
+  searchPlugins,
   setAllToolsEnabled,
   setToolEnabled,
+  updatePlugin,
 } from './bridge.js';
 import { afterEach, beforeEach, describe, expect, vi, test } from 'vitest';
+import type { PluginState } from './bridge.js';
 
 /** Captured sendMessage calls. Each entry has the message object passed to sendMessage. */
 let sendMessageCalls: Array<{ message: unknown }> = [];
@@ -323,5 +331,285 @@ describe('getConnectionState', () => {
     const { getConnectionState } = await import('./bridge.js');
     const result = await getConnectionState();
     expect(result).toEqual({ connected: false, disconnectReason: undefined });
+  });
+});
+
+// --- Helper to create a minimal PluginState for testing ---
+
+const tool = (overrides?: Partial<PluginState['tools'][number]>): PluginState['tools'][number] => ({
+  name: 'send_message',
+  displayName: 'Send Message',
+  description: 'Send a message to a Slack channel',
+  icon: 'send',
+  enabled: true,
+  ...overrides,
+});
+
+const plugin = (overrides?: Partial<PluginState>): PluginState => ({
+  name: 'slack',
+  displayName: 'Slack',
+  version: '0.1.0',
+  trustTier: 'community',
+  source: 'npm',
+  tabState: 'ready',
+  urlPatterns: ['*://*.slack.com/*'],
+  sdkVersion: '0.0.3',
+  tools: [tool()],
+  ...overrides,
+});
+
+// --- matchesTool ---
+
+describe('matchesTool', () => {
+  test('matches on tool displayName', () => {
+    expect(matchesTool(tool(), 'send message')).toBe(true);
+    expect(matchesTool(tool(), 'send')).toBe(true);
+  });
+
+  test('filterLower param must be lowercase (contract)', () => {
+    // matchesTool lowercases the tool fields but compares against filterLower as-is.
+    // Callers must pass a lowercase string.
+    expect(matchesTool(tool(), 'send')).toBe(true);
+    expect(matchesTool(tool(), 'SEND')).toBe(false);
+  });
+
+  test('matches on tool name (case-insensitive)', () => {
+    expect(matchesTool(tool(), 'send_message')).toBe(true);
+    expect(matchesTool(tool(), 'send_m')).toBe(true);
+  });
+
+  test('matches on tool description', () => {
+    expect(matchesTool(tool(), 'slack channel')).toBe(true);
+  });
+
+  test('does not match unrelated query', () => {
+    expect(matchesTool(tool(), 'github')).toBe(false);
+  });
+
+  test('matches partial substring', () => {
+    expect(matchesTool(tool(), 'end_mes')).toBe(true);
+  });
+
+  test('empty filter matches everything', () => {
+    expect(matchesTool(tool(), '')).toBe(true);
+  });
+});
+
+// --- matchesPlugin ---
+
+describe('matchesPlugin', () => {
+  test('matches on plugin displayName', () => {
+    expect(matchesPlugin(plugin(), 'slack')).toBe(true);
+    expect(matchesPlugin(plugin(), 'sla')).toBe(true);
+  });
+
+  test('filterLower param must be lowercase (contract)', () => {
+    expect(matchesPlugin(plugin(), 'slack')).toBe(true);
+    expect(matchesPlugin(plugin(), 'SLACK')).toBe(false);
+  });
+
+  test('matches on plugin name', () => {
+    expect(matchesPlugin(plugin(), 'slack')).toBe(true);
+  });
+
+  test('matches on tool name', () => {
+    expect(matchesPlugin(plugin(), 'send_message')).toBe(true);
+  });
+
+  test('matches on tool displayName', () => {
+    expect(matchesPlugin(plugin(), 'send message')).toBe(true);
+  });
+
+  test('does NOT match on tool description', () => {
+    // The tool description says "Send a message to a Slack channel"
+    // but matchesPlugin should not match on description text alone
+    const p = plugin({
+      name: 'e2e-test',
+      displayName: 'E2E Test',
+      tools: [tool({ name: 'do_thing', displayName: 'Do Thing', description: 'Does something with Slack' })],
+    });
+    expect(matchesPlugin(p, 'slack')).toBe(false);
+  });
+
+  test('does not match unrelated query', () => {
+    expect(matchesPlugin(plugin(), 'github')).toBe(false);
+  });
+
+  test('matches when any tool name matches', () => {
+    const p = plugin({
+      tools: [
+        tool({ name: 'list_channels', displayName: 'List Channels' }),
+        tool({ name: 'send_message', displayName: 'Send Message' }),
+      ],
+    });
+    expect(matchesPlugin(p, 'list_channels')).toBe(true);
+  });
+
+  test('empty filter matches everything', () => {
+    expect(matchesPlugin(plugin(), '')).toBe(true);
+  });
+
+  test('plugin with no tools only matches on name/displayName', () => {
+    const p = plugin({ tools: [] });
+    expect(matchesPlugin(p, 'slack')).toBe(true);
+    expect(matchesPlugin(p, 'send')).toBe(false);
+  });
+});
+
+// --- extractShortName ---
+
+describe('extractShortName', () => {
+  test('extracts short name from scoped npm package', () => {
+    expect(extractShortName('@opentabs-dev/opentabs-plugin-slack')).toBe('slack');
+  });
+
+  test('extracts short name from unscoped npm package', () => {
+    expect(extractShortName('opentabs-plugin-datadog')).toBe('datadog');
+  });
+
+  test('returns bare name unchanged', () => {
+    expect(extractShortName('slack')).toBe('slack');
+  });
+
+  test('handles scoped package without opentabs-plugin prefix', () => {
+    expect(extractShortName('@org/my-tool')).toBe('my-tool');
+  });
+
+  test('handles empty string', () => {
+    expect(extractShortName('')).toBe('');
+  });
+
+  test('handles deeply nested scope', () => {
+    expect(extractShortName('@a/b/opentabs-plugin-x')).toBe('x');
+  });
+
+  test('only strips the opentabs-plugin- prefix, not other prefixes', () => {
+    expect(extractShortName('my-plugin-slack')).toBe('my-plugin-slack');
+  });
+});
+
+// --- plugin management bridge functions ---
+
+describe('searchPlugins', () => {
+  test('sends JSON-RPC with method plugin.search and correct params', () => {
+    const promise = searchPlugins('slack');
+
+    expect(sendMessageCalls).toHaveLength(1);
+    const entry = sendMessageCalls.at(0);
+    if (!entry) throw new Error('Expected sendMessage call');
+    const msg = entry.message as { type: string; data: Record<string, unknown> };
+    expect(msg.type).toBe('bg:send');
+    expect(msg.data.method).toBe('plugin.search');
+    expect(msg.data.params).toEqual({ query: 'slack' });
+
+    cleanupPending(promise);
+  });
+
+  test('resolves with search results from server', async () => {
+    const promise = searchPlugins('slack');
+    const id = getLastRequestId();
+
+    const payload = {
+      results: [{ name: 'slack', description: 'Slack', version: '1.0', author: 'x', isOfficial: true }],
+    };
+    handleServerResponse({ id, result: payload });
+
+    const result = await promise;
+    expect(result).toEqual(payload);
+  });
+});
+
+describe('installPlugin', () => {
+  test('sends JSON-RPC with method plugin.install and correct params', () => {
+    const promise = installPlugin('@opentabs-dev/opentabs-plugin-slack');
+
+    expect(sendMessageCalls).toHaveLength(1);
+    const entry = sendMessageCalls.at(0);
+    if (!entry) throw new Error('Expected sendMessage call');
+    const msg = entry.message as { type: string; data: Record<string, unknown> };
+    expect(msg.data.method).toBe('plugin.install');
+    expect(msg.data.params).toEqual({ name: '@opentabs-dev/opentabs-plugin-slack' });
+
+    cleanupPending(promise);
+  });
+
+  test('resolves with install result from server', async () => {
+    const promise = installPlugin('slack');
+    const id = getLastRequestId();
+
+    const payload = { ok: true, plugin: { name: 'slack', displayName: 'Slack', version: '1.0', toolCount: 3 } };
+    handleServerResponse({ id, result: payload });
+
+    const result = await promise;
+    expect(result).toEqual(payload);
+  });
+
+  test('rejects with server error on install failure', async () => {
+    const promise = installPlugin('nonexistent');
+    const id = getLastRequestId();
+
+    handleServerResponse({ id, error: { message: 'Package not found in registry' } });
+
+    await expectRejection(promise, 'Package not found in registry');
+  });
+});
+
+describe('removePlugin', () => {
+  test('sends JSON-RPC with method plugin.remove and correct params', () => {
+    const promise = removePlugin('slack');
+
+    expect(sendMessageCalls).toHaveLength(1);
+    const entry = sendMessageCalls.at(0);
+    if (!entry) throw new Error('Expected sendMessage call');
+    const msg = entry.message as { type: string; data: Record<string, unknown> };
+    expect(msg.data.method).toBe('plugin.remove');
+    expect(msg.data.params).toEqual({ name: 'slack' });
+
+    cleanupPending(promise);
+  });
+
+  test('resolves with ok result from server', async () => {
+    const promise = removePlugin('slack');
+    const id = getLastRequestId();
+
+    handleServerResponse({ id, result: { ok: true } });
+
+    const result = await promise;
+    expect(result).toEqual({ ok: true });
+  });
+
+  test('rejects when plugin is not installed', async () => {
+    const promise = removePlugin('nonexistent');
+    const id = getLastRequestId();
+
+    handleServerResponse({ id, error: { message: 'Plugin not installed' } });
+
+    await expectRejection(promise, 'Plugin not installed');
+  });
+});
+
+describe('updatePlugin', () => {
+  test('sends JSON-RPC with method plugin.updateFromRegistry and correct params', () => {
+    const promise = updatePlugin('slack');
+
+    expect(sendMessageCalls).toHaveLength(1);
+    const entry = sendMessageCalls.at(0);
+    if (!entry) throw new Error('Expected sendMessage call');
+    const msg = entry.message as { type: string; data: Record<string, unknown> };
+    expect(msg.data.method).toBe('plugin.updateFromRegistry');
+    expect(msg.data.params).toEqual({ name: 'slack' });
+
+    cleanupPending(promise);
+  });
+
+  test('resolves with update result from server', async () => {
+    const promise = updatePlugin('slack');
+    const id = getLastRequestId();
+
+    const payload = { ok: true, plugin: { name: 'slack', displayName: 'Slack', version: '2.0', toolCount: 5 } };
+    handleServerResponse({ id, result: payload });
+
+    const result = await promise;
+    expect(result).toEqual(payload);
   });
 });

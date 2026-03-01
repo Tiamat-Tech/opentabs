@@ -1,6 +1,6 @@
 import { Loader } from './retro/Loader';
 import { Menu } from './retro/Menu';
-import { MoreHorizontal } from 'lucide-react';
+import { ArrowUpCircle, MoreHorizontal, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { PluginState } from '../bridge';
 
@@ -21,9 +21,10 @@ const PluginMenu = ({ plugin, onUpdate, onRemove, updating, removing, className 
 
   useEffect(() => () => clearTimeout(confirmTimerRef.current), []);
 
-  if (plugin.source === 'local') return null;
+  const isLocal = plugin.source === 'local';
+  const removeLabel = isLocal ? 'Remove' : 'Uninstall';
 
-  const handleUninstallClick = () => {
+  const handleRemoveClick = () => {
     if (confirmPending) {
       clearTimeout(confirmTimerRef.current);
       setConfirmPending(false);
@@ -52,17 +53,17 @@ const PluginMenu = ({ plugin, onUpdate, onRemove, updating, removing, className 
         </Menu.Trigger>
         <Menu.Content align="end">
           {plugin.update && (
-            <Menu.Item onClick={onUpdate} className="flex items-center gap-2">
-              {updating && <Loader size="sm" />}
+            <Menu.Item onClick={onUpdate}>
+              {updating ? <Loader size="sm" /> : <ArrowUpCircle className="h-3.5 w-3.5" />}
               Update to v{plugin.update.latestVersion}
             </Menu.Item>
           )}
           {plugin.update && <Menu.Separator />}
           <Menu.Item
-            onClick={handleUninstallClick}
-            className="text-destructive hover:text-destructive data-[highlighted]:text-destructive flex items-center gap-2">
-            {removing && <Loader size="sm" />}
-            {confirmPending ? 'Confirm?' : 'Uninstall'}
+            onClick={handleRemoveClick}
+            className="text-destructive focus:bg-destructive/10 focus:text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive">
+            {removing ? <Loader size="sm" /> : <Trash2 className="h-3.5 w-3.5" />}
+            {confirmPending ? 'Confirm?' : removeLabel}
           </Menu.Item>
         </Menu.Content>
       </Menu>
