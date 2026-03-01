@@ -58,7 +58,7 @@ const normalizeConfigForDisplay = (config: Record<string, unknown>): Record<stri
   return normalized;
 };
 
-const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
+const handleConfigShow = async (options: ConfigShowOptions & { port?: number }): Promise<void> => {
   const configPath = getConfigPath();
   const result = await readConfig(configPath);
 
@@ -80,7 +80,7 @@ const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
   if (options.json) {
     let mcpClients: Record<string, { name: string; file: string; json: Record<string, unknown> }> | undefined;
     if (options.showSecret) {
-      const port = typeof config.port === 'number' ? config.port : DEFAULT_PORT;
+      const port = resolvePort(options);
       const mcpUrl = `http://127.0.0.1:${port}/mcp`;
       mcpClients = Object.fromEntries(
         getMcpClientConfigs(mcpUrl, secret).map(({ label, file, json }) => [label, { name: label, file, json }]),
@@ -200,7 +200,7 @@ const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
     }
 
     if (options.showSecret && secret) {
-      const port = typeof config.port === 'number' ? config.port : DEFAULT_PORT;
+      const port = resolvePort(options);
       const mcpUrl = `http://127.0.0.1:${port}/mcp`;
       console.log('');
       console.log(pc.dim('  MCP client config (add to your client):'));
@@ -473,16 +473,17 @@ const handleSetPort = async (value: string, options: { port?: number }): Promise
   console.log(`port: ${pc.cyan(String(newPort))}`);
 
   if (newPort !== oldPort) {
-    // Port is changing: notify the server on the old (currently running) port.
-    // If reached, show a restart reminder mentioning the old port.
+    // Port is changing: notify the server on the actual running port.
+    // If reached, show a restart reminder mentioning the running port.
+    const runningPort = resolvePort(options);
     await notifyServer({
-      port: options.port ?? oldPort,
+      port: runningPort,
       warnIfNotRunning: true,
-      successMessage: pc.yellow(`Server running on port ${oldPort}. Restart to apply port change.`),
+      successMessage: pc.yellow(`Server running on port ${runningPort}. Restart to apply port change.`),
     });
   } else {
     console.log(pc.yellow('Restart the MCP server for the port change to take effect.'));
-    await notifyServer({ port: options.port, warnIfNotRunning: true });
+    await notifyServer({ port: resolvePort(options), warnIfNotRunning: true });
   }
 };
 
@@ -806,7 +807,7 @@ Examples:
   $ opentabs config show --json
   $ opentabs config show --show-secret`,
     )
-    .action((options: ConfigShowOptions) => handleConfigShow(options));
+    .action((_options: ConfigShowOptions, command: Command) => handleConfigShow(command.optsWithGlobals()));
 
   configCmd
     .command('reset')
