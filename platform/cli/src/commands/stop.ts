@@ -6,7 +6,7 @@
  * to a health-check probe when no PID file exists.
  */
 
-import { isConnectionRefused, getPidFilePath } from '../config.js';
+import { isConnectionRefused, getPidFilePath, readAuthSecret } from '../config.js';
 import { parsePort, resolvePort } from '../parse-port.js';
 import pc from 'picocolors';
 import { readFile, unlink } from 'node:fs/promises';
@@ -86,8 +86,12 @@ const handleStop = async (options: StopOptions): Promise<void> => {
   const port = resolvePort(options);
   const url = `http://localhost:${port}/health`;
 
+  const secret = await readAuthSecret();
+  const headers: Record<string, string> = {};
+  if (secret) headers['Authorization'] = `Bearer ${secret}`;
+
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(3_000) });
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(3_000) });
     if (res.ok) {
       const data = (await res.json()) as Record<string, unknown>;
       if (typeof data.status === 'string' && typeof data.version === 'string') {
