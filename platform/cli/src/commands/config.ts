@@ -35,14 +35,28 @@ const maskSecret = (secret: string): string => {
   return '****';
 };
 
+const CANONICAL_CONFIG_SECTIONS = ['localPlugins', 'tools', 'browserToolPolicy', 'permissions'] as const;
+
 /**
  * Normalize a raw config object for display: ensures expected sections always appear
- * regardless of whether they were written to the config file. Does not modify the file.
+ * in canonical order (localPlugins, tools, browserToolPolicy, permissions) regardless
+ * of whether they were written to the config file. Does not modify the file.
  */
-const normalizeConfigForDisplay = (config: Record<string, unknown>): Record<string, unknown> => ({
-  ...config,
-  browserToolPolicy: config.browserToolPolicy ?? {},
-});
+const normalizeConfigForDisplay = (config: Record<string, unknown>): Record<string, unknown> => {
+  const normalized: Record<string, unknown> = {};
+  // Non-canonical keys (e.g., port) first, in their original config order
+  for (const key of Object.keys(config)) {
+    if (!(CANONICAL_CONFIG_SECTIONS as readonly string[]).includes(key)) {
+      normalized[key] = config[key];
+    }
+  }
+  // Canonical sections always appear in defined order with defaults for absent keys
+  normalized['localPlugins'] = config['localPlugins'] ?? [];
+  normalized['tools'] = config['tools'] ?? {};
+  normalized['browserToolPolicy'] = config['browserToolPolicy'] ?? {};
+  normalized['permissions'] = config['permissions'] ?? {};
+  return normalized;
+};
 
 const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
   const configPath = getConfigPath();

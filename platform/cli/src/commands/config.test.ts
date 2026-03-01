@@ -248,6 +248,33 @@ describe('normalizeConfigForDisplay', () => {
     expect(Object.hasOwn(result, 'browserToolPolicy')).toBe(true);
     expect(result['browserToolPolicy']).toEqual({});
   });
+
+  test('canonical sections always appear in order: localPlugins, tools, browserToolPolicy, permissions', () => {
+    // Offline case: browserToolPolicy absent — must still appear between tools and permissions
+    const result = normalizeConfigForDisplay({ localPlugins: [], tools: {}, permissions: {} });
+    const keys = Object.keys(result);
+    expect(keys.indexOf('localPlugins')).toBeLessThan(keys.indexOf('tools'));
+    expect(keys.indexOf('tools')).toBeLessThan(keys.indexOf('browserToolPolicy'));
+    expect(keys.indexOf('browserToolPolicy')).toBeLessThan(keys.indexOf('permissions'));
+  });
+
+  test('key ordering is identical whether browserToolPolicy is present or absent in input', () => {
+    const withoutPolicy = normalizeConfigForDisplay({ localPlugins: [], tools: {}, permissions: {} });
+    const withPolicy = normalizeConfigForDisplay({
+      localPlugins: [],
+      tools: {},
+      browserToolPolicy: { browser_execute_script: false },
+      permissions: {},
+    });
+    expect(Object.keys(withoutPolicy)).toEqual(Object.keys(withPolicy));
+  });
+
+  test('non-canonical keys (e.g., port) appear before canonical sections', () => {
+    const result = normalizeConfigForDisplay({ port: 9000, localPlugins: [], permissions: {} });
+    const keys = Object.keys(result);
+    expect(keys.indexOf('port')).toBeLessThan(keys.indexOf('localPlugins'));
+    expect(keys.indexOf('port')).toBeLessThan(keys.indexOf('browserToolPolicy'));
+  });
 });
 
 // ---------------------------------------------------------------------------
