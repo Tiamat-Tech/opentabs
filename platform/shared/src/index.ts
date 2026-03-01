@@ -208,6 +208,8 @@ export interface ToolDispatchParams {
   plugin: string;
   tool: string;
   input: Record<string, unknown>;
+  /** Optional tab ID for targeted dispatch to a specific browser tab */
+  tabId?: number;
 }
 
 /** tool.invocationStart notification: server → extension (side panel animation) */
@@ -228,17 +230,29 @@ export interface ToolInvocationEndParams {
 /** plugin.update notification: server → extension (file watcher / hot reload) */
 export type PluginUpdateParams = WirePluginPayload;
 
+/** Per-tab info reported by the extension for multi-tab state tracking */
+export interface PluginTabInfo {
+  /** Chrome tab ID */
+  tabId: number;
+  /** Current URL of the tab */
+  url: string;
+  /** Document title of the tab */
+  title: string;
+  /** Whether the plugin adapter is ready in this tab */
+  ready: boolean;
+}
+
 /** tab.stateChanged notification: extension → server */
 export interface TabStateChangedParams {
   plugin: string;
   state: TabState;
-  tabId: number | null;
-  url: string | null;
+  /** All matching tabs for this plugin with per-tab readiness */
+  tabs: PluginTabInfo[];
 }
 
 /** tab.syncAll notification: extension → server */
 export interface TabSyncAllParams {
-  tabs: Record<string, { state: TabState; tabId: number | null; url: string | null }>;
+  tabs: Record<string, { state: TabState; tabs: PluginTabInfo[] }>;
 }
 
 /** config.getState response payload */

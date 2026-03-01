@@ -306,8 +306,14 @@ describe('handleExtensionMessage — tab.syncAll', () => {
         method: 'tab.syncAll',
         params: {
           tabs: {
-            slack: { state: 'ready', tabId: 10, url: 'https://app.slack.com' },
-            github: { state: 'unavailable', tabId: 20, url: 'https://github.com' },
+            slack: {
+              state: 'ready',
+              tabs: [{ tabId: 10, url: 'https://app.slack.com', title: 'Slack', ready: true }],
+            },
+            github: {
+              state: 'unavailable',
+              tabs: [{ tabId: 20, url: 'https://github.com', title: 'GitHub', ready: false }],
+            },
           },
         },
       }),
@@ -315,14 +321,23 @@ describe('handleExtensionMessage — tab.syncAll', () => {
     );
 
     expect(state.tabMapping.size).toBe(2);
-    expect(state.tabMapping.get('slack')).toEqual({ state: 'ready', tabId: 10, url: 'https://app.slack.com' });
-    expect(state.tabMapping.get('github')).toEqual({ state: 'unavailable', tabId: 20, url: 'https://github.com' });
+    expect(state.tabMapping.get('slack')).toEqual({
+      state: 'ready',
+      tabs: [{ tabId: 10, url: 'https://app.slack.com', title: 'Slack', ready: true }],
+    });
+    expect(state.tabMapping.get('github')).toEqual({
+      state: 'unavailable',
+      tabs: [{ tabId: 20, url: 'https://github.com', title: 'GitHub', ready: false }],
+    });
   });
 
   test('clears previous tabMapping entries on sync', () => {
     const state = createState();
     state.extensionWs = createMockWs();
-    state.tabMapping.set('old-plugin', { state: 'ready', tabId: 1, url: 'https://old.com' });
+    state.tabMapping.set('old-plugin', {
+      state: 'ready',
+      tabs: [{ tabId: 1, url: 'https://old.com', title: 'Old', ready: true }],
+    });
 
     handleExtensionMessage(
       state,
@@ -330,7 +345,7 @@ describe('handleExtensionMessage — tab.syncAll', () => {
         jsonrpc: '2.0',
         method: 'tab.syncAll',
         params: {
-          tabs: { slack: { state: 'closed' } },
+          tabs: { slack: { state: 'closed', tabs: [] } },
         },
       }),
       noopCallbacks,
@@ -338,7 +353,7 @@ describe('handleExtensionMessage — tab.syncAll', () => {
 
     expect(state.tabMapping.size).toBe(1);
     expect(state.tabMapping.has('old-plugin')).toBe(false);
-    expect(state.tabMapping.get('slack')).toEqual({ state: 'closed', tabId: null, url: null });
+    expect(state.tabMapping.get('slack')).toEqual({ state: 'closed', tabs: [] });
   });
 });
 
@@ -366,34 +381,47 @@ describe('handleExtensionMessage — tab.stateChanged', () => {
       JSON.stringify({
         jsonrpc: '2.0',
         method: 'tab.stateChanged',
-        params: { plugin: 'slack', state: 'ready', tabId: 5, url: 'https://app.slack.com' },
+        params: {
+          plugin: 'slack',
+          state: 'ready',
+          tabs: [{ tabId: 5, url: 'https://app.slack.com', title: 'Slack', ready: true }],
+        },
       }),
       noopCallbacks,
     );
 
     expect(state.tabMapping.size).toBe(1);
-    expect(state.tabMapping.get('slack')).toEqual({ state: 'ready', tabId: 5, url: 'https://app.slack.com' });
+    expect(state.tabMapping.get('slack')).toEqual({
+      state: 'ready',
+      tabs: [{ tabId: 5, url: 'https://app.slack.com', title: 'Slack', ready: true }],
+    });
   });
 
   test('does not affect other entries in tabMapping', () => {
     const state = createState();
     state.extensionWs = createMockWs();
     state.registry = buildRegistry([makePlugin('slack'), makePlugin('github')], []);
-    state.tabMapping.set('github', { state: 'ready', tabId: 10, url: 'https://github.com' });
+    state.tabMapping.set('github', {
+      state: 'ready',
+      tabs: [{ tabId: 10, url: 'https://github.com', title: 'GitHub', ready: true }],
+    });
 
     handleExtensionMessage(
       state,
       JSON.stringify({
         jsonrpc: '2.0',
         method: 'tab.stateChanged',
-        params: { plugin: 'slack', state: 'closed' },
+        params: { plugin: 'slack', state: 'closed', tabs: [] },
       }),
       noopCallbacks,
     );
 
     expect(state.tabMapping.size).toBe(2);
-    expect(state.tabMapping.get('github')).toEqual({ state: 'ready', tabId: 10, url: 'https://github.com' });
-    expect(state.tabMapping.get('slack')).toEqual({ state: 'closed', tabId: null, url: null });
+    expect(state.tabMapping.get('github')).toEqual({
+      state: 'ready',
+      tabs: [{ tabId: 10, url: 'https://github.com', title: 'GitHub', ready: true }],
+    });
+    expect(state.tabMapping.get('slack')).toEqual({ state: 'closed', tabs: [] });
   });
 
   test('rejects unknown plugin name', () => {
@@ -946,7 +974,10 @@ describe('handleExtensionMessage — config.getState', () => {
       ],
       [],
     );
-    state.tabMapping.set('test-plugin', { state: 'ready', tabId: 10, url: 'http://test.com' });
+    state.tabMapping.set('test-plugin', {
+      state: 'ready',
+      tabs: [{ tabId: 10, url: 'http://test.com', title: 'Test', ready: true }],
+    });
 
     handleExtensionMessage(state, JSON.stringify({ jsonrpc: '2.0', method: 'config.getState', id: 1 }), noopCallbacks);
 
