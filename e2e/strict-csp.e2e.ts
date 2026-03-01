@@ -490,6 +490,7 @@ test.describe('Strict CSP — file watcher IIFE re-injection', () => {
     let strictCspSrv: TestServer | undefined;
     let context: BrowserContext | undefined;
     let cleanupDir: string | undefined;
+    let client: McpClient | undefined;
 
     try {
       server = await startMcpServer(configDir, true);
@@ -500,7 +501,7 @@ test.describe('Strict CSP — file watcher IIFE re-injection', () => {
       cleanupDir = ext.cleanupDir;
       setupAdapterSymlink(configDir, ext.extensionDir);
 
-      const client = createMcpClient(server.port, server.secret);
+      client = createMcpClient(server.port, server.secret);
 
       await client.initialize();
       await waitForExtensionConnected(server);
@@ -559,8 +560,8 @@ test.describe('Strict CSP — file watcher IIFE re-injection', () => {
       expect(afterResult.message).toBe('csp-after-update');
 
       await page.close();
-      await client.close();
     } finally {
+      if (client) await client.close().catch(() => {});
       if (context) await context.close().catch(() => {});
       if (server) await server.kill().catch(() => {});
       if (strictCspSrv) await strictCspSrv.kill().catch(() => {});

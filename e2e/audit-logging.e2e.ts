@@ -292,12 +292,14 @@ test.describe('Audit logging', () => {
   });
 
   test('GET /audit without Bearer auth returns 401', async ({ mcpServer, testServer, extensionContext, mcpClient }) => {
-    await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Fetch audit without auth
     const res = await fetch(`http://localhost:${mcpServer.port}/audit`, {
       signal: AbortSignal.timeout(5_000),
     });
     expect(res.status).toBe(401);
+
+    await page.close();
   });
 });

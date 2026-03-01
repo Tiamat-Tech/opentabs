@@ -121,9 +121,11 @@ test.describe('fetchFromPage error categorization', () => {
     expect(result.isError).toBe(true);
     expect(result.content).toContain('[ERROR');
     expect(result.content).toContain('category=internal');
+    expect(result.content).toContain('retryable=false');
 
     const json = parseErrorJson(result.content);
     expect(json.category).toBe('internal');
+    expect(json.retryable).toBe(false);
 
     await page.close();
   });

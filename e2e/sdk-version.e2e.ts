@@ -68,7 +68,7 @@ test.describe('SDK version compatibility', () => {
   }) => {
     // The default e2e-test plugin has sdkVersion: "0.0.16" which matches
     // the server's SDK version. Verify it loads and tools work.
-    await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     const tools = await mcpClient.listTools();
     const toolNames = tools.map(t => t.name);
@@ -78,6 +78,8 @@ test.describe('SDK version compatibility', () => {
       message: 'sdk-version-ok',
     });
     expect(output.message).toBe('sdk-version-ok');
+
+    await page.close();
   });
 
   test('plugin with too-new SDK version (99.0.0) fails to load with clear error', async () => {
