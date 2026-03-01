@@ -259,6 +259,12 @@ git stash list           # Must be empty (or not contain unexpected entries)
 
 If changes are missing, recover them with `git stash pop` or `git stash apply`.
 
+### Concurrent AI Work
+
+Multiple AI agents (ralph workers, perfect scripts, other Claude sessions) may be running simultaneously. Unstaged changes in the working directory may belong to another agent's in-progress work.
+
+**Never discard, reset, or checkout over unstaged changes without explicit user permission.** If unstaged changes block an operation (e.g., `git pull` refuses to rebase), ask the user how to proceed — do not run `git checkout -- .`, `git restore .`, or `git reset --hard`. The correct default is to stash (`git stash`) and remind the user to pop it later, but even stashing should be confirmed first when the changes look like they belong to another process.
+
 ---
 
 ## Code Quality Rules
