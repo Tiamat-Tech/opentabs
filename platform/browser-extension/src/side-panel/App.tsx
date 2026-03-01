@@ -20,6 +20,7 @@ import { Tooltip } from './components/retro/Tooltip.js';
 import { SearchResults } from './components/SearchResults.js';
 import { ERROR_DISPLAY_DURATION_MS } from './constants.js';
 import { useServerNotifications } from './hooks/useServerNotifications.js';
+import { BROWSER_TOOLS_CATALOG } from '@opentabs-dev/shared';
 import { Search, X } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import type { BrowserToolState, FailedPluginState, PluginSearchResult, PluginState } from './bridge.js';
@@ -32,7 +33,9 @@ const App = () => {
   const [disconnectReason, setDisconnectReason] = useState<DisconnectReason | undefined>();
   const [plugins, setPlugins] = useState<PluginState[]>([]);
   const [failedPlugins, setFailedPlugins] = useState<FailedPluginState[]>([]);
-  const [browserTools, setBrowserTools] = useState<BrowserToolState[]>([]);
+  const [browserTools, setBrowserTools] = useState<BrowserToolState[]>(() =>
+    BROWSER_TOOLS_CATALOG.map(t => ({ ...t, enabled: true })),
+  );
   const [serverVersion, setServerVersion] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [activeTools, setActiveTools] = useState<Set<string>>(new Set());
@@ -208,7 +211,12 @@ const App = () => {
           setPluginsLoaded(true);
           setPlugins(updatedPlugins);
           setFailedPlugins(result.failedPlugins ?? []);
-          setBrowserTools(result.browserTools ?? []);
+          setBrowserTools(prev =>
+            prev.map(t => {
+              const serverTool = result.browserTools?.find(s => s.name === t.name);
+              return serverTool ? { ...t, enabled: serverTool.enabled } : t;
+            }),
+          );
           setServerVersion(result.serverVersion);
           setActiveTools(prev => {
             const next = new Set<string>();
@@ -270,7 +278,7 @@ const App = () => {
           setPluginsLoaded(false);
           setPlugins([]);
           setFailedPlugins([]);
-          setBrowserTools([]);
+          setBrowserTools(BROWSER_TOOLS_CATALOG.map(t => ({ ...t, enabled: true })));
           setServerVersion(undefined);
           setActiveTools(new Set());
           setPendingConfirmations([]);
