@@ -160,7 +160,6 @@ const createFileWatcherCallbacks = (
 
   return {
     onManifestChanged: (pluginName: string) => {
-      state.registry = buildRegistry(Array.from(state.registry.plugins.values()), [...state.registry.failures]);
       notifyAllClients();
       const plugin = state.registry.plugins.get(pluginName);
       if (plugin) {
