@@ -13,7 +13,7 @@ import {
   registerUpdateCommand,
 } from './commands/index.js';
 import { parsePort } from './parse-port.js';
-import { Command } from 'commander';
+import { Command, CommanderError } from 'commander';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,8 +53,13 @@ registerPluginCommand(program);
 registerConfigCommand(program);
 registerUpdateCommand(program);
 
-await program.parseAsync().catch(() => {
-  // Action handlers print their own errors and call process.exit(1).
-  // Swallow the rejected promise so Commander does not re-print the output.
+await program.parseAsync().catch((err: unknown) => {
+  if (!(err instanceof CommanderError)) {
+    // Unexpected error — action handlers didn't get a chance to print it.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`Error: ${message}`);
+  }
+  // Action handlers print their own errors and call process.exit(1), which
+  // Commander wraps in a CommanderError. Swallow those to avoid double output.
   process.exitCode ??= 1;
 });
