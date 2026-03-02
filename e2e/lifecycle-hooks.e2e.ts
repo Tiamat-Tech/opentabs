@@ -4,7 +4,7 @@
  *
  * Hooks tested:
  *   - onActivate: fires when adapter is injected
- *   - onDeactivate: fires when adapter is removed (on re-injection)
+ *   - onDeactivate: does NOT fire when hot reload skips re-injection (hash match)
  *   - onNavigate: fires on pushState URL changes
  *   - onToolInvocationStart / onToolInvocationEnd: fire around tool.handle()
  *
@@ -257,7 +257,7 @@ test.describe('Lifecycle hooks', () => {
     expect(failEnd?.durationMs).toBeGreaterThanOrEqual(0);
   });
 
-  test('onDeactivate fires on adapter re-injection via hot reload', async ({
+  test('onDeactivate does NOT fire on hot reload when adapter hash matches (skip)', async ({
     mcpServer,
     testServer,
     extensionContext,
@@ -269,25 +269,22 @@ test.describe('Lifecycle hooks', () => {
     const activated = await page.evaluate(() => (globalThis as Record<string, unknown>).__opentabs_onActivate_called);
     expect(activated).toBe(true);
 
-    // Clear the onDeactivate flag right before triggering hot reload.
-    // A re-injection during setup (e.g., from a second tab.syncAll) may have
-    // already set this flag — clearing it isolates our assertion to the hot
-    // reload we're about to trigger.
+    // Clear both lifecycle flags before triggering hot reload
     await page.evaluate(() => {
+      delete (globalThis as Record<string, unknown>).__opentabs_onActivate_called;
       delete (globalThis as Record<string, unknown>).__opentabs_onDeactivate_called;
     });
 
-    // Trigger a hot reload — this causes sync.full → extension re-injects adapters
-    // with forceReinject=true → old adapter's teardown fires (which calls
-    // onDeactivate first) → new adapter registered → new onActivate fires
+    // Trigger a hot reload — this sends sync.full with the same adapter hash.
+    // The extension's hash-based skip logic detects the adapter is already
+    // present with a matching hash and skips re-injection entirely.
     mcpServer.logs.length = 0;
     mcpServer.triggerHotReload();
 
-    // Wait for the hot reload + re-injection to complete
+    // Wait for sync.full to be processed
     await waitForLog(mcpServer, 'tab.syncAll received', 20_000);
 
-    // Wait for the adapter to be re-injected. Under heavy parallel load,
-    // the hot reload → sync.full → re-injection pipeline can take longer.
+    // Give the extension time to process (injection skip is synchronous)
     await waitFor(
       async () => {
         const present = await page.evaluate(() => {
@@ -298,27 +295,22 @@ test.describe('Lifecycle hooks', () => {
         });
         return present;
       },
-      20_000,
+      15_000,
       500,
-      'e2e-test adapter to be re-injected after hot reload',
+      'e2e-test adapter to remain present after hot reload',
     );
 
-    // Verify onDeactivate was called (by the old adapter during teardown).
-    // The old adapter's teardown runs synchronously during re-injection,
-    // but the CDP round-trip to read the global can be slow under load.
-    await waitFor(
-      async () => {
-        const deactivated = await page.evaluate(
-          () => (globalThis as Record<string, unknown>).__opentabs_onDeactivate_called,
-        );
-        return deactivated === true;
-      },
-      10_000,
-      200,
-      'onDeactivate to be called after re-injection',
+    // Neither onDeactivate nor onActivate should have fired — the adapter
+    // was not torn down or re-injected because the hash matched.
+    const deactivated = await page.evaluate(
+      () => (globalThis as Record<string, unknown>).__opentabs_onDeactivate_called,
     );
+    expect(deactivated).toBeUndefined();
 
-    // Verify tools still work after re-injection
+    const reActivated = await page.evaluate(() => (globalThis as Record<string, unknown>).__opentabs_onActivate_called);
+    expect(reActivated).toBeUndefined();
+
+    // Verify tools still work after the skipped hot reload
     await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'after-reload' }, { isError: false }, 15_000);
   });
 });
