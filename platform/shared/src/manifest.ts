@@ -14,8 +14,6 @@ interface PluginOpentabsField {
   readonly displayName: string;
   readonly description: string;
   readonly urlPatterns: string[];
-  /** Optional path to an early-inject script that runs at document_start before page JS */
-  readonly earlyInject?: string;
 }
 
 /** A plugin's package.json with the required `opentabs` field */
@@ -104,14 +102,6 @@ const parsePluginPackageJson = (json: unknown, sourcePath: string): Result<Plugi
     }
   }
 
-  // Optional earlyInject field — path to a small script that runs at document_start
-  const earlyInject = ot.earlyInject;
-  if (earlyInject !== undefined && (typeof earlyInject !== 'string' || earlyInject.length === 0)) {
-    return err(
-      `Invalid package.json at ${sourcePath}: "opentabs.earlyInject" must be a non-empty string when specified`,
-    );
-  }
-
   return ok({
     name,
     version,
@@ -120,7 +110,6 @@ const parsePluginPackageJson = (json: unknown, sourcePath: string): Result<Plugi
       displayName,
       description,
       urlPatterns: urlPatterns as string[],
-      ...(typeof earlyInject === 'string' ? { earlyInject } : {}),
     },
   });
 };
