@@ -22,6 +22,7 @@ import { ERROR_DISPLAY_DURATION_MS } from './constants.js';
 import { useServerNotifications } from './hooks/useServerNotifications.js';
 import { BROWSER_TOOLS_CATALOG } from '@opentabs-dev/shared/browser-tools-catalog';
 import { Search, X } from 'lucide-react';
+import { OverlayScrollbarsComponent } from 'overlayscrollbars-react';
 import { useState, useEffect, useRef } from 'react';
 import type { BrowserToolState, FailedPluginState, PluginSearchResult, PluginState } from './bridge.js';
 import type { DisconnectReason, InternalMessage } from '../extension-messages.js';
@@ -379,7 +380,12 @@ const App = () => {
             </div>
           </div>
         )}
-        <div className="scrollable-area min-h-0 flex-1 overflow-y-auto">
+        <OverlayScrollbarsComponent
+          className="flex-1"
+          style={{ height: 0 }}
+          options={{
+            scrollbars: { theme: 'os-theme-retro', autoHide: 'scroll', autoHideDelay: 600 },
+          }}>
           <main
             className={`pr-5 pb-2 pl-4 ${showSearchBar ? 'pt-2' : 'pt-4'} ${showPlugins ? '' : 'flex min-h-full items-center justify-center'}`}>
             {loading ? (
@@ -432,7 +438,7 @@ const App = () => {
               </>
             ) : null}
           </main>
-        </div>
+        </OverlayScrollbarsComponent>
         <Footer />
       </div>
     </Tooltip.Provider>

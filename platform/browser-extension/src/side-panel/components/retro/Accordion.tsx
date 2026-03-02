@@ -21,10 +21,7 @@ const AccordionContent = ({
   ref,
   ...props
 }: ComponentProps<typeof AccordionPrimitive.Content>) => (
-  <AccordionPrimitive.Content
-    ref={ref}
-    className="data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up bg-card text-card-foreground overflow-hidden font-sans"
-    {...props}>
+  <AccordionPrimitive.Content ref={ref} className="bg-card text-card-foreground overflow-hidden font-sans" {...props}>
     <div className={cn(className)}>{children}</div>
   </AccordionPrimitive.Content>
 );
