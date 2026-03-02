@@ -117,6 +117,15 @@ describe('scaffoldPlugin', () => {
     expect(caught?.message).toContain('already exists');
   });
 
+  test('scaffolded eslint.config.ts includes argsIgnorePattern for underscore-prefixed params', async () => {
+    await scaffoldPlugin({ name: 'test-plugin', domain: 'example.com' });
+
+    const eslintConfig = await readFile(join(tmpDir, 'test-plugin', 'eslint.config.ts'), 'utf-8');
+    expect(eslintConfig).toContain("argsIgnorePattern: '^_'");
+    expect(eslintConfig).toContain("varsIgnorePattern: '^_'");
+    expect(eslintConfig).toContain("caughtErrorsIgnorePattern: '^_'");
+  });
+
   test('cleans up partial directory if a file write fails, allowing retry', async () => {
     const fsp = await import('node:fs/promises');
     vi.mocked(fsp.writeFile).mockRejectedValueOnce(new Error('Disk full'));
