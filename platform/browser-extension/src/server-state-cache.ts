@@ -7,7 +7,9 @@ import type { ConfigStateBrowserTool, ConfigStateFailedPlugin, ConfigStatePlugin
  *
  * The cache is populated from sync.full and plugins.changed push notifications.
  * It is cleared on WebSocket disconnect and rebuilt from scratch on the next
- * sync.full.
+ * sync.full. The in-memory cache is the primary read path (instant). Every
+ * mutation writes through to chrome.storage.session (debounced 500ms) so
+ * the cache survives MV3 service worker suspension.
  */
 interface ServerStateCache {
   plugins: ConfigStatePlugin[];
@@ -15,6 +17,8 @@ interface ServerStateCache {
   browserTools: ConfigStateBrowserTool[];
   serverVersion?: string;
 }
+
+const SESSION_KEY = 'serverStateCache';
 
 const EMPTY_CACHE: ServerStateCache = {
   plugins: [],
@@ -25,24 +29,75 @@ const EMPTY_CACHE: ServerStateCache = {
 
 let cache: ServerStateCache = { ...EMPTY_CACHE };
 
+/** Debounce timer for session storage writes. */
+let persistTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Write the current in-memory cache to chrome.storage.session. */
+const persistToSession = (): void => {
+  chrome.storage.session.set({ [SESSION_KEY]: cache }).catch(() => {
+    // Best-effort persistence — session storage may not be available
+  });
+};
+
+/** Schedule a debounced write to session storage (500ms). */
+const schedulePersist = (): void => {
+  if (persistTimer !== undefined) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = undefined;
+    persistToSession();
+  }, 500);
+};
+
 /** Return the current server state cache (read-only snapshot). */
 const getServerStateCache = (): Readonly<ServerStateCache> => cache;
 
 /**
  * Merge a partial update into the server state cache. Only the provided
  * fields are overwritten — omitted fields retain their previous values.
+ * The in-memory cache updates immediately; session storage write is debounced.
  */
 const updateServerStateCache = (partial: Partial<ServerStateCache>): void => {
   cache = { ...cache, ...partial };
+  schedulePersist();
 };
 
 /**
  * Clear the server state cache. Called on WebSocket disconnect so the
  * next connection rebuilds state from sync.full without stale data.
+ * Clears both in-memory cache and chrome.storage.session.
  */
 const clearServerStateCache = (): void => {
   cache = { ...EMPTY_CACHE };
+  if (persistTimer !== undefined) {
+    clearTimeout(persistTimer);
+    persistTimer = undefined;
+  }
+  chrome.storage.session.remove(SESSION_KEY).catch(() => {
+    // Best-effort removal
+  });
 };
 
-export { clearServerStateCache, getServerStateCache, updateServerStateCache };
+/**
+ * Load the server state cache from chrome.storage.session and populate the
+ * in-memory cache. Called on service worker wake to restore state that was
+ * persisted before suspension.
+ */
+const loadServerStateCacheFromSession = async (): Promise<void> => {
+  try {
+    const data = await chrome.storage.session.get(SESSION_KEY);
+    const stored = data[SESSION_KEY] as ServerStateCache | undefined;
+    if (stored && typeof stored === 'object') {
+      cache = {
+        plugins: Array.isArray(stored.plugins) ? stored.plugins : [],
+        failedPlugins: Array.isArray(stored.failedPlugins) ? stored.failedPlugins : [],
+        browserTools: Array.isArray(stored.browserTools) ? stored.browserTools : [],
+        serverVersion: typeof stored.serverVersion === 'string' ? stored.serverVersion : undefined,
+      };
+    }
+  } catch {
+    // Session storage may not be available — keep empty cache
+  }
+};
+
+export { clearServerStateCache, getServerStateCache, loadServerStateCacheFromSession, updateServerStateCache };
 export type { ServerStateCache };
