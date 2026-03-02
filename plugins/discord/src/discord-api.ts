@@ -98,6 +98,7 @@ const VALIDATION_ERRORS = new Set([
   50001, // Missing Access
   50003, // Cannot execute on DM channel
   50006, // Cannot send empty message
+  50007, // Cannot send messages to this user
   50008, // Cannot edit message by another user
   50013, // Missing Permissions
   50014, // Invalid authentication token
@@ -191,6 +192,31 @@ export const discordApi = async <T extends Record<string, unknown>>(
       }
       throw ToolError.rateLimited(`Discord API rate limited: ${method} ${endpoint} — ${errorBody}`, retryAfterMs);
     }
+    // Parse error body for Discord-specific error codes before classifying by HTTP status.
+    // Discord uses 403 for both "unauthorized" and "missing permissions" — the error code
+    // in the response body distinguishes them.
+    let discordCode: number | undefined;
+    let discordMessage: string | undefined;
+    try {
+      const parsed = JSON.parse(errorText) as { code?: number; message?: string };
+      discordCode = parsed.code;
+      discordMessage = parsed.message;
+    } catch {
+      // Not JSON — classify by HTTP status only
+    }
+
+    if (discordCode !== undefined) {
+      if (VALIDATION_ERRORS.has(discordCode)) {
+        throw ToolError.validation(`Discord API error: ${discordMessage ?? errorBody} (code ${String(discordCode)})`);
+      }
+      if (NOT_FOUND_ERRORS.has(discordCode)) {
+        throw ToolError.notFound(`Discord API error: ${discordMessage ?? errorBody} (code ${String(discordCode)})`);
+      }
+      if (AUTH_ERRORS.has(discordCode)) {
+        throw ToolError.auth(`Discord API error: ${discordMessage ?? errorBody} (code ${String(discordCode)})`);
+      }
+    }
+
     if (response.status === 401 || response.status === 403) {
       throw ToolError.auth(`Discord API auth error (${String(response.status)}): ${errorBody}`);
     }
