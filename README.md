@@ -148,7 +148,7 @@ npm run dev
 | `npm run check:everything` | All checks + E2E tests + docs + plugins              |
 | `npm run build`            | Build all packages                                   |
 | `npm run type-check`       | TypeScript type checking                             |
-| `npm run lint`             | ESLint                                               |
+| `npm run lint`             | Biome lint                                           |
 | `npm run knip`             | Unused code detection                                |
 | `npm run test`             | Unit tests                                           |
 | `npm run test:e2e`         | E2E tests (Playwright)                               |

@@ -33,7 +33,7 @@ const openAndCloseSseStream = async (port: number, sessionId: string, secret?: s
     'mcp-session-id': sessionId,
   };
   if (secret) {
-    headers['Authorization'] = `Bearer ${secret}`;
+    headers.Authorization = `Bearer ${secret}`;
   }
 
   await new Promise<void>(resolve => {

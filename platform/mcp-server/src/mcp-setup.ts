@@ -8,9 +8,9 @@
  * Zod schemas and cannot accept pre-computed JSON Schema. The Server class deprecation
  * message acknowledges this: "Only use Server for advanced use cases."
  *
- * The Server import uses dynamic import() to satisfy import-x/no-deprecated. The
- * @typescript-eslint/no-deprecated rule is addressed by typing through the awaited
- * module rather than referencing the deprecated class name directly.
+ * The Server import uses dynamic import() to avoid a static import of the deprecated
+ * Server class. The awaited module is typed through a generic constructor signature
+ * rather than referencing the deprecated class name directly.
  *
  * Hot reload:
  *   `registerMcpHandlers` is separated from `createMcpServer` so that existing
@@ -34,8 +34,8 @@ import { version } from './version.js';
 /**
  * The Server constructor type, extracted without directly referencing the
  * deprecated Server class name in a static import or type-only import.
- * We load it via dynamic import() at runtime to satisfy import-x/no-deprecated,
- * and use a generic constructor signature to avoid @typescript-eslint/no-deprecated.
+ * Loaded via dynamic import() at runtime, typed through a generic constructor
+ * signature to avoid referencing the deprecated class name.
  */
 
 /** Shape of the dynamically imported server module */

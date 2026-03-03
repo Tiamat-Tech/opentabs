@@ -11,8 +11,8 @@ cd plugins/<name>
 npm install
 npm run build         # tsc + opentabs-plugin build
 npm run type-check    # tsc --noEmit
-npm run lint          # eslint
-npm run format:check  # prettier
+npm run lint          # biome
+npm run format:check  # biome
 ```
 
 ## Root-level commands

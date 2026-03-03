@@ -176,7 +176,7 @@ A genuine issue has a **concrete, observable consequence**:
 - **Missing cleanup on equivalent path** — cleanup runs on success but not on error (or vice versa)
 - **Dead or unreachable code** — exports never imported, branches that can never execute, code after unconditional return
 - **Unhelpful error that causes user confusion** — error message that doesn't tell the user what went wrong or how to fix it
-- **Violation of the project's own documented conventions** (in CLAUDE.md, ESLint config, etc.)
+- **Violation of the project's own documented conventions** (in CLAUDE.md, Biome config, etc.)
 - **Real duplication** — identical logic copy-pasted (not just similar-looking code that handles different concerns)
 
 Every story must name one of these consequences specifically.

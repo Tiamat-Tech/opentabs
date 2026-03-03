@@ -72,7 +72,7 @@ npm install
 npm run build       # tsc && opentabs-plugin build
 npm run dev         # watch mode (tsc --watch + opentabs-plugin build --watch)
 npm run type-check  # tsc --noEmit
-npm run lint        # eslint
+npm run lint        # biome
 ```
 
 ## Adding Tools

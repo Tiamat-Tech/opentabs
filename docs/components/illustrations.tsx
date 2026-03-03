@@ -1141,7 +1141,7 @@ export const MonorepoStructure = () => (
         fill="var(--color-foreground)"
         opacity="0.4"
         textAnchor="middle">
-        tsconfig.json, eslint.config.ts, playwright.config.ts...
+        tsconfig.json, biome.json, playwright.config.ts...
       </text>
 
       {/* Bottom label */}
@@ -3027,7 +3027,7 @@ export const PluginStructure = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-foreground)"
         opacity="0.5">
-        eslint.config.ts / .prettierrc
+        biome.json
       </text>
 
       {/* Divider */}
