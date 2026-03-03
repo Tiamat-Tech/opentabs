@@ -43,15 +43,6 @@ const buildToolsMap = (): Record<string, boolean> => {
   return tools;
 };
 
-/** POST /reload to the MCP server to trigger rediscovery and sync.full. */
-const postReload = async (port: number, configDir: string): Promise<Response> => {
-  const authPath = path.join(configDir, 'extension', 'auth.json');
-  const authData = JSON.parse(fs.readFileSync(authPath, 'utf-8')) as { secret?: string };
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (authData.secret) headers['Authorization'] = `Bearer ${authData.secret}`;
-  return fetch(`http://localhost:${port}/reload`, { method: 'POST', headers });
-};
-
 // ---------------------------------------------------------------------------
 // Real-time state propagation tests
 // ---------------------------------------------------------------------------
@@ -93,7 +84,6 @@ test.describe('Side panel real-time state propagation', () => {
       const disabledTools = { ...tools, 'e2e-test_echo': false };
       writeTestConfig(configDir, { localPlugins: [absPluginPath], tools: disabledTools });
       await waitForLog(server, 'Config reload complete', 10_000);
-      await postReload(server.port, configDir);
 
       // Verify the side panel toggle reflects disabled state WITHOUT reloading
       await expect(echoToggle).toHaveAttribute('aria-checked', 'false', { timeout: 10_000 });
@@ -113,7 +103,6 @@ test.describe('Side panel real-time state propagation', () => {
       writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
       server.logs.length = 0;
       await waitForLog(server, 'Config reload complete', 10_000);
-      await postReload(server.port, configDir);
 
       // Verify the side panel toggle reflects re-enabled state WITHOUT reloading
       await expect(echoToggle).toHaveAttribute('aria-checked', 'true', { timeout: 10_000 });
@@ -165,7 +154,7 @@ test.describe('Side panel real-time state propagation', () => {
 
       // Verify the amber dot (unavailable state) appears WITHOUT reloading the side panel.
       // The background pushes tab.stateChanged → side panel updates instantly.
-      await expect(sidePanelPage.locator('.bg-primary.rounded-full').first()).toBeVisible({
+      await expect(e2ePluginCard.locator('.bg-primary.rounded-full')).toBeVisible({
         timeout: 10_000,
       });
 
@@ -271,7 +260,6 @@ test.describe('Side panel real-time state propagation', () => {
       };
       writeTestConfig(configDir, configWithPolicy as typeof config);
       await waitForLog(server, 'Config reload complete', 10_000);
-      await postReload(server.port, configDir);
 
       // Verify the side panel toggle reflects disabled state WITHOUT reloading
       await expect(toolToggle).toHaveAttribute('aria-checked', 'false', { timeout: 10_000 });
@@ -293,7 +281,6 @@ test.describe('Side panel real-time state propagation', () => {
       writeTestConfig(configDir, configWithoutPolicy as typeof config);
       server.logs.length = 0;
       await waitForLog(server, 'Config reload complete', 10_000);
-      await postReload(server.port, configDir);
 
       // Verify the side panel toggle reflects re-enabled state WITHOUT reloading
       await expect(toolToggle).toHaveAttribute('aria-checked', 'true', { timeout: 10_000 });
@@ -340,6 +327,12 @@ test.describe('Side panel real-time state propagation', () => {
       // Trigger hot reload (simulates server disconnect/reconnect)
       server.logs.length = 0;
       server.triggerHotReload();
+
+      // Verify disconnect state appears during the reload window.
+      // The side panel should show "Cannot Reach MCP Server" when the WebSocket drops.
+      await expect(sidePanelPage.getByText('Cannot Reach MCP Server')).toBeVisible({
+        timeout: 30_000,
+      });
 
       await waitForLog(server, 'Hot reload complete', 20_000);
       await waitForExtensionConnected(server, 30_000);
