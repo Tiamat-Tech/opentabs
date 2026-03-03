@@ -220,6 +220,25 @@ const App = () => {
         }
         return next;
       });
+
+      // Hydrate pending confirmations from the background. Replay each one
+      // through handleNotification so auto-removal timeouts are registered.
+      // handleNotification adds each confirmation to React state and sets up
+      // the auto-removal timeout using the background's receivedAt timestamp.
+      for (const c of result.pendingConfirmations ?? []) {
+        handleNotification({
+          method: 'confirmation.request',
+          params: {
+            id: c.id,
+            tool: c.tool,
+            domain: c.domain,
+            tabId: c.tabId,
+            paramsPreview: c.paramsPreview,
+            timeoutMs: c.timeoutMs,
+            receivedAt: c.receivedAt,
+          },
+        });
+      }
     };
 
     void getFullState()

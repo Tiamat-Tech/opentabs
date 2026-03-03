@@ -2,6 +2,7 @@ import {
   clearAllConfirmationBadges,
   clearConfirmationBackgroundTimeout,
   clearConfirmationBadge,
+  getPendingConfirmations,
 } from './confirmation-badge.js';
 import { buildWsUrl, SERVER_PORT_KEY, WS_CONNECTED_KEY } from './constants.js';
 import { handleServerMessage } from './message-router.js';
@@ -225,6 +226,7 @@ const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
       failedPlugins: serverCache.failedPlugins,
       browserTools: serverCache.browserTools,
       serverVersion: serverCache.serverVersion,
+      pendingConfirmations: getPendingConfirmations(),
     });
   })().catch(() => {
     sendResponse({
@@ -234,6 +236,7 @@ const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
       failedPlugins: [],
       browserTools: [],
       serverVersion: undefined,
+      pendingConfirmations: [],
     });
   });
 };

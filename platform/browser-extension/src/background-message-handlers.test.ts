@@ -10,6 +10,7 @@ interface FullStateResponse {
   failedPlugins: ConfigStateFailedPlugin[];
   browserTools: ConfigStateBrowserTool[];
   serverVersion?: string;
+  pendingConfirmations: unknown[];
 }
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,7 @@ const {
   mockRemovePendingBrowserToolUpdate,
   mockAddPendingAllBrowserToolsUpdate,
   mockRemovePendingAllBrowserToolsUpdate,
+  mockGetPendingConfirmations,
 } = vi.hoisted(() => ({
   mockSendToServer: vi.fn<(data: unknown) => void>(),
   mockForwardToSidePanel: vi.fn(),
@@ -87,6 +89,7 @@ const {
   mockRemovePendingBrowserToolUpdate: vi.fn(),
   mockAddPendingAllBrowserToolsUpdate: vi.fn(),
   mockRemovePendingAllBrowserToolsUpdate: vi.fn(),
+  mockGetPendingConfirmations: vi.fn<() => unknown[]>(() => []),
 }));
 
 vi.mock('./messaging.js', () => ({
@@ -105,6 +108,7 @@ vi.mock('./confirmation-badge.js', () => ({
   clearAllConfirmationBadges: mockClearAllConfirmationBadges,
   clearConfirmationBackgroundTimeout: mockClearConfirmationBackgroundTimeout,
   clearConfirmationBadge: mockClearConfirmationBadge,
+  getPendingConfirmations: mockGetPendingConfirmations,
 }));
 
 vi.mock('./message-router.js', () => ({
@@ -574,6 +578,7 @@ describe('handleBgGetFullState', () => {
       failedPlugins: [],
       browserTools: [],
       serverVersion: undefined,
+      pendingConfirmations: [],
     });
   });
 

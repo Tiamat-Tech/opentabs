@@ -44,6 +44,17 @@ interface PluginInstallResult {
   };
 }
 
+/** Pending confirmation params included in bg:getFullState for late side panel hydration */
+interface FullStateConfirmation {
+  id: string;
+  tool: string;
+  domain: string | null;
+  tabId?: number;
+  paramsPreview: string;
+  timeoutMs: number;
+  receivedAt: number;
+}
+
 /** Full state returned by bg:getFullState */
 interface FullStateResult {
   connected: boolean;
@@ -52,6 +63,7 @@ interface FullStateResult {
   failedPlugins: FailedPluginState[];
   browserTools: BrowserToolState[];
   serverVersion?: string;
+  pendingConfirmations?: FullStateConfirmation[];
 }
 
 /** Returns true if a tool's displayName, name, or description matches the filter string */

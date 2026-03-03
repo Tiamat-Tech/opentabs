@@ -58,6 +58,10 @@ const useServerNotifications = ({
     if (data.method === 'confirmation.request' && data.params) {
       const params = data.params as Record<string, unknown>;
       if (typeof params.id === 'string' && typeof params.tool === 'string' && typeof params.timeoutMs === 'number') {
+        // Use the background's receivedAt when hydrating from bg:getFullState so
+        // the countdown bar reflects true elapsed time since the request arrived.
+        const receivedAt =
+          typeof params.receivedAt === 'number' && params.receivedAt > 0 ? params.receivedAt : Date.now();
         const confirmation: ConfirmationData = {
           id: params.id,
           tool: params.tool,
@@ -68,10 +72,17 @@ const useServerNotifications = ({
               : undefined,
           paramsPreview: typeof params.paramsPreview === 'string' ? params.paramsPreview : '',
           timeoutMs: params.timeoutMs,
-          receivedAt: Date.now(),
+          receivedAt,
         };
-        setPendingConfirmations(prev => [...prev, confirmation]);
-        const removeDelay = params.timeoutMs + 1000;
+        // Skip duplicate confirmations (e.g., real-time sp:serverMessage
+        // followed by bg:getFullState hydration for the same id).
+        if (timeoutIds.current.has(confirmation.id)) return;
+
+        setPendingConfirmations(prev => (prev.some(c => c.id === confirmation.id) ? prev : [...prev, confirmation]));
+        // Compute remaining time from the original receivedAt so hydrated
+        // confirmations expire at the correct wall-clock time.
+        const elapsed = Date.now() - receivedAt;
+        const removeDelay = Math.max(0, params.timeoutMs + 1000 - elapsed);
         const tid = setTimeout(() => {
           timeoutIds.current.delete(confirmation.id);
           setPendingConfirmations(prev => prev.filter(c => c.id !== confirmation.id));
