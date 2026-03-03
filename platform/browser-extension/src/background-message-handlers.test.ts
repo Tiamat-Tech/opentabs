@@ -1018,6 +1018,41 @@ describe('handleBgSetToolEnabled', () => {
 
     expect(sendResponse).toHaveBeenCalledWith({ error: 'Server error' });
   });
+
+  test('revert restores exact pre-mutation state, not toggled !enabled', async () => {
+    // Tool starts disabled. Calling with enabled: false (same value) must revert to false,
+    // not flip to !false = true as a naive !enabled approach would do.
+    mockGetServerStateCache.mockReturnValue({
+      plugins: [
+        {
+          name: 'slack',
+          displayName: 'Slack',
+          version: '1.0.0',
+          trustTier: 'community',
+          source: 'npm',
+          tabState: 'closed',
+          urlPatterns: [],
+          tools: [{ name: 'send', displayName: 'Send', description: 'desc', enabled: false }],
+        },
+      ],
+      failedPlugins: [],
+      browserTools: [],
+      serverVersion: '1.0.0',
+    });
+
+    mockSendServerRequest.mockRejectedValueOnce(new Error('Server error'));
+
+    const sendResponse = vi.fn();
+    handleBgSetToolEnabled({ plugin: 'slack', tool: 'send', enabled: false }, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+
+    const revertCall = mockUpdateServerStateCache.mock.calls[1]?.[0] as {
+      plugins: Array<{ tools: Array<{ enabled: boolean }> }>;
+    };
+    // Must restore original enabled: false, not flip to true
+    expect(revertCall.plugins[0]?.tools[0]?.enabled).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1093,6 +1128,39 @@ describe('handleBgSetBrowserToolEnabled', () => {
 
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
     expect(sendResponse).toHaveBeenCalledWith({ ok: true });
+  });
+
+  test('reverts to exact pre-mutation state on server error', async () => {
+    // Browser tool starts disabled. Calling with enabled: false (same value) must revert
+    // to false, not flip to !false = true as a naive !enabled approach would do.
+    mockGetServerStateCache.mockReturnValue({
+      plugins: [],
+      failedPlugins: [],
+      browserTools: [
+        { name: 'screenshot', description: 'Take a screenshot', enabled: false },
+        { name: 'console', description: 'Get console logs', enabled: true },
+      ],
+      serverVersion: '1.0.0',
+    });
+
+    mockSendServerRequest.mockRejectedValueOnce(new Error('Server error'));
+
+    const sendResponse = vi.fn();
+    handleBgSetBrowserToolEnabled({ tool: 'screenshot', enabled: false }, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+
+    // Should have been called twice: optimistic + revert
+    expect(mockUpdateServerStateCache).toHaveBeenCalledTimes(2);
+    const revertCall = mockUpdateServerStateCache.mock.calls[1]?.[0] as {
+      browserTools: Array<{ name: string; enabled: boolean }>;
+    };
+    // Must restore original enabled: false, not flip to true
+    expect(revertCall.browserTools.find(bt => bt.name === 'screenshot')?.enabled).toBe(false);
+    // Other tools are untouched in the captured original
+    expect(revertCall.browserTools.find(bt => bt.name === 'console')?.enabled).toBe(true);
+
+    expect(sendResponse).toHaveBeenCalledWith({ error: 'Server error' });
   });
 });
 

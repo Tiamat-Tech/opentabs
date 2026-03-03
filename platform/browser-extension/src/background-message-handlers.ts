@@ -302,6 +302,7 @@ const handleBgSetToolEnabled: MessageHandler = (message, sendResponse) => {
 
   // Optimistically update the local server state cache
   const cache = getServerStateCache();
+  const originalPlugins = cache.plugins;
   const updatedPlugins = cache.plugins.map(p => {
     if (p.name !== plugin) return p;
     return {
@@ -316,16 +317,8 @@ const handleBgSetToolEnabled: MessageHandler = (message, sendResponse) => {
       sendResponse(result);
     })
     .catch((err: unknown) => {
-      // Revert the optimistic update on failure
-      const revertCache = getServerStateCache();
-      const revertPlugins = revertCache.plugins.map(p => {
-        if (p.name !== plugin) return p;
-        return {
-          ...p,
-          tools: p.tools.map(t => (t.name === tool ? { ...t, enabled: !enabled } : t)),
-        };
-      });
-      updateServerStateCache({ plugins: revertPlugins });
+      // Revert to the original plugins on failure
+      updateServerStateCache({ plugins: originalPlugins });
       sendResponse({ error: err instanceof Error ? err.message : String(err) });
     });
 };
@@ -365,6 +358,7 @@ const handleBgSetBrowserToolEnabled: MessageHandler = (message, sendResponse) =>
 
   // Optimistically update the local server state cache
   const cache = getServerStateCache();
+  const originalBrowserTools = cache.browserTools;
   const updatedBrowserTools = cache.browserTools.map(bt => (bt.name === tool ? { ...bt, enabled } : bt));
   updateServerStateCache({ browserTools: updatedBrowserTools });
 
@@ -373,12 +367,8 @@ const handleBgSetBrowserToolEnabled: MessageHandler = (message, sendResponse) =>
       sendResponse(result);
     })
     .catch((err: unknown) => {
-      // Revert the optimistic update on failure
-      const revertCache = getServerStateCache();
-      const revertBrowserTools = revertCache.browserTools.map(bt =>
-        bt.name === tool ? { ...bt, enabled: !enabled } : bt,
-      );
-      updateServerStateCache({ browserTools: revertBrowserTools });
+      // Revert to the original browser tools on failure
+      updateServerStateCache({ browserTools: originalBrowserTools });
       sendResponse({ error: err instanceof Error ? err.message : String(err) });
     });
 };
