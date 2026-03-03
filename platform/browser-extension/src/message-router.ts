@@ -201,6 +201,7 @@ const validatePluginPayload = (raw: unknown): ValidatedPluginPayload | null => {
             displayName: typeof t.displayName === 'string' ? t.displayName : (t.name as string),
             description: t.description as string,
             icon: typeof t.icon === 'string' ? t.icon : 'wrench',
+            ...(typeof t.group === 'string' ? { group: t.group } : {}),
             enabled: typeof t.enabled === 'boolean' ? t.enabled : true,
           };
         })

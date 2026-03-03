@@ -258,6 +258,7 @@ const parseToolsJson = (raw: string, filePath: string): ParsedManifest | null =>
     if (typeof obj.name !== 'string' || typeof obj.description !== 'string') continue;
     const displayName = typeof obj.displayName === 'string' ? obj.displayName : obj.name;
     const icon = typeof obj.icon === 'string' ? obj.icon : 'wrench';
+    const group = typeof obj.group === 'string' ? obj.group : undefined;
     const inputSchema =
       typeof obj.input_schema === 'object' && obj.input_schema !== null
         ? (obj.input_schema as Record<string, unknown>)
@@ -271,6 +272,7 @@ const parseToolsJson = (raw: string, filePath: string): ParsedManifest | null =>
       displayName,
       description: obj.description,
       icon,
+      ...(group ? { group } : {}),
       input_schema: inputSchema,
       output_schema: outputSchema,
     });

@@ -124,6 +124,7 @@ const serializePluginForExtension = (
     icon: string;
     iconSvg?: string;
     iconInactiveSvg?: string;
+    group?: string;
     enabled: boolean;
   }[];
 } => ({
@@ -141,6 +142,7 @@ const serializePluginForExtension = (
     icon: t.icon,
     ...(t.iconSvg ? { iconSvg: t.iconSvg } : {}),
     ...(t.iconInactiveSvg ? { iconInactiveSvg: t.iconInactiveSvg } : {}),
+    ...(t.group ? { group: t.group } : {}),
     enabled: isToolEnabled(state, prefixedToolName(plugin.name, t.name)),
   })),
 });
