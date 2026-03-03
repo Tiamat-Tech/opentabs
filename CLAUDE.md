@@ -239,6 +239,37 @@ Key files:
 | `~/.opentabs/webhook/start.sh`   | Startup: launches webhook + tunnel + registers GitHub hooks |
 | `~/.opentabs/webhook/ctl.sh`     | Control script (`start`/`stop`/`restart`/`status`/`logs`)   |
 
+### Ralph Infrastructure on Remote Server (`ssh pc`)
+
+A remote Linux server (`ssh pc`) runs two systemd services that automate branch merging and parallel task execution:
+
+**Ralph Consumer** (`ralph-consumer.service`): A daemon that picks up PRD (product requirement document) files from a queue and dispatches them to AI workers. Each worker runs Claude Code in a dedicated worktree to execute the PRD's user stories. Workers push completed work to `ralph-*` branches on the remote.
+
+**Ralph Consolidator** (`ralph-consolidator.service`): A daemon that polls for `ralph-*` branches, merges them into `main`, runs the build + tests, and pushes. If the merge produces build failures, it invokes Claude to fix them automatically. If a push is rejected (non-fast-forward), it rebases and retries up to 3 times.
+
+Key paths on the remote:
+
+| Path | Purpose |
+| --- | --- |
+| `~/.ralph-consumer/` | Consumer state: `queue/`, `worktrees/`, `logs/`, config |
+| `~/.ralph-consolidator/` | Consolidator state: `code/` (work repo), `logs/`, `conflicts/` |
+
+Service management:
+
+```bash
+ssh pc "sudo systemctl stop ralph-consolidator"     # Stop the consolidator
+ssh pc "sudo systemctl start ralph-consolidator"    # Start the consolidator
+ssh pc "sudo systemctl stop ralph-consumer"         # Stop the consumer
+ssh pc "sudo systemctl start ralph-consumer"        # Start the consumer
+ssh pc "systemctl is-active ralph-consolidator"     # Check status
+ssh pc "tail -30 ~/.ralph-consolidator/logs/latest.log"  # View consolidator logs
+ssh pc "tail -30 ~/.ralph-consumer/logs/latest.log"      # View consumer logs
+```
+
+**When to stop the consolidator**: If you need to push multiple commits to `main` without the consolidator racing you, stop it first (`sudo systemctl stop ralph-consolidator`), push your changes, then restart it. The consolidator rebases and retries, but if you're pushing frequently it can get stuck in a rebase-retry loop.
+
+**When to check logs**: If expected branch merges aren't appearing on `main`, check the consolidator logs. Common issues: push race conditions (non-fast-forward), build failures after merge (SDK changes breaking plugins), and plugin dependency mismatches after rebasing.
+
 ---
 
 ## Git Identity
