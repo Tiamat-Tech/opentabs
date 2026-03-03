@@ -452,7 +452,12 @@ describe('handleToolProgress', () => {
     expect(mockSendToServer).toHaveBeenCalledWith({
       jsonrpc: '2.0',
       method: 'tool.progress',
-      params: { dispatchId: 'abc', progress: 5, total: 10, message: 'Processing...' },
+      params: {
+        dispatchId: 'abc',
+        progress: 5,
+        total: 10,
+        message: 'Processing...',
+      },
     });
   });
 
@@ -593,7 +598,13 @@ describe('handleBgGetFullState', () => {
         version: '1.0.0',
         trustTier: 'community',
         urlPatterns: ['https://example.com/*'],
-        tools: [{ name: 'test_tool', displayName: 'Test Tool', description: 'A test tool' }],
+        tools: [
+          {
+            name: 'test_tool',
+            displayName: 'Test Tool',
+            description: 'A test tool',
+          },
+        ],
         iconSvg: '<svg/>',
       },
     });
@@ -609,7 +620,14 @@ describe('handleBgGetFullState', () => {
           tabState: 'closed',
           urlPatterns: ['https://example.com/*'],
           sdkVersion: '2.0.0',
-          tools: [{ name: 'test_tool', displayName: 'Test Tool', description: 'A test tool', enabled: false }],
+          tools: [
+            {
+              name: 'test_tool',
+              displayName: 'Test Tool',
+              description: 'A test tool',
+              enabled: false,
+            },
+          ],
         },
       ],
       failedPlugins: [{ specifier: 'bad-plugin', error: 'load failed' }],
@@ -623,7 +641,14 @@ describe('handleBgGetFullState', () => {
           'test-plugin',
           JSON.stringify({
             state: 'ready',
-            tabs: [{ tabId: 1, url: 'https://example.com', title: 'Example', ready: true }],
+            tabs: [
+              {
+                tabId: 1,
+                url: 'https://example.com',
+                title: 'Example',
+                ready: true,
+              },
+            ],
           }),
         ],
       ]),
@@ -638,7 +663,13 @@ describe('handleBgGetFullState', () => {
         connected: true,
         serverVersion: '1.2.3',
         failedPlugins: [{ specifier: 'bad-plugin', error: 'load failed' }],
-        browserTools: [{ name: 'screenshot', description: 'Take a screenshot', enabled: true }],
+        browserTools: [
+          {
+            name: 'screenshot',
+            description: 'Take a screenshot',
+            enabled: true,
+          },
+        ],
       }),
     );
 
@@ -652,6 +683,71 @@ describe('handleBgGetFullState', () => {
     });
     expect(result.plugins[0]?.tools).toHaveLength(1);
     expect(result.plugins[0]?.tools[0]).toMatchObject({ enabled: false });
+  });
+
+  test('includes dark icon fields from plugin metadata in merged output', async () => {
+    handleWsState({ connected: true }, () => {});
+    vi.clearAllMocks();
+
+    mockGetAllPluginMeta.mockResolvedValueOnce({
+      'icon-plugin': {
+        name: 'icon-plugin',
+        displayName: 'Icon Plugin',
+        version: '1.0.0',
+        trustTier: 'community',
+        urlPatterns: ['https://example.com/*'],
+        tools: [
+          {
+            name: 'do_thing',
+            displayName: 'Do Thing',
+            description: 'Does a thing',
+          },
+        ],
+        iconSvg: '<svg>light</svg>',
+        iconInactiveSvg: '<svg>light-inactive</svg>',
+        iconDarkSvg: '<svg>dark</svg>',
+        iconDarkInactiveSvg: '<svg>dark-inactive</svg>',
+      },
+    });
+
+    mockGetServerStateCache.mockReturnValueOnce({
+      plugins: [
+        {
+          name: 'icon-plugin',
+          displayName: 'Icon Plugin',
+          version: '1.0.0',
+          trustTier: 'community',
+          source: 'local',
+          tabState: 'closed',
+          urlPatterns: ['https://example.com/*'],
+          tools: [
+            {
+              name: 'do_thing',
+              displayName: 'Do Thing',
+              description: 'Does a thing',
+              enabled: true,
+            },
+          ],
+        },
+      ],
+      failedPlugins: [],
+      browserTools: [],
+      serverVersion: undefined,
+    });
+
+    const sendResponse = vi.fn();
+    handleBgGetFullState({}, sendResponse);
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+
+    const result = sendResponse.mock.calls.at(0)?.at(0) as FullStateResponse;
+    expect(result.plugins).toHaveLength(1);
+    expect(result.plugins[0]).toMatchObject({
+      name: 'icon-plugin',
+      iconSvg: '<svg>light</svg>',
+      iconInactiveSvg: '<svg>light-inactive</svg>',
+      iconDarkSvg: '<svg>dark</svg>',
+      iconDarkInactiveSvg: '<svg>dark-inactive</svg>',
+    });
   });
 
   test('defaults tool enabled to true when server cache is empty', async () => {
@@ -713,11 +809,24 @@ describe('handleBgGetFullState', () => {
             tabState: 'closed',
             urlPatterns: [],
             sdkVersion: '2.0.0',
-            tools: [{ name: 'tool_a', displayName: 'Tool A', description: 'desc', enabled: false }],
+            tools: [
+              {
+                name: 'tool_a',
+                displayName: 'Tool A',
+                description: 'desc',
+                enabled: false,
+              },
+            ],
           },
         ],
         failedPlugins: [],
-        browserTools: [{ name: 'screenshot', description: 'Take a screenshot', enabled: true }],
+        browserTools: [
+          {
+            name: 'screenshot',
+            description: 'Take a screenshot',
+            enabled: true,
+          },
+        ],
         serverVersion: '3.0.0',
       });
       return Promise.resolve();
@@ -731,7 +840,14 @@ describe('handleBgGetFullState', () => {
             'restored-plugin',
             JSON.stringify({
               state: 'ready',
-              tabs: [{ tabId: 5, url: 'https://restored.com', title: 'Restored', ready: true }],
+              tabs: [
+                {
+                  tabId: 5,
+                  url: 'https://restored.com',
+                  title: 'Restored',
+                  ready: true,
+                },
+              ],
             }),
           ],
         ]),
@@ -892,7 +1008,14 @@ describe('handleBgGetFullState', () => {
             source: 'local',
             tabState: 'closed',
             urlPatterns: [],
-            tools: [{ name: 'tool_x', displayName: 'Tool X', description: 'desc', enabled: true }],
+            tools: [
+              {
+                name: 'tool_x',
+                displayName: 'Tool X',
+                description: 'desc',
+                enabled: true,
+              },
+            ],
           },
         ],
         failedPlugins: [],
@@ -930,7 +1053,10 @@ describe('handleBgGetFullState', () => {
     expect(result.connected).toBe(true);
     expect(result.serverVersion).toBe('5.0.0');
     expect(result.plugins).toHaveLength(1);
-    expect(result.plugins[0]).toMatchObject({ name: 'wake-plugin', tabState: 'ready' });
+    expect(result.plugins[0]).toMatchObject({
+      name: 'wake-plugin',
+      tabState: 'ready',
+    });
   });
 
   test('returns connected=true when session storage has wsConnected=true but in-memory flag not yet restored', async () => {
@@ -993,7 +1119,14 @@ describe('handleBgSetToolEnabled', () => {
           source: 'npm',
           tabState: 'closed',
           urlPatterns: [],
-          tools: [{ name: 'send', displayName: 'Send', description: 'desc', enabled: true }],
+          tools: [
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: true,
+            },
+          ],
         },
       ],
       failedPlugins: [],
@@ -1035,7 +1168,14 @@ describe('handleBgSetToolEnabled', () => {
           source: 'npm',
           tabState: 'closed',
           urlPatterns: [],
-          tools: [{ name: 'send', displayName: 'Send', description: 'desc', enabled: true }],
+          tools: [
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: true,
+            },
+          ],
         },
       ],
       failedPlugins: [],
@@ -1073,7 +1213,14 @@ describe('handleBgSetToolEnabled', () => {
           source: 'npm',
           tabState: 'closed',
           urlPatterns: [],
-          tools: [{ name: 'send', displayName: 'Send', description: 'desc', enabled: false }],
+          tools: [
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: false,
+            },
+          ],
         },
       ],
       failedPlugins: [],
@@ -1106,7 +1253,14 @@ describe('handleBgSetToolEnabled', () => {
           source: 'npm',
           tabState: 'closed',
           urlPatterns: [],
-          tools: [{ name: 'send', displayName: 'Send', description: 'desc', enabled: true }],
+          tools: [
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: true,
+            },
+          ],
         },
       ],
       failedPlugins: [],
@@ -1139,7 +1293,14 @@ describe('handleBgSetToolEnabled', () => {
           source: 'npm',
           tabState: 'closed',
           urlPatterns: [],
-          tools: [{ name: 'send', displayName: 'Send', description: 'desc', enabled: true }],
+          tools: [
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: true,
+            },
+          ],
         },
       ],
       failedPlugins: [],
@@ -1170,8 +1331,18 @@ describe('handleBgSetToolEnabled', () => {
           tabState: 'closed' as const,
           urlPatterns: [] as string[],
           tools: [
-            { name: 'send', displayName: 'Send', description: 'desc', enabled: true },
-            { name: 'read', displayName: 'Read', description: 'desc', enabled: false },
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: true,
+            },
+            {
+              name: 'read',
+              displayName: 'Read',
+              description: 'desc',
+              enabled: false,
+            },
           ],
         },
         {
@@ -1182,7 +1353,14 @@ describe('handleBgSetToolEnabled', () => {
           source: 'npm' as const,
           tabState: 'ready' as const,
           urlPatterns: [] as string[],
-          tools: [{ name: 'create_issue', displayName: 'Create Issue', description: 'desc', enabled: true }],
+          tools: [
+            {
+              name: 'create_issue',
+              displayName: 'Create Issue',
+              description: 'desc',
+              enabled: true,
+            },
+          ],
         },
       ],
       failedPlugins: [],
@@ -1199,7 +1377,10 @@ describe('handleBgSetToolEnabled', () => {
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
 
     const revertCall = mockUpdateServerStateCache.mock.calls[1]?.[0] as {
-      plugins: Array<{ name: string; tools: Array<{ name: string; enabled: boolean }> }>;
+      plugins: Array<{
+        name: string;
+        tools: Array<{ name: string; enabled: boolean }>;
+      }>;
     };
     // Target tool reverted to original value
     const slackPlugin = revertCall.plugins.find(p => p.name === 'slack');
@@ -1223,7 +1404,14 @@ describe('handleBgSetToolEnabled', () => {
           source: 'npm' as const,
           tabState: 'closed' as const,
           urlPatterns: [] as string[],
-          tools: [{ name: 'send', displayName: 'Send', description: 'desc', enabled: true }],
+          tools: [
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: true,
+            },
+          ],
         },
       ],
       failedPlugins: [],
@@ -1243,7 +1431,14 @@ describe('handleBgSetToolEnabled', () => {
           source: 'npm' as const,
           tabState: 'closed' as const,
           urlPatterns: [] as string[],
-          tools: [{ name: 'send', displayName: 'Send', description: 'desc', enabled: false }],
+          tools: [
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: false,
+            },
+          ],
         },
         {
           name: 'github',
@@ -1253,7 +1448,14 @@ describe('handleBgSetToolEnabled', () => {
           source: 'npm' as const,
           tabState: 'ready' as const,
           urlPatterns: [] as string[],
-          tools: [{ name: 'create_issue', displayName: 'Create Issue', description: 'desc', enabled: true }],
+          tools: [
+            {
+              name: 'create_issue',
+              displayName: 'Create Issue',
+              description: 'desc',
+              enabled: true,
+            },
+          ],
         },
       ],
       failedPlugins: [],
@@ -1273,7 +1475,10 @@ describe('handleBgSetToolEnabled', () => {
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
 
     const revertCall = mockUpdateServerStateCache.mock.calls[1]?.[0] as {
-      plugins: Array<{ name: string; tools: Array<{ name: string; enabled: boolean }> }>;
+      plugins: Array<{
+        name: string;
+        tools: Array<{ name: string; enabled: boolean }>;
+      }>;
     };
     // Target tool reverted to original (true), not the concurrent value (false)
     expect(revertCall.plugins.find(p => p.name === 'slack')?.tools[0]?.enabled).toBe(true);
@@ -1300,8 +1505,18 @@ describe('handleBgSetAllToolsEnabled', () => {
           tabState: 'closed',
           urlPatterns: [],
           tools: [
-            { name: 'send', displayName: 'Send', description: 'desc', enabled: true },
-            { name: 'read', displayName: 'Read', description: 'desc', enabled: true },
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: true,
+            },
+            {
+              name: 'read',
+              displayName: 'Read',
+              description: 'desc',
+              enabled: true,
+            },
           ],
         },
       ],
@@ -1337,8 +1552,18 @@ describe('handleBgSetAllToolsEnabled', () => {
           tabState: 'closed',
           urlPatterns: [],
           tools: [
-            { name: 'send', displayName: 'Send', description: 'desc', enabled: true },
-            { name: 'read', displayName: 'Read', description: 'desc', enabled: true },
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: true,
+            },
+            {
+              name: 'read',
+              displayName: 'Read',
+              description: 'desc',
+              enabled: true,
+            },
           ],
         },
       ],
@@ -1370,8 +1595,18 @@ describe('handleBgSetAllToolsEnabled', () => {
           tabState: 'closed' as const,
           urlPatterns: [] as string[],
           tools: [
-            { name: 'send', displayName: 'Send', description: 'desc', enabled: true },
-            { name: 'read', displayName: 'Read', description: 'desc', enabled: false },
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: true,
+            },
+            {
+              name: 'read',
+              displayName: 'Read',
+              description: 'desc',
+              enabled: false,
+            },
           ],
         },
       ],
@@ -1392,8 +1627,18 @@ describe('handleBgSetAllToolsEnabled', () => {
           tabState: 'closed' as const,
           urlPatterns: [] as string[],
           tools: [
-            { name: 'send', displayName: 'Send', description: 'desc', enabled: false },
-            { name: 'read', displayName: 'Read', description: 'desc', enabled: false },
+            {
+              name: 'send',
+              displayName: 'Send',
+              description: 'desc',
+              enabled: false,
+            },
+            {
+              name: 'read',
+              displayName: 'Read',
+              description: 'desc',
+              enabled: false,
+            },
           ],
         },
         {
@@ -1404,7 +1649,14 @@ describe('handleBgSetAllToolsEnabled', () => {
           source: 'npm' as const,
           tabState: 'ready' as const,
           urlPatterns: [] as string[],
-          tools: [{ name: 'create_issue', displayName: 'Create Issue', description: 'desc', enabled: true }],
+          tools: [
+            {
+              name: 'create_issue',
+              displayName: 'Create Issue',
+              description: 'desc',
+              enabled: true,
+            },
+          ],
         },
       ],
       failedPlugins: [],
@@ -1421,7 +1673,10 @@ describe('handleBgSetAllToolsEnabled', () => {
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
 
     const revertCall = mockUpdateServerStateCache.mock.calls[1]?.[0] as {
-      plugins: Array<{ name: string; tools: Array<{ name: string; enabled: boolean }> }>;
+      plugins: Array<{
+        name: string;
+        tools: Array<{ name: string; enabled: boolean }>;
+      }>;
     };
     // Target plugin tools reverted to original values
     const slackPlugin = revertCall.plugins.find(p => p.name === 'slack');
@@ -1472,7 +1727,11 @@ describe('handleBgSetBrowserToolEnabled', () => {
       plugins: [],
       failedPlugins: [],
       browserTools: [
-        { name: 'screenshot', description: 'Take a screenshot', enabled: false },
+        {
+          name: 'screenshot',
+          description: 'Take a screenshot',
+          enabled: false,
+        },
         { name: 'console', description: 'Get console logs', enabled: true },
       ],
       serverVersion: '1.0.0',
@@ -1550,8 +1809,16 @@ describe('handleBgSetBrowserToolEnabled', () => {
       plugins: [],
       failedPlugins: [],
       browserTools: [
-        { name: 'screenshot', description: 'Take a screenshot', enabled: false },
-        { name: 'console', description: 'Get console logs (updated)', enabled: false },
+        {
+          name: 'screenshot',
+          description: 'Take a screenshot',
+          enabled: false,
+        },
+        {
+          name: 'console',
+          description: 'Get console logs (updated)',
+          enabled: false,
+        },
         { name: 'network', description: 'Network monitor', enabled: true },
       ],
       serverVersion: '1.0.0',
@@ -1566,7 +1833,11 @@ describe('handleBgSetBrowserToolEnabled', () => {
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
 
     const revertCall = mockUpdateServerStateCache.mock.calls[1]?.[0] as {
-      browserTools: Array<{ name: string; description: string; enabled: boolean }>;
+      browserTools: Array<{
+        name: string;
+        description: string;
+        enabled: boolean;
+      }>;
     };
     // Target browser tool reverted to original enabled value
     expect(revertCall.browserTools.find(bt => bt.name === 'screenshot')?.enabled).toBe(true);
@@ -1600,7 +1871,9 @@ describe('handleBgSetAllBrowserToolsEnabled', () => {
     handleBgSetAllBrowserToolsEnabled({ enabled: false }, sendResponse);
 
     expect(mockUpdateServerStateCache).toHaveBeenCalledOnce();
-    const updateCall = mockUpdateServerStateCache.mock.calls[0]?.[0] as { browserTools: Array<{ enabled: boolean }> };
+    const updateCall = mockUpdateServerStateCache.mock.calls[0]?.[0] as {
+      browserTools: Array<{ enabled: boolean }>;
+    };
     expect(updateCall.browserTools.every(bt => !bt.enabled)).toBe(true);
 
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
@@ -1645,7 +1918,11 @@ describe('handleBgSetAllBrowserToolsEnabled', () => {
       plugins: [],
       failedPlugins: [],
       browserTools: [
-        { name: 'screenshot', description: 'Take a screenshot', enabled: false },
+        {
+          name: 'screenshot',
+          description: 'Take a screenshot',
+          enabled: false,
+        },
         { name: 'console', description: 'Get console logs', enabled: false },
         { name: 'network', description: 'Network monitor', enabled: true },
       ],
@@ -1678,13 +1955,17 @@ describe('handleBgSetAllBrowserToolsEnabled', () => {
 
 describe('handleBgSearchPlugins', () => {
   test('relays plugin.search to the server and returns results', async () => {
-    const results = { results: [{ name: 'opentabs-plugin-test', description: 'test', version: '1.0.0' }] };
+    const results = {
+      results: [{ name: 'opentabs-plugin-test', description: 'test', version: '1.0.0' }],
+    };
     mockSendServerRequest.mockResolvedValueOnce(results);
 
     const sendResponse = vi.fn();
     handleBgSearchPlugins({ query: 'test' }, sendResponse);
 
-    expect(mockSendServerRequest).toHaveBeenCalledWith('plugin.search', { query: 'test' });
+    expect(mockSendServerRequest).toHaveBeenCalledWith('plugin.search', {
+      query: 'test',
+    });
 
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
     expect(sendResponse).toHaveBeenCalledWith(results);
@@ -1707,13 +1988,23 @@ describe('handleBgSearchPlugins', () => {
 
 describe('handleBgInstallPlugin', () => {
   test('relays plugin.install to the server and returns result', async () => {
-    const result = { ok: true, plugin: { name: 'test', displayName: 'Test', version: '1.0.0', toolCount: 2 } };
+    const result = {
+      ok: true,
+      plugin: {
+        name: 'test',
+        displayName: 'Test',
+        version: '1.0.0',
+        toolCount: 2,
+      },
+    };
     mockSendServerRequest.mockResolvedValueOnce(result);
 
     const sendResponse = vi.fn();
     handleBgInstallPlugin({ name: 'opentabs-plugin-test' }, sendResponse);
 
-    expect(mockSendServerRequest).toHaveBeenCalledWith('plugin.install', { name: 'opentabs-plugin-test' });
+    expect(mockSendServerRequest).toHaveBeenCalledWith('plugin.install', {
+      name: 'opentabs-plugin-test',
+    });
 
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
     expect(sendResponse).toHaveBeenCalledWith(result);
@@ -1731,7 +2022,9 @@ describe('handleBgRemovePlugin', () => {
     const sendResponse = vi.fn();
     handleBgRemovePlugin({ name: 'test-plugin' }, sendResponse);
 
-    expect(mockSendServerRequest).toHaveBeenCalledWith('plugin.remove', { name: 'test-plugin' });
+    expect(mockSendServerRequest).toHaveBeenCalledWith('plugin.remove', {
+      name: 'test-plugin',
+    });
 
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
     expect(sendResponse).toHaveBeenCalledWith({ ok: true });
@@ -1744,7 +2037,15 @@ describe('handleBgRemovePlugin', () => {
 
 describe('handleBgUpdatePlugin', () => {
   test('relays plugin.updateFromRegistry to the server and returns result', async () => {
-    const result = { ok: true, plugin: { name: 'test', displayName: 'Test', version: '2.0.0', toolCount: 3 } };
+    const result = {
+      ok: true,
+      plugin: {
+        name: 'test',
+        displayName: 'Test',
+        version: '2.0.0',
+        toolCount: 3,
+      },
+    };
     mockSendServerRequest.mockResolvedValueOnce(result);
 
     const sendResponse = vi.fn();
