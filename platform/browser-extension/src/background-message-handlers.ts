@@ -10,6 +10,7 @@ import { getAllPluginMeta } from './plugin-storage.js';
 import { rejectAllPendingServerRequests, sendServerRequest } from './server-request.js';
 import {
   clearServerStateCache,
+  getCachesInitialized,
   getServerStateCache,
   loadServerStateCacheFromSession,
   updateServerStateCache,
@@ -105,16 +106,12 @@ const handleWsState: MessageHandler = (message, sendResponse) => {
 
 /** Handle ws:message — relay a JSON-RPC message from the MCP server */
 const handleWsMessage: MessageHandler = (message, sendResponse) => {
-  handleServerMessage(message.data as Record<string, unknown>);
+  try {
+    handleServerMessage(message.data as Record<string, unknown>);
+  } catch (err) {
+    console.error('[opentabs:background] handleServerMessage threw:', err);
+  }
   sendResponse({ ok: true });
-};
-
-/** Handle bg:getConnectionState — query WebSocket connection state */
-const handleBgGetConnectionState: MessageHandler = (_message, sendResponse) => {
-  sendResponse({
-    connected: wsConnected,
-    disconnectReason: wsConnected ? undefined : lastDisconnectReason,
-  });
 };
 
 /**
@@ -132,7 +129,10 @@ const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
     // Wake detection: if the service worker was suspended, in-memory caches
     // are empty but wsConnected may still be true (restored from session storage).
     // Reload caches from session storage before merging.
-    if (wsConnected && tabStates.size === 0 && serverCache.plugins.length === 0) {
+    // The cachesInitialized check distinguishes "woke from suspension" (true)
+    // from "connected but sync.full has not arrived yet" (false). Without it,
+    // stale session data would be restored during the connect-to-sync.full gap.
+    if (wsConnected && getCachesInitialized() && tabStates.size === 0 && serverCache.plugins.length === 0) {
       await Promise.all([loadLastKnownStateFromSession(), loadServerStateCacheFromSession()]);
       tabStates = getLastKnownStates();
       serverCache = getServerStateCache();
@@ -298,6 +298,7 @@ const handleBgSetToolEnabled: MessageHandler = (message, sendResponse) => {
 
   // Optimistically update the local server state cache
   const cache = getServerStateCache();
+  const originalPlugins = cache.plugins;
   const updatedPlugins = cache.plugins.map(p => {
     if (p.name !== plugin) return p;
     return {
@@ -312,16 +313,8 @@ const handleBgSetToolEnabled: MessageHandler = (message, sendResponse) => {
       sendResponse(result);
     })
     .catch((err: unknown) => {
-      // Revert the optimistic update on failure
-      const revertCache = getServerStateCache();
-      const revertPlugins = revertCache.plugins.map(p => {
-        if (p.name !== plugin) return p;
-        return {
-          ...p,
-          tools: p.tools.map(t => (t.name === tool ? { ...t, enabled: !enabled } : t)),
-        };
-      });
-      updateServerStateCache({ plugins: revertPlugins });
+      // Revert to the original plugins on failure
+      updateServerStateCache({ plugins: originalPlugins });
       sendResponse({ error: err instanceof Error ? err.message : String(err) });
     });
 };
@@ -361,6 +354,7 @@ const handleBgSetBrowserToolEnabled: MessageHandler = (message, sendResponse) =>
 
   // Optimistically update the local server state cache
   const cache = getServerStateCache();
+  const originalBrowserTools = cache.browserTools;
   const updatedBrowserTools = cache.browserTools.map(bt => (bt.name === tool ? { ...bt, enabled } : bt));
   updateServerStateCache({ browserTools: updatedBrowserTools });
 
@@ -369,12 +363,8 @@ const handleBgSetBrowserToolEnabled: MessageHandler = (message, sendResponse) =>
       sendResponse(result);
     })
     .catch((err: unknown) => {
-      // Revert the optimistic update on failure
-      const revertCache = getServerStateCache();
-      const revertBrowserTools = revertCache.browserTools.map(bt =>
-        bt.name === tool ? { ...bt, enabled: !enabled } : bt,
-      );
-      updateServerStateCache({ browserTools: revertBrowserTools });
+      // Revert to the original browser tools on failure
+      updateServerStateCache({ browserTools: originalBrowserTools });
       sendResponse({ error: err instanceof Error ? err.message : String(err) });
     });
 };
@@ -464,7 +454,6 @@ const backgroundHandlers = new Map<InternalMessage['type'], MessageHandler>([
   ['offscreen:getUrl', handleOffscreenGetUrl],
   ['ws:state', handleWsState],
   ['ws:message', handleWsMessage],
-  ['bg:getConnectionState', handleBgGetConnectionState],
   ['bg:getFullState', handleBgGetFullState],
   ['bg:setToolEnabled', handleBgSetToolEnabled],
   ['bg:setAllToolsEnabled', handleBgSetAllToolsEnabled],
@@ -487,7 +476,6 @@ const EXTENSION_ONLY_TYPES: ReadonlySet<InternalMessage['type']> = new Set([
   'offscreen:getUrl',
   'ws:state',
   'ws:message',
-  'bg:getConnectionState',
   'bg:getFullState',
   'bg:setToolEnabled',
   'bg:setAllToolsEnabled',
@@ -534,7 +522,6 @@ const backgroundHandlerNames: readonly string[] = [...backgroundHandlers.keys()]
 
 export {
   backgroundHandlerNames,
-  handleBgGetConnectionState,
   handleBgGetFullState,
   handleBgInstallPlugin,
   handleBgRemovePlugin,

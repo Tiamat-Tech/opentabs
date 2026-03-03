@@ -226,6 +226,20 @@ const sendTabSyncAll = async (): Promise<void> => {
 };
 
 /**
+ * Write the current lastKnownState Map to chrome.storage.session immediately,
+ * cancelling any pending debounced write. Called after sync.full populates
+ * the cache to ensure critical state survives MV3 service worker suspension
+ * without waiting for the 500ms debounce window.
+ */
+const flushLastKnownStateToSession = (): void => {
+  if (lastKnownStatePersistTimer !== undefined) {
+    clearTimeout(lastKnownStatePersistTimer);
+    lastKnownStatePersistTimer = undefined;
+  }
+  persistLastKnownStateToSession();
+};
+
+/**
  * Clear the last-known state cache. Called on WebSocket disconnect so the
  * next connect triggers a full sync without stale cache interference.
  */
@@ -279,6 +293,7 @@ const getLastKnownStates = (): ReadonlyMap<string, string> => lastKnownState;
  * persisted before suspension.
  */
 const loadLastKnownStateFromSession = async (): Promise<void> => {
+  lastKnownState.clear();
   try {
     const data = await chrome.storage.session.get(LAST_KNOWN_STATE_SESSION_KEY);
     const stored = data[LAST_KNOWN_STATE_SESSION_KEY] as Record<string, string> | undefined;
@@ -297,8 +312,9 @@ const loadLastKnownStateFromSession = async (): Promise<void> => {
 /** Extract the aggregate TabState from a serialized cache entry. */
 const getAggregateState = (serialized: string): TabState => {
   try {
-    const parsed = JSON.parse(serialized) as { state: TabState };
-    return parsed.state;
+    const parsed = JSON.parse(serialized) as { state: string };
+    const validStates = new Set<string>(['closed', 'unavailable', 'ready']);
+    return validStates.has(parsed.state) ? (parsed.state as TabState) : 'closed';
   } catch {
     return 'closed';
   }
@@ -478,6 +494,7 @@ export {
   clearPluginTabState,
   clearTabStateCache,
   computePluginTabState,
+  flushLastKnownStateToSession,
   getAggregateState,
   getLastKnownStates,
   loadLastKnownStateFromSession,

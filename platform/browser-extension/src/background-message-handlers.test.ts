@@ -30,6 +30,7 @@ const {
   mockHandleServerMessage,
   mockNotifyDispatchProgress,
   mockGetAllPluginMeta,
+  mockGetCachesInitialized,
   mockGetServerStateCache,
   mockClearServerStateCache,
   mockLoadServerStateCacheFromSession,
@@ -49,6 +50,7 @@ const {
   mockHandleServerMessage: vi.fn(),
   mockNotifyDispatchProgress: vi.fn(),
   mockGetAllPluginMeta: vi.fn<() => Promise<Record<string, unknown>>>(() => Promise.resolve({})),
+  mockGetCachesInitialized: vi.fn<() => boolean>(() => false),
   mockGetServerStateCache: vi.fn<
     () => {
       plugins: unknown[];
@@ -102,6 +104,7 @@ vi.mock('./plugin-storage.js', () => ({
 }));
 
 vi.mock('./server-state-cache.js', () => ({
+  getCachesInitialized: mockGetCachesInitialized,
   getServerStateCache: mockGetServerStateCache,
   clearServerStateCache: mockClearServerStateCache,
   loadServerStateCacheFromSession: mockLoadServerStateCacheFromSession,
@@ -140,11 +143,11 @@ const mockRuntimeSendMessage = vi.fn(() => Promise.resolve());
 
 const {
   handleWsState,
+  handleWsMessage,
   handlePluginLogs,
   handleToolProgress,
   handleSpConfirmationResponse,
   handleSpConfirmationTimeout,
-  handleBgGetConnectionState,
   handleBgGetFullState,
   handleBgSetToolEnabled,
   handleBgSetAllToolsEnabled,
@@ -154,6 +157,7 @@ const {
   handleBgInstallPlugin,
   handleBgRemovePlugin,
   handleBgUpdatePlugin,
+  initBackgroundMessageHandlers,
 } = await import('./background-message-handlers.js');
 
 // ---------------------------------------------------------------------------
@@ -529,27 +533,6 @@ describe('handleSpConfirmationTimeout', () => {
 });
 
 // ---------------------------------------------------------------------------
-// handleBgGetConnectionState
-// ---------------------------------------------------------------------------
-
-describe('handleBgGetConnectionState', () => {
-  test('returns connected=false when not connected', () => {
-    const sendResponse = vi.fn();
-    handleBgGetConnectionState({}, sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ connected: false }));
-  });
-
-  test('returns connected=true after connect', () => {
-    handleWsState({ connected: true }, () => {});
-    vi.clearAllMocks();
-
-    const sendResponse = vi.fn();
-    handleBgGetConnectionState({}, sendResponse);
-    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ connected: true }));
-  });
-});
-
-// ---------------------------------------------------------------------------
 // handleBgGetFullState
 // ---------------------------------------------------------------------------
 
@@ -668,7 +651,9 @@ describe('handleBgGetFullState', () => {
   });
 
   test('loads from session storage on service worker wake (connected but empty caches)', async () => {
-    // Simulate service worker wake: wsConnected=true but in-memory caches are empty
+    // Simulate service worker wake: wsConnected=true but in-memory caches are empty.
+    // cachesInitialized=true indicates sync.full ran before suspension, so the
+    // empty caches mean data was lost during suspension, not that sync.full hasn't arrived.
     handleWsState({ connected: true }, () => {});
     vi.clearAllMocks();
 
@@ -680,6 +665,7 @@ describe('handleBgGetFullState', () => {
       browserTools: [],
       serverVersion: undefined,
     });
+    mockGetCachesInitialized.mockReturnValue(true);
 
     // After session load, caches will be populated
     mockLoadLastKnownStateFromSession.mockImplementationOnce(() => {
@@ -808,6 +794,105 @@ describe('handleBgGetFullState', () => {
     expect(mockLoadLastKnownStateFromSession).not.toHaveBeenCalled();
     expect(mockLoadServerStateCacheFromSession).not.toHaveBeenCalled();
   });
+
+  test('does NOT load from session storage during connect-to-sync.full gap (cachesInitialized=false)', async () => {
+    // Simulate the false positive: WebSocket just connected (wsConnected=true) but
+    // sync.full has not arrived yet (cachesInitialized=false, caches empty).
+    // Without the cachesInitialized guard, stale session data would be restored.
+    handleWsState({ connected: true }, () => {});
+    vi.clearAllMocks();
+
+    mockGetLastKnownStates.mockReturnValue(new Map());
+    mockGetServerStateCache.mockReturnValue({
+      plugins: [],
+      failedPlugins: [],
+      browserTools: [],
+      serverVersion: undefined,
+    });
+    mockGetCachesInitialized.mockReturnValue(false);
+    mockGetAllPluginMeta.mockResolvedValueOnce({});
+
+    const sendResponse = vi.fn();
+    handleBgGetFullState({}, sendResponse);
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+
+    // Session storage loaders must NOT be called — this is the connect-to-sync.full gap
+    expect(mockLoadLastKnownStateFromSession).not.toHaveBeenCalled();
+    expect(mockLoadServerStateCacheFromSession).not.toHaveBeenCalled();
+
+    // Response should return empty plugins (no stale data restored)
+    const result = sendResponse.mock.calls.at(0)?.at(0) as FullStateResponse;
+    expect(result.connected).toBe(true);
+    expect(result.plugins).toEqual([]);
+  });
+
+  test('loads from session storage after sync.full + suspension (cachesInitialized=true)', async () => {
+    // Simulate real wake: sync.full already ran (cachesInitialized=true), then service
+    // worker was suspended. On wake, in-memory caches are empty but session storage
+    // has the data. This should trigger session restoration.
+    handleWsState({ connected: true }, () => {});
+    vi.clearAllMocks();
+
+    mockGetLastKnownStates.mockReturnValue(new Map());
+    mockGetServerStateCache.mockReturnValue({
+      plugins: [],
+      failedPlugins: [],
+      browserTools: [],
+      serverVersion: undefined,
+    });
+    mockGetCachesInitialized.mockReturnValue(true);
+
+    mockLoadLastKnownStateFromSession.mockImplementationOnce(() => {
+      mockGetLastKnownStates.mockReturnValue(new Map([['wake-plugin', JSON.stringify({ state: 'ready', tabs: [] })]]));
+      return Promise.resolve();
+    });
+
+    mockLoadServerStateCacheFromSession.mockImplementationOnce(() => {
+      mockGetServerStateCache.mockReturnValue({
+        plugins: [
+          {
+            name: 'wake-plugin',
+            displayName: 'Wake Plugin',
+            version: '1.0.0',
+            trustTier: 'local',
+            source: 'local',
+            tabState: 'closed',
+            urlPatterns: [],
+            tools: [{ name: 'tool_x', displayName: 'Tool X', description: 'desc', enabled: true }],
+          },
+        ],
+        failedPlugins: [],
+        browserTools: [],
+        serverVersion: '5.0.0',
+      });
+      return Promise.resolve();
+    });
+
+    mockGetAllPluginMeta.mockResolvedValueOnce({
+      'wake-plugin': {
+        name: 'wake-plugin',
+        displayName: 'Wake Plugin',
+        version: '1.0.0',
+        trustTier: 'local',
+        urlPatterns: [],
+        tools: [{ name: 'tool_x', displayName: 'Tool X', description: 'desc' }],
+      },
+    });
+
+    const sendResponse = vi.fn();
+    handleBgGetFullState({}, sendResponse);
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+
+    // Session storage loaders SHOULD be called — this is a real wake
+    expect(mockLoadLastKnownStateFromSession).toHaveBeenCalledOnce();
+    expect(mockLoadServerStateCacheFromSession).toHaveBeenCalledOnce();
+
+    const result = sendResponse.mock.calls.at(0)?.at(0) as FullStateResponse;
+    expect(result.connected).toBe(true);
+    expect(result.serverVersion).toBe('5.0.0');
+    expect(result.plugins).toHaveLength(1);
+    expect(result.plugins[0]).toMatchObject({ name: 'wake-plugin', tabState: 'ready' });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -913,6 +998,41 @@ describe('handleBgSetToolEnabled', () => {
 
     expect(sendResponse).toHaveBeenCalledWith({ error: 'Server error' });
   });
+
+  test('revert restores exact pre-mutation state, not toggled !enabled', async () => {
+    // Tool starts disabled. Calling with enabled: false (same value) must revert to false,
+    // not flip to !false = true as a naive !enabled approach would do.
+    mockGetServerStateCache.mockReturnValue({
+      plugins: [
+        {
+          name: 'slack',
+          displayName: 'Slack',
+          version: '1.0.0',
+          trustTier: 'community',
+          source: 'npm',
+          tabState: 'closed',
+          urlPatterns: [],
+          tools: [{ name: 'send', displayName: 'Send', description: 'desc', enabled: false }],
+        },
+      ],
+      failedPlugins: [],
+      browserTools: [],
+      serverVersion: '1.0.0',
+    });
+
+    mockSendServerRequest.mockRejectedValueOnce(new Error('Server error'));
+
+    const sendResponse = vi.fn();
+    handleBgSetToolEnabled({ plugin: 'slack', tool: 'send', enabled: false }, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+
+    const revertCall = mockUpdateServerStateCache.mock.calls[1]?.[0] as {
+      plugins: Array<{ tools: Array<{ enabled: boolean }> }>;
+    };
+    // Must restore original enabled: false, not flip to true
+    expect(revertCall.plugins[0]?.tools[0]?.enabled).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -988,6 +1108,39 @@ describe('handleBgSetBrowserToolEnabled', () => {
 
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
     expect(sendResponse).toHaveBeenCalledWith({ ok: true });
+  });
+
+  test('reverts to exact pre-mutation state on server error', async () => {
+    // Browser tool starts disabled. Calling with enabled: false (same value) must revert
+    // to false, not flip to !false = true as a naive !enabled approach would do.
+    mockGetServerStateCache.mockReturnValue({
+      plugins: [],
+      failedPlugins: [],
+      browserTools: [
+        { name: 'screenshot', description: 'Take a screenshot', enabled: false },
+        { name: 'console', description: 'Get console logs', enabled: true },
+      ],
+      serverVersion: '1.0.0',
+    });
+
+    mockSendServerRequest.mockRejectedValueOnce(new Error('Server error'));
+
+    const sendResponse = vi.fn();
+    handleBgSetBrowserToolEnabled({ tool: 'screenshot', enabled: false }, sendResponse);
+
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+
+    // Should have been called twice: optimistic + revert
+    expect(mockUpdateServerStateCache).toHaveBeenCalledTimes(2);
+    const revertCall = mockUpdateServerStateCache.mock.calls[1]?.[0] as {
+      browserTools: Array<{ name: string; enabled: boolean }>;
+    };
+    // Must restore original enabled: false, not flip to true
+    expect(revertCall.browserTools.find(bt => bt.name === 'screenshot')?.enabled).toBe(false);
+    // Other tools are untouched in the captured original
+    expect(revertCall.browserTools.find(bt => bt.name === 'console')?.enabled).toBe(true);
+
+    expect(sendResponse).toHaveBeenCalledWith({ error: 'Server error' });
   });
 });
 
@@ -1103,5 +1256,90 @@ describe('handleBgUpdatePlugin', () => {
 
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
     expect(sendResponse).toHaveBeenCalledWith(result);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// handleWsMessage
+// ---------------------------------------------------------------------------
+
+describe('handleWsMessage', () => {
+  test('relays message data to handleServerMessage and calls sendResponse', () => {
+    const sendResponse = vi.fn();
+    const data = { jsonrpc: '2.0', method: 'plugins.changed', params: {} };
+
+    handleWsMessage({ data }, sendResponse);
+
+    expect(mockHandleServerMessage).toHaveBeenCalledWith(data);
+    expect(sendResponse).toHaveBeenCalledWith({ ok: true });
+  });
+
+  test('calls sendResponse even when handleServerMessage throws', () => {
+    mockHandleServerMessage.mockImplementationOnce(() => {
+      throw new Error('handleServerMessage failed');
+    });
+
+    const sendResponse = vi.fn();
+    handleWsMessage({ data: { jsonrpc: '2.0', method: 'bad.method' } }, sendResponse);
+
+    expect(sendResponse).toHaveBeenCalledWith({ ok: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EXTENSION_ONLY_TYPES security guard
+// ---------------------------------------------------------------------------
+
+describe('EXTENSION_ONLY_TYPES security guard', () => {
+  type Listener = (message: unknown, sender: unknown, sendResponse: (r: unknown) => void) => unknown;
+
+  /** Install a chrome.runtime.onMessage mock that captures registered listeners */
+  const installListenerCapture = (): Listener[] => {
+    const listeners: Listener[] = [];
+    const chromeGlobal = (globalThis as unknown as { chrome: Record<string, unknown> }).chrome;
+    chromeGlobal.runtime = {
+      ...(chromeGlobal.runtime as Record<string, unknown>),
+      onMessage: {
+        addListener: (fn: Listener) => {
+          listeners.push(fn);
+        },
+      },
+    };
+    return listeners;
+  };
+
+  test('rejects extension-only messages from non-extension senders', () => {
+    const listeners = installListenerCapture();
+    initBackgroundMessageHandlers();
+
+    expect(listeners).toHaveLength(1);
+    const listener = listeners[0] as Listener;
+    const sendResponse = vi.fn();
+
+    // Sender.id differs from chrome.runtime.id — simulates a malicious extension
+    const result = listener(
+      { type: 'bg:setToolEnabled' },
+      { id: 'malicious-extension-id', url: 'https://evil.com' },
+      sendResponse,
+    );
+
+    // Should return false (reject) and NOT call sendResponse
+    expect(result).toBe(false);
+    expect(sendResponse).not.toHaveBeenCalled();
+  });
+
+  test('accepts extension-only messages from the extension itself', () => {
+    const listeners = installListenerCapture();
+    initBackgroundMessageHandlers();
+
+    expect(listeners).toHaveLength(1);
+    const listener = listeners[0] as Listener;
+    const sendResponse = vi.fn();
+
+    // Sender.id matches chrome.runtime.id — trusted extension context
+    const result = listener({ type: 'bg:getFullState' }, { id: 'test-extension-id' }, sendResponse);
+
+    // Should return true (accepted and handled asynchronously)
+    expect(result).toBe(true);
   });
 });

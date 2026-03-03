@@ -45,10 +45,16 @@ import { getAllPluginMeta, removePlugin, removePluginsBatch, storePluginsBatch }
 import { checkRateLimit } from './rate-limiter.js';
 import { handleResourceRead, handlePromptGet } from './resource-prompt-dispatch.js';
 import { consumeServerResponse } from './server-request.js';
-import { getServerStateCache, updateServerStateCache } from './server-state-cache.js';
+import {
+  flushServerStateCacheToSession,
+  getServerStateCache,
+  setCachesInitialized,
+  updateServerStateCache,
+} from './server-state-cache.js';
 import {
   clearPluginTabState,
   computePluginTabState,
+  flushLastKnownStateToSession,
   getLastKnownStates,
   sendTabSyncAll,
   startReadinessPoll,
@@ -103,7 +109,6 @@ const wrapNotification =
  * the side panel, which only needs tab state changes and invocation animations.
  */
 const SIDE_PANEL_METHODS = new Set([
-  'tab.stateChanged',
   'tool.invocationStart',
   'tool.invocationEnd',
   'plugins.changed',
@@ -365,6 +370,16 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
     ...(rawServerVersion !== undefined ? { serverVersion: rawServerVersion } : {}),
   });
 
+  // Mark caches as initialized so the bg:getFullState wake detection
+  // heuristic can distinguish "woke from suspension" (cachesInitialized=true)
+  // from "connected but sync.full has not arrived yet" (cachesInitialized=false).
+  setCachesInitialized(true);
+
+  // Flush server state to session storage immediately so critical state
+  // (including cachesInitialized) survives MV3 service worker suspension
+  // during the sendTabSyncAll window.
+  flushServerStateCacheToSession();
+
   // Notify the side panel immediately so it renders plugin cards from the
   // background cache (metaCache + serverStateCache) without waiting for
   // sendTabSyncAll to probe every plugin's isReady(). Tab states stream
@@ -375,10 +390,12 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
   });
 
   // Fire-and-forget: send tab.syncAll after all plugins are stored and
-  // injected, then start the readiness poll once probes complete. This
-  // runs after the side panel notification so the UI is not blocked by
-  // the O(N × round-trip) latency of probing every matching tab.
+  // injected, then flush the populated tab state cache immediately so it
+  // survives any service worker suspension during the probing window, then
+  // start the readiness poll. Runs after the side panel notification so
+  // the UI is not blocked by the O(N × round-trip) latency of probing.
   void sendTabSyncAll().then(() => {
+    flushLastKnownStateToSession();
     startReadinessPoll();
   });
 };
@@ -469,6 +486,19 @@ const handlePluginUninstall = async (params: Record<string, unknown>, id: string
 
   await removePlugin(pluginName);
   clearPluginTabState(pluginName);
+
+  // Remove the uninstalled plugin from the cache so bg:getFullState returns
+  // fresh state immediately, without waiting for the server's plugins.changed.
+  const existingCache = getServerStateCache();
+  updateServerStateCache({ plugins: existingCache.plugins.filter(p => p.name !== pluginName) });
+
+  // Notify the side panel so it removes the plugin card without waiting for
+  // the server's own plugins.changed (which arrives after the success response).
+  forwardToSidePanel({
+    type: 'sp:serverMessage',
+    data: { jsonrpc: '2.0', method: 'plugins.changed' },
+  });
+
   sendToServer({
     jsonrpc: '2.0',
     result: { success: true },

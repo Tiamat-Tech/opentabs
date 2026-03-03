@@ -188,6 +188,8 @@ const {
 vi.mock('./server-state-cache.js', () => ({
   updateServerStateCache: mockUpdateServerStateCache,
   getServerStateCache: mockGetServerStateCache,
+  flushServerStateCacheToSession: vi.fn(),
+  setCachesInitialized: vi.fn(),
 }));
 
 vi.mock('./confirmation-badge.js', () => ({
@@ -232,6 +234,7 @@ vi.mock('./tab-state.js', () => ({
   computePluginTabState: vi.fn(() => Promise.resolve({ state: 'closed', tabs: [] })),
   clearTabStateCache: vi.fn(),
   clearPluginTabState: vi.fn(),
+  flushLastKnownStateToSession: vi.fn(),
   updateLastKnownState: vi.fn(() => Promise.resolve()),
   getLastKnownStates: mockGetLastKnownStates,
   getAggregateState: vi.fn(() => 'closed'),
@@ -976,6 +979,43 @@ describe('handleServerMessage', () => {
       // Without id, the handler guard prevents execution — no error sent
       expect(mockSendToServer).not.toHaveBeenCalled();
     });
+
+    test('removes uninstalled plugin from server state cache and forwards plugins.changed', async () => {
+      mockGetServerStateCache.mockReturnValue({
+        plugins: [
+          { name: 'test-plugin', displayName: 'Test', version: '1.0.0' },
+          { name: 'other-plugin', displayName: 'Other', version: '2.0.0' },
+        ],
+        failedPlugins: [],
+        browserTools: [],
+        serverVersion: undefined,
+      });
+
+      handleServerMessage({
+        method: 'plugin.uninstall',
+        id: 99,
+        params: { name: 'test-plugin' },
+      });
+
+      // handlePluginUninstall is async — flush microtasks
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Cache must be updated to exclude the uninstalled plugin
+      expect(mockUpdateServerStateCache).toHaveBeenCalledTimes(1);
+      const cacheArg = mockUpdateServerStateCache.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(cacheArg).toBeDefined();
+      const plugins = cacheArg.plugins as { name: string }[];
+      expect(plugins).toHaveLength(1);
+      expect(plugins).toMatchObject([{ name: 'other-plugin' }]);
+
+      // plugins.changed must be forwarded to the side panel
+      const forwardCalls = mockForwardToSidePanel.mock.calls;
+      const pluginsChangedCall = forwardCalls.find(call => {
+        const msg = call[0] as { type: string; data: { method: string } };
+        return msg.data.method === 'plugins.changed';
+      });
+      expect(pluginsChangedCall).toBeDefined();
+    });
   });
 
   describe('tool.dispatch routing', () => {
@@ -1548,7 +1588,7 @@ describe('handleServerMessage', () => {
   });
 
   describe('side panel forwarding', () => {
-    test('forwards tab.stateChanged to side panel', () => {
+    test('does not forward tab.stateChanged via handleServerMessage (server never sends this method; the extension sends it directly via sendTabStateNotification)', () => {
       const message = {
         method: 'tab.stateChanged',
         params: {
@@ -1560,11 +1600,7 @@ describe('handleServerMessage', () => {
 
       handleServerMessage(message);
 
-      expect(mockForwardToSidePanel).toHaveBeenCalledTimes(1);
-      expect(mockForwardToSidePanel).toHaveBeenCalledWith({
-        type: 'sp:serverMessage',
-        data: message,
-      });
+      expect(mockForwardToSidePanel).not.toHaveBeenCalled();
     });
 
     test('forwards tool.invocationStart to side panel', () => {

@@ -78,6 +78,7 @@ const {
   computePluginTabState,
   clearTabStateCache,
   clearPluginTabState,
+  flushLastKnownStateToSession,
   updateLastKnownState,
   getLastKnownStates,
   getAggregateState,
@@ -905,5 +906,113 @@ describe('loadLastKnownStateFromSession', () => {
     await loadLastKnownStateFromSession();
 
     expect(getLastKnownStates().size).toBe(0);
+  });
+
+  test('clears pre-existing map entries before populating from session', async () => {
+    // Pre-populate the map with a stale entry
+    await updateLastKnownState('stale-plugin', makeStateInfo('ready'));
+    expect(getLastKnownStates().has('stale-plugin')).toBe(true);
+
+    // Session storage has different data
+    mockStorageSessionGet.mockResolvedValue({
+      lastKnownState: {
+        'new-plugin': JSON.stringify({ state: 'closed', tabs: [] }),
+      },
+    });
+
+    await loadLastKnownStateFromSession();
+
+    // Stale entry must be gone — not merged with session data
+    expect(getLastKnownStates().has('stale-plugin')).toBe(false);
+    // Only the session entry should be present
+    expect(getLastKnownStates().size).toBe(1);
+    expect(getAggregateState(getLastKnownStates().get('new-plugin') ?? '')).toBe('closed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// flushLastKnownStateToSession
+// ---------------------------------------------------------------------------
+
+describe('flushLastKnownStateToSession', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    clearTabStateCache();
+    mockStorageSessionSet.mockClear();
+    mockStorageSessionRemove.mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('writes to session storage immediately without waiting for debounce', async () => {
+    const plugin = makePlugin({ name: 'alpha' });
+    await updateLastKnownState(plugin.name, makeStateInfo('ready'));
+
+    // updateLastKnownState schedules a debounce write — not fired yet
+    expect(mockStorageSessionSet).not.toHaveBeenCalled();
+
+    flushLastKnownStateToSession();
+
+    // Written immediately — no need to advance timers
+    expect(mockStorageSessionSet).toHaveBeenCalledTimes(1);
+    const written = mockStorageSessionSet.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(written).toHaveProperty('lastKnownState');
+    expect(written.lastKnownState).toHaveProperty('alpha');
+  });
+
+  test('cancels pending debounce timer so it does not fire a second write', async () => {
+    const plugin = makePlugin({ name: 'beta' });
+    await updateLastKnownState(plugin.name, makeStateInfo('closed'));
+
+    flushLastKnownStateToSession();
+
+    // One write from the flush
+    expect(mockStorageSessionSet).toHaveBeenCalledTimes(1);
+
+    // Advance past the debounce window — no second write should fire
+    vi.advanceTimersByTime(500);
+    expect(mockStorageSessionSet).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAggregateState
+// ---------------------------------------------------------------------------
+
+describe('getAggregateState', () => {
+  test('returns closed for valid closed state', () => {
+    const serialized = JSON.stringify({ state: 'closed', tabs: [] });
+    expect(getAggregateState(serialized)).toBe('closed');
+  });
+
+  test('returns ready for valid ready state', () => {
+    const serialized = JSON.stringify({ state: 'ready', tabs: [] });
+    expect(getAggregateState(serialized)).toBe('ready');
+  });
+
+  test('returns unavailable for valid unavailable state', () => {
+    const serialized = JSON.stringify({ state: 'unavailable', tabs: [] });
+    expect(getAggregateState(serialized)).toBe('unavailable');
+  });
+
+  test('falls back to closed for corrupted state value', () => {
+    const serialized = JSON.stringify({ state: 'hacked', tabs: [] });
+    expect(getAggregateState(serialized)).toBe('closed');
+  });
+
+  test('falls back to closed when state is a number', () => {
+    const serialized = JSON.stringify({ state: 42, tabs: [] });
+    expect(getAggregateState(serialized)).toBe('closed');
+  });
+
+  test('falls back to closed when state field is missing', () => {
+    const serialized = JSON.stringify({ tabs: [] });
+    expect(getAggregateState(serialized)).toBe('closed');
+  });
+
+  test('falls back to closed for invalid JSON', () => {
+    expect(getAggregateState('not-json')).toBe('closed');
   });
 });

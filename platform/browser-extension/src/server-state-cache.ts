@@ -19,6 +19,7 @@ interface ServerStateCache {
 }
 
 const SESSION_KEY = 'serverStateCache';
+const CACHES_INITIALIZED_KEY = 'cachesInitialized';
 
 const EMPTY_CACHE: ServerStateCache = {
   plugins: [],
@@ -29,12 +30,22 @@ const EMPTY_CACHE: ServerStateCache = {
 
 let cache: ServerStateCache = { ...EMPTY_CACHE };
 
+/**
+ * Tracks whether sync.full has populated the caches at least once in the
+ * current WebSocket session. Distinguishes "service worker woke from
+ * suspension" (cachesInitialized=true, caches empty) from "WebSocket just
+ * connected but sync.full has not arrived yet" (cachesInitialized=false,
+ * caches empty). Persisted to chrome.storage.session so it survives
+ * MV3 service worker suspension.
+ */
+let cachesInitialized = false;
+
 /** Debounce timer for session storage writes. */
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** Write the current in-memory cache to chrome.storage.session. */
 const persistToSession = (): void => {
-  chrome.storage.session.set({ [SESSION_KEY]: cache }).catch(() => {
+  chrome.storage.session.set({ [SESSION_KEY]: cache, [CACHES_INITIALIZED_KEY]: cachesInitialized }).catch(() => {
     // Best-effort persistence — session storage may not be available
   });
 };
@@ -48,8 +59,8 @@ const schedulePersist = (): void => {
   }, 500);
 };
 
-/** Return the current server state cache (read-only snapshot). */
-const getServerStateCache = (): Readonly<ServerStateCache> => cache;
+/** Return a deep copy of the current server state cache. */
+const getServerStateCache = (): ServerStateCache => structuredClone(cache);
 
 /**
  * Merge a partial update into the server state cache. Only the provided
@@ -62,17 +73,32 @@ const updateServerStateCache = (partial: Partial<ServerStateCache>): void => {
 };
 
 /**
+ * Write the current in-memory cache to chrome.storage.session immediately,
+ * cancelling any pending debounced write. Called after sync.full populates
+ * the cache to ensure critical state survives MV3 service worker suspension
+ * without waiting for the 500ms debounce window.
+ */
+const flushServerStateCacheToSession = (): void => {
+  if (persistTimer !== undefined) {
+    clearTimeout(persistTimer);
+    persistTimer = undefined;
+  }
+  persistToSession();
+};
+
+/**
  * Clear the server state cache. Called on WebSocket disconnect so the
  * next connection rebuilds state from sync.full without stale data.
  * Clears both in-memory cache and chrome.storage.session.
  */
 const clearServerStateCache = (): void => {
   cache = { ...EMPTY_CACHE };
+  cachesInitialized = false;
   if (persistTimer !== undefined) {
     clearTimeout(persistTimer);
     persistTimer = undefined;
   }
-  chrome.storage.session.remove(SESSION_KEY).catch(() => {
+  chrome.storage.session.remove([SESSION_KEY, CACHES_INITIALIZED_KEY]).catch(() => {
     // Best-effort removal
   });
 };
@@ -84,7 +110,7 @@ const clearServerStateCache = (): void => {
  */
 const loadServerStateCacheFromSession = async (): Promise<void> => {
   try {
-    const data = await chrome.storage.session.get(SESSION_KEY);
+    const data = await chrome.storage.session.get([SESSION_KEY, CACHES_INITIALIZED_KEY]);
     const stored = data[SESSION_KEY] as ServerStateCache | undefined;
     if (stored && typeof stored === 'object') {
       cache = {
@@ -94,10 +120,29 @@ const loadServerStateCacheFromSession = async (): Promise<void> => {
         serverVersion: typeof stored.serverVersion === 'string' ? stored.serverVersion : undefined,
       };
     }
+    if (typeof data[CACHES_INITIALIZED_KEY] === 'boolean') {
+      cachesInitialized = data[CACHES_INITIALIZED_KEY];
+    }
   } catch {
     // Session storage may not be available — keep empty cache
   }
 };
 
-export { clearServerStateCache, getServerStateCache, loadServerStateCacheFromSession, updateServerStateCache };
+/** Returns whether sync.full has populated the caches in the current session. */
+const getCachesInitialized = (): boolean => cachesInitialized;
+
+/** Mark caches as initialized after sync.full populates them. */
+const setCachesInitialized = (value: boolean): void => {
+  cachesInitialized = value;
+};
+
+export {
+  clearServerStateCache,
+  flushServerStateCacheToSession,
+  getCachesInitialized,
+  getServerStateCache,
+  loadServerStateCacheFromSession,
+  setCachesInitialized,
+  updateServerStateCache,
+};
 export type { ServerStateCache };
