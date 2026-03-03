@@ -46,6 +46,8 @@ export interface ToolDefinition<
   description: string;
   /** Lucide icon name (kebab-case) displayed in the side panel. Defaults to 'wrench' during build when omitted. See https://lucide.dev/icons */
   icon?: LucideIconName;
+  /** Optional group name for visual grouping in the side panel. Tools with the same group are rendered together under a section header. */
+  group?: string;
   /** Zod schema — used for MCP registration + server-side input validation */
   input: TInput;
   /** Zod schema describing the tool output shape. Used for manifest generation and MCP tool registration. */
