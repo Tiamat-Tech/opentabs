@@ -386,27 +386,28 @@ Good notes dramatically increase success rate per iteration.
 
 Each story specifies which AI model the worker should use. Choose based on complexity:
 
-**Use `"sonnet"` (default) for:**
+**Use `"sonnet"` ONLY for truly mechanical tasks:**
 
-- Straightforward code changes with clear instructions
-- Search-and-replace migrations (e.g., rename API, update imports)
+- Search-and-replace migrations (e.g., rename API, update imports across files)
 - Documentation updates
-- Adding/modifying tests with well-defined expected behavior
 - Config file changes
-- Bug fixes where the root cause is identified in the notes
-- Stories with detailed notes and specific file paths
+- Deleting dead code that is clearly unused (no judgment calls about what's dead)
+- Adding a single test case to an existing test file with a clear pattern to follow
+- Simple additions where the notes give exact code to write and exact location
 
-**Use `"opus"` for:**
+**Use `"opus"` for everything else**, including but not limited to:
 
-- Architectural changes that require understanding cross-cutting concerns
-- Complex debugging where the root cause is unknown
-- Converting between fundamentally different APIs (e.g., REST → GraphQL)
-- Stories that require reading and understanding large amounts of code before making changes
-- Multi-file refactors where the agent needs to reason about dependencies
-- E2E test infrastructure changes that interact with process management, WebSocket proxying, or hot reload
-- Any story where a less capable model would likely get stuck and waste iterations
+- **Bug fixes** — even "simple" ones. Bug fixes require understanding why the code is wrong, what the correct fix is, and what side effects the fix might have. Sonnet often fixes the symptom without understanding the root cause.
+- **Race conditions, concurrency, and state synchronization** — anything involving async operations, caches, optimistic updates, or message ordering. These require reasoning about interleaving and timing.
+- **Cross-module changes** — any story that touches more than one module or requires understanding how modules interact (e.g., background script + side panel, server + extension).
+- **Adding new functionality** — new functions, new message handlers, new API endpoints, new components.
+- **Refactoring** — extracting helpers, changing data flow, restructuring code.
+- **Test writing** — except trivially copying an existing test pattern. Writing good tests requires understanding what the code does, what edge cases exist, and what assertions are meaningful.
+- **Architectural changes** — anything that changes how components communicate, what data flows where, or how state is managed.
+- **E2E tests** — always opus. E2E tests interact with process management, browser APIs, timing, and complex fixtures.
+- **Any story where getting it wrong introduces a subtle bug** — if a naive implementation would pass the build but be incorrect at runtime, use opus.
 
-When in doubt, use `"sonnet"` — it's faster and cheaper. Upgrade to `"opus"` only when the task genuinely requires deeper reasoning. A story that burns multiple iterations on sonnet should have been tagged opus from the start.
+**The default is `"opus"`.** Only downgrade to `"sonnet"` when the task is purely mechanical with zero judgment required. A failed sonnet iteration wastes more time and money than running opus from the start. When in doubt, use opus.
 
 ---
 
@@ -547,7 +548,7 @@ PRD and progress files in a worker's local `.ralph/` directory (inside the code 
 - [ ] Notes field has implementation hints for non-trivial stories
 - [ ] Notes use repo-root-relative file paths
 - [ ] `passes` field is boolean `false` for every story
-- [ ] `model` field is set on every story — `"sonnet"` for straightforward work, `"opus"` for complex architectural/debugging tasks (see "Model Selection")
+- [ ] `model` field is set on every story — `"opus"` by default, `"sonnet"` only for purely mechanical tasks (see "Model Selection")
 - [ ] `e2eCheckpoint` field is set on every story (`false` for standalone subprojects; see "E2E Checkpoint Strategy" for root monorepo)
 - [ ] **For root monorepo PRDs that touch browser behavior: the final story has `e2eCheckpoint: true`** and checkpoints are placed at logical group boundaries
 - [ ] **For root monorepo PRDs with no browser-observable changes: all stories can be `e2eCheckpoint: false`** (ralph's safety net runs E2E after completion)
