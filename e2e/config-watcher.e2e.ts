@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { McpClient, McpServer } from './fixtures.js';
 import {
   cleanupTestConfigDir,
   createMcpClient,
@@ -35,14 +36,16 @@ import { BROWSER_TOOL_NAMES, waitFor, waitForLog, waitForToolList } from './help
 
 test.describe('Config watcher — auto-discovery', () => {
   test('adding a plugin path to config.json auto-discovers plugin tools', async () => {
-    // Start with empty config (no plugins)
-    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-add-'));
-    writeTestConfig(configDir, { localPlugins: [], tools: {} });
-
-    const server = await startMcpServer(configDir, true);
-    const client = createMcpClient(server.port, server.secret);
-
+    let configDir: string | undefined;
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
     try {
+      // Start with empty config (no plugins)
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-add-'));
+      writeTestConfig(configDir, { localPlugins: [], tools: {} });
+
+      server = await startMcpServer(configDir, true);
+      client = createMcpClient(server.port, server.secret);
       await client.initialize();
 
       // Wait for config watcher to be set up
@@ -86,28 +89,30 @@ test.describe('Config watcher — auto-discovery', () => {
         expect(toolsAfter.map(t => t.name)).toContain(bt);
       }
     } finally {
-      await client.close();
-      await server.kill();
-      cleanupTestConfigDir(configDir);
+      await client?.close();
+      await server?.kill();
+      if (configDir) cleanupTestConfigDir(configDir);
     }
   });
 
   test('removing a plugin path from config.json auto-removes plugin tools', async () => {
-    // Start with the e2e-test plugin registered
-    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
-    const prefixedToolNames = readPluginToolNames();
-    const tools: Record<string, boolean> = {};
-    for (const t of prefixedToolNames) {
-      tools[t] = true;
-    }
-
-    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-remove-'));
-    writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
-
-    const server = await startMcpServer(configDir, true);
-    const client = createMcpClient(server.port, server.secret);
-
+    let configDir: string | undefined;
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
     try {
+      // Start with the e2e-test plugin registered
+      const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+      const prefixedToolNames = readPluginToolNames();
+      const tools: Record<string, boolean> = {};
+      for (const t of prefixedToolNames) {
+        tools[t] = true;
+      }
+
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-remove-'));
+      writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
+
+      server = await startMcpServer(configDir, true);
+      client = createMcpClient(server.port, server.secret);
       await client.initialize();
 
       // Wait for config watcher to be set up
@@ -135,35 +140,39 @@ test.describe('Config watcher — auto-discovery', () => {
         expect(toolsAfter.map(t => t.name)).toContain(bt);
       }
     } finally {
-      await client.close();
-      await server.kill();
-      cleanupTestConfigDir(configDir);
+      await client?.close();
+      await server?.kill();
+      if (configDir) cleanupTestConfigDir(configDir);
     }
   });
 
   test('adding a second plugin via config.json auto-discovers both plugins', async () => {
-    // Start with the e2e-test plugin registered
-    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
-    const prefixedToolNames = readPluginToolNames();
-    const tools: Record<string, boolean> = {};
-    for (const t of prefixedToolNames) {
-      tools[t] = true;
-    }
-
-    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-multi-'));
-    writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
-
-    const server = await startMcpServer(configDir, true);
-    const client = createMcpClient(server.port, server.secret);
-
-    // Create a minimal second plugin
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-extra-'));
-    const newPluginDir = createMinimalPlugin(tmpDir, 'cw-extra', [
-      { name: 'ping', description: 'Ping' },
-      { name: 'pong', description: 'Pong' },
-    ]);
-
+    let configDir: string | undefined;
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
+    let tmpDir: string | undefined;
     try {
+      // Start with the e2e-test plugin registered
+      const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+      const prefixedToolNames = readPluginToolNames();
+      const tools: Record<string, boolean> = {};
+      for (const t of prefixedToolNames) {
+        tools[t] = true;
+      }
+
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-multi-'));
+      writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
+
+      server = await startMcpServer(configDir, true);
+      client = createMcpClient(server.port, server.secret);
+
+      // Create a minimal second plugin
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-extra-'));
+      const newPluginDir = createMinimalPlugin(tmpDir, 'cw-extra', [
+        { name: 'ping', description: 'Ping' },
+        { name: 'pong', description: 'Pong' },
+      ]);
+
       await client.initialize();
 
       // Wait for config watcher to be set up
@@ -198,22 +207,24 @@ test.describe('Config watcher — auto-discovery', () => {
       expect(toolsAfter.map(t => t.name)).toContain('cw-extra_ping');
       expect(toolsAfter.map(t => t.name)).toContain('cw-extra_pong');
     } finally {
-      await client.close();
-      await server.kill();
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-      cleanupTestConfigDir(configDir);
+      await client?.close();
+      await server?.kill();
+      if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
+      if (configDir) cleanupTestConfigDir(configDir);
     }
   });
 
   test('config watcher still works after hot reload', async () => {
-    // Start with empty config
-    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-after-hr-'));
-    writeTestConfig(configDir, { localPlugins: [], tools: {} });
-
-    const server = await startMcpServer(configDir, true);
-    const client = createMcpClient(server.port, server.secret);
-
+    let configDir: string | undefined;
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
     try {
+      // Start with empty config
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-after-hr-'));
+      writeTestConfig(configDir, { localPlugins: [], tools: {} });
+
+      server = await startMcpServer(configDir, true);
+      client = createMcpClient(server.port, server.secret);
       await client.initialize();
 
       // Wait for config watcher to be set up
@@ -223,11 +234,12 @@ test.describe('Config watcher — auto-discovery', () => {
       // Capture both baseline counts before triggering — the config watcher may restart
       // (emitting 'Config watcher: Watching') before 'Hot reload complete' is logged, so
       // both counts must be snapshotted before triggerHotReload() to avoid missing new lines.
-      const hotReloadCountBefore = server.logs.filter(l => l.includes('Hot reload complete')).length;
-      const watcherCountBefore = server.logs.filter(l => l.includes('Config watcher: Watching')).length;
-      server.triggerHotReload();
+      const s = server;
+      const hotReloadCountBefore = s.logs.filter(l => l.includes('Hot reload complete')).length;
+      const watcherCountBefore = s.logs.filter(l => l.includes('Config watcher: Watching')).length;
+      s.triggerHotReload();
       await waitFor(
-        () => server.logs.filter(l => l.includes('Hot reload complete')).length > hotReloadCountBefore,
+        () => s.logs.filter(l => l.includes('Hot reload complete')).length > hotReloadCountBefore,
         20_000,
         200,
         'Hot reload complete',
@@ -235,7 +247,7 @@ test.describe('Config watcher — auto-discovery', () => {
 
       // Verify config watcher was restarted after hot reload
       await waitFor(
-        () => server.logs.filter(l => l.includes('Config watcher: Watching')).length > watcherCountBefore,
+        () => s.logs.filter(l => l.includes('Config watcher: Watching')).length > watcherCountBefore,
         10_000,
         200,
         'Config watcher: Watching',
@@ -262,9 +274,9 @@ test.describe('Config watcher — auto-discovery', () => {
       const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test_'));
       expect(e2eTools.length).toBe(prefixedToolNames.length);
     } finally {
-      await client.close();
-      await server.kill();
-      cleanupTestConfigDir(configDir);
+      await client?.close();
+      await server?.kill();
+      if (configDir) cleanupTestConfigDir(configDir);
     }
   });
 });

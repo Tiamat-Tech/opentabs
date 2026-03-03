@@ -53,13 +53,14 @@ const configWithPlugins = (
 
 test.describe('Discovery edge cases — broken plugins', () => {
   test('non-existent local plugin path is silently skipped, valid plugin still loads', async () => {
-    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-nodir-'));
-    const bogusPath = path.join(os.tmpdir(), `nonexistent-plugin-${String(Date.now())}`);
-    const config = configWithPlugins([bogusPath]);
-    writeTestConfig(configDir, config);
-
+    let configDir: string | undefined;
     let server: McpServer | undefined;
     try {
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-nodir-'));
+      const bogusPath = path.join(os.tmpdir(), `nonexistent-plugin-${String(Date.now())}`);
+      const config = configWithPlugins([bogusPath]);
+      writeTestConfig(configDir, config);
+
       server = await startMcpServer(configDir, true);
       const health = await server.waitForHealth(h => h.status === 'ok');
 
@@ -89,39 +90,41 @@ test.describe('Discovery edge cases — broken plugins', () => {
       expect(e2ePlugin).toBeDefined();
     } finally {
       await server?.kill();
-      cleanupTestConfigDir(configDir);
+      if (configDir) cleanupTestConfigDir(configDir);
     }
   });
 
   test('local plugin with missing dist/tools.json appears in failedPlugins', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-notools-'));
-
-    // Create a plugin directory with package.json and adapter IIFE but no tools.json
-    const pluginDir = path.join(tmpDir, 'broken-no-tools');
-    fs.mkdirSync(path.join(pluginDir, 'dist'), { recursive: true });
-    fs.writeFileSync(
-      path.join(pluginDir, 'package.json'),
-      JSON.stringify({
-        name: 'opentabs-plugin-broken-no-tools',
-        version: '0.0.1',
-        type: 'module',
-        main: 'dist/adapter.iife.js',
-        opentabs: {
-          displayName: 'Broken No Tools',
-          description: 'Plugin with missing tools.json',
-          urlPatterns: ['http://localhost/*'],
-        },
-      }),
-    );
-    fs.writeFileSync(path.join(pluginDir, 'dist', 'adapter.iife.js'), '(function(){})();');
-    // Intentionally NOT writing dist/tools.json
-
-    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-notools-cfg-'));
-    const config = configWithPlugins([path.resolve(pluginDir)]);
-    writeTestConfig(configDir, config);
-
+    let tmpDir: string | undefined;
+    let configDir: string | undefined;
     let server: McpServer | undefined;
     try {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-notools-'));
+
+      // Create a plugin directory with package.json and adapter IIFE but no tools.json
+      const pluginDir = path.join(tmpDir, 'broken-no-tools');
+      fs.mkdirSync(path.join(pluginDir, 'dist'), { recursive: true });
+      fs.writeFileSync(
+        path.join(pluginDir, 'package.json'),
+        JSON.stringify({
+          name: 'opentabs-plugin-broken-no-tools',
+          version: '0.0.1',
+          type: 'module',
+          main: 'dist/adapter.iife.js',
+          opentabs: {
+            displayName: 'Broken No Tools',
+            description: 'Plugin with missing tools.json',
+            urlPatterns: ['http://localhost/*'],
+          },
+        }),
+      );
+      fs.writeFileSync(path.join(pluginDir, 'dist', 'adapter.iife.js'), '(function(){})();');
+      // Intentionally NOT writing dist/tools.json
+
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-notools-cfg-'));
+      const config = configWithPlugins([path.resolve(pluginDir)]);
+      writeTestConfig(configDir, config);
+
       server = await startMcpServer(configDir, true);
       await server.waitForHealth(h => h.status === 'ok');
 
@@ -138,40 +141,42 @@ test.describe('Discovery edge cases — broken plugins', () => {
       expect(failure?.error).toContain('tools.json');
     } finally {
       await server?.kill();
-      cleanupTestConfigDir(configDir);
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      if (configDir) cleanupTestConfigDir(configDir);
+      if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
   test('local plugin with invalid JSON in dist/tools.json appears in failedPlugins', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-badjson-'));
-
-    // Create a plugin directory with all files but tools.json has invalid JSON
-    const pluginDir = path.join(tmpDir, 'broken-bad-json');
-    fs.mkdirSync(path.join(pluginDir, 'dist'), { recursive: true });
-    fs.writeFileSync(
-      path.join(pluginDir, 'package.json'),
-      JSON.stringify({
-        name: 'opentabs-plugin-broken-bad-json',
-        version: '0.0.1',
-        type: 'module',
-        main: 'dist/adapter.iife.js',
-        opentabs: {
-          displayName: 'Broken Bad JSON',
-          description: 'Plugin with invalid tools.json',
-          urlPatterns: ['http://localhost/*'],
-        },
-      }),
-    );
-    fs.writeFileSync(path.join(pluginDir, 'dist', 'adapter.iife.js'), '(function(){})();');
-    fs.writeFileSync(path.join(pluginDir, 'dist', 'tools.json'), '{ this is not valid json !!!');
-
-    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-badjson-cfg-'));
-    const config = configWithPlugins([path.resolve(pluginDir)]);
-    writeTestConfig(configDir, config);
-
+    let tmpDir: string | undefined;
+    let configDir: string | undefined;
     let server: McpServer | undefined;
     try {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-badjson-'));
+
+      // Create a plugin directory with all files but tools.json has invalid JSON
+      const pluginDir = path.join(tmpDir, 'broken-bad-json');
+      fs.mkdirSync(path.join(pluginDir, 'dist'), { recursive: true });
+      fs.writeFileSync(
+        path.join(pluginDir, 'package.json'),
+        JSON.stringify({
+          name: 'opentabs-plugin-broken-bad-json',
+          version: '0.0.1',
+          type: 'module',
+          main: 'dist/adapter.iife.js',
+          opentabs: {
+            displayName: 'Broken Bad JSON',
+            description: 'Plugin with invalid tools.json',
+            urlPatterns: ['http://localhost/*'],
+          },
+        }),
+      );
+      fs.writeFileSync(path.join(pluginDir, 'dist', 'adapter.iife.js'), '(function(){})();');
+      fs.writeFileSync(path.join(pluginDir, 'dist', 'tools.json'), '{ this is not valid json !!!');
+
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-badjson-cfg-'));
+      const config = configWithPlugins([path.resolve(pluginDir)]);
+      writeTestConfig(configDir, config);
+
       server = await startMcpServer(configDir, true);
       await server.waitForHealth(h => h.status === 'ok');
 
@@ -188,40 +193,42 @@ test.describe('Discovery edge cases — broken plugins', () => {
       expect(failure?.error).toContain('tools.json');
     } finally {
       await server?.kill();
-      cleanupTestConfigDir(configDir);
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      if (configDir) cleanupTestConfigDir(configDir);
+      if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
   test('local plugin with missing dist/adapter.iife.js appears in failedPlugins', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-noiife-'));
-
-    // Create a plugin directory with package.json and tools.json but no adapter IIFE
-    const pluginDir = path.join(tmpDir, 'broken-no-iife');
-    fs.mkdirSync(path.join(pluginDir, 'dist'), { recursive: true });
-    fs.writeFileSync(
-      path.join(pluginDir, 'package.json'),
-      JSON.stringify({
-        name: 'opentabs-plugin-broken-no-iife',
-        version: '0.0.1',
-        type: 'module',
-        main: 'dist/adapter.iife.js',
-        opentabs: {
-          displayName: 'Broken No IIFE',
-          description: 'Plugin with missing adapter',
-          urlPatterns: ['http://localhost/*'],
-        },
-      }),
-    );
-    fs.writeFileSync(path.join(pluginDir, 'dist', 'tools.json'), JSON.stringify({ tools: [] }));
-    // Intentionally NOT writing dist/adapter.iife.js
-
-    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-noiife-cfg-'));
-    const config = configWithPlugins([path.resolve(pluginDir)]);
-    writeTestConfig(configDir, config);
-
+    let tmpDir: string | undefined;
+    let configDir: string | undefined;
     let server: McpServer | undefined;
     try {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-noiife-'));
+
+      // Create a plugin directory with package.json and tools.json but no adapter IIFE
+      const pluginDir = path.join(tmpDir, 'broken-no-iife');
+      fs.mkdirSync(path.join(pluginDir, 'dist'), { recursive: true });
+      fs.writeFileSync(
+        path.join(pluginDir, 'package.json'),
+        JSON.stringify({
+          name: 'opentabs-plugin-broken-no-iife',
+          version: '0.0.1',
+          type: 'module',
+          main: 'dist/adapter.iife.js',
+          opentabs: {
+            displayName: 'Broken No IIFE',
+            description: 'Plugin with missing adapter',
+            urlPatterns: ['http://localhost/*'],
+          },
+        }),
+      );
+      fs.writeFileSync(path.join(pluginDir, 'dist', 'tools.json'), JSON.stringify({ tools: [] }));
+      // Intentionally NOT writing dist/adapter.iife.js
+
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-noiife-cfg-'));
+      const config = configWithPlugins([path.resolve(pluginDir)]);
+      writeTestConfig(configDir, config);
+
       server = await startMcpServer(configDir, true);
       await server.waitForHealth(h => h.status === 'ok');
 
@@ -238,46 +245,48 @@ test.describe('Discovery edge cases — broken plugins', () => {
       expect(failure?.error).toContain('Adapter IIFE');
     } finally {
       await server?.kill();
-      cleanupTestConfigDir(configDir);
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      if (configDir) cleanupTestConfigDir(configDir);
+      if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
   test('valid plugins still load when one plugin in localPlugins is broken', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-partial-'));
-
-    // Create a broken plugin (missing tools.json)
-    const brokenDir = path.join(tmpDir, 'broken-partial');
-    fs.mkdirSync(path.join(brokenDir, 'dist'), { recursive: true });
-    fs.writeFileSync(
-      path.join(brokenDir, 'package.json'),
-      JSON.stringify({
-        name: 'opentabs-plugin-broken-partial',
-        version: '0.0.1',
-        type: 'module',
-        main: 'dist/adapter.iife.js',
-        opentabs: {
-          displayName: 'Broken Partial',
-          description: 'Plugin with missing tools.json for partial load test',
-          urlPatterns: ['http://localhost/*'],
-        },
-      }),
-    );
-    fs.writeFileSync(path.join(brokenDir, 'dist', 'adapter.iife.js'), '(function(){})();');
-    // No tools.json
-
-    // Create a second valid minimal plugin
-    const validDir = createMinimalPlugin(tmpDir, 'valid-partial', [{ name: 'ping', description: 'A ping tool' }]);
-
-    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-partial-cfg-'));
-    const config = configWithPlugins([path.resolve(brokenDir), validDir], {
-      'valid-partial_ping': true,
-    });
-    writeTestConfig(configDir, config);
-
+    let tmpDir: string | undefined;
+    let configDir: string | undefined;
     let server: McpServer | undefined;
     let client: McpClient | undefined;
     try {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-partial-'));
+
+      // Create a broken plugin (missing tools.json)
+      const brokenDir = path.join(tmpDir, 'broken-partial');
+      fs.mkdirSync(path.join(brokenDir, 'dist'), { recursive: true });
+      fs.writeFileSync(
+        path.join(brokenDir, 'package.json'),
+        JSON.stringify({
+          name: 'opentabs-plugin-broken-partial',
+          version: '0.0.1',
+          type: 'module',
+          main: 'dist/adapter.iife.js',
+          opentabs: {
+            displayName: 'Broken Partial',
+            description: 'Plugin with missing tools.json for partial load test',
+            urlPatterns: ['http://localhost/*'],
+          },
+        }),
+      );
+      fs.writeFileSync(path.join(brokenDir, 'dist', 'adapter.iife.js'), '(function(){})();');
+      // No tools.json
+
+      // Create a second valid minimal plugin
+      const validDir = createMinimalPlugin(tmpDir, 'valid-partial', [{ name: 'ping', description: 'A ping tool' }]);
+
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-partial-cfg-'));
+      const config = configWithPlugins([path.resolve(brokenDir), validDir], {
+        'valid-partial_ping': true,
+      });
+      writeTestConfig(configDir, config);
+
       server = await startMcpServer(configDir, true);
       client = createMcpClient(server.port, server.secret);
       await client.initialize();
@@ -312,41 +321,42 @@ test.describe('Discovery edge cases — broken plugins', () => {
     } finally {
       await client?.close();
       await server?.kill();
-      cleanupTestConfigDir(configDir);
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      if (configDir) cleanupTestConfigDir(configDir);
+      if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
   test('fixing a broken plugin and calling POST /reload transitions it from failedPlugins to healthy', async () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-fix-'));
-
-    // Create a plugin that starts broken (missing tools.json)
-    const pluginDir = path.join(tmpDir, 'fixable');
-    fs.mkdirSync(path.join(pluginDir, 'dist'), { recursive: true });
-    fs.writeFileSync(
-      path.join(pluginDir, 'package.json'),
-      JSON.stringify({
-        name: 'opentabs-plugin-fixable',
-        version: '0.0.1',
-        type: 'module',
-        main: 'dist/adapter.iife.js',
-        opentabs: {
-          displayName: 'Fixable Plugin',
-          description: 'Plugin that starts broken then gets fixed',
-          urlPatterns: ['http://localhost/*'],
-        },
-      }),
-    );
-    fs.writeFileSync(path.join(pluginDir, 'dist', 'adapter.iife.js'), '(function(){})();');
-    // Intentionally NOT writing dist/tools.json yet
-
-    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-fix-cfg-'));
-    const config = configWithPlugins([path.resolve(pluginDir)], { fixable_hello: true });
-    writeTestConfig(configDir, config);
-
+    let tmpDir: string | undefined;
+    let configDir: string | undefined;
     let server: McpServer | undefined;
     let client: McpClient | undefined;
     try {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-fix-'));
+
+      // Create a plugin that starts broken (missing tools.json)
+      const pluginDir = path.join(tmpDir, 'fixable');
+      fs.mkdirSync(path.join(pluginDir, 'dist'), { recursive: true });
+      fs.writeFileSync(
+        path.join(pluginDir, 'package.json'),
+        JSON.stringify({
+          name: 'opentabs-plugin-fixable',
+          version: '0.0.1',
+          type: 'module',
+          main: 'dist/adapter.iife.js',
+          opentabs: {
+            displayName: 'Fixable Plugin',
+            description: 'Plugin that starts broken then gets fixed',
+            urlPatterns: ['http://localhost/*'],
+          },
+        }),
+      );
+      fs.writeFileSync(path.join(pluginDir, 'dist', 'adapter.iife.js'), '(function(){})();');
+      // Intentionally NOT writing dist/tools.json yet
+
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-fix-cfg-'));
+      const config = configWithPlugins([path.resolve(pluginDir)], { fixable_hello: true });
+      writeTestConfig(configDir, config);
       server = await startMcpServer(configDir, true);
       client = createMcpClient(server.port, server.secret);
       await client.initialize();
@@ -434,8 +444,8 @@ test.describe('Discovery edge cases — broken plugins', () => {
     } finally {
       await client?.close();
       await server?.kill();
-      cleanupTestConfigDir(configDir);
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      if (configDir) cleanupTestConfigDir(configDir);
+      if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 });
