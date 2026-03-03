@@ -37,6 +37,19 @@
 
 **create-plugin** (`platform/create-plugin`): Scaffolding CLI (`create-opentabs-plugin`) for new plugin projects.
 
+### You Are Connected to This Project's MCP Server
+
+The OpenTabs MCP server you are developing is also the MCP server you are connected to. Your MCP tool list includes OpenTabs tools (browser tools, plugin tools like `slack_*` and `discord_*`, extension diagnostics) — these are the live tools served by the running dev server. Use them freely:
+
+- **`extension_get_state`**, **`extension_get_logs`**: Inspect the Chrome extension's live state and logs — useful for debugging extension behavior, WebSocket connectivity, adapter injection, and tab state.
+- **`browser_*` tools**: Interact with the user's browser tabs (screenshot, click, type, read content, network capture, etc.).
+- **Plugin tools** (`slack_*`, `discord_*`, etc.): Call live plugin tools in authenticated browser tabs.
+- **`plugin_list_tabs`**: Discover which tabs are open and ready for each plugin.
+- **`extension_reload`**: Reload the Chrome extension after building.
+- **`extension_check_adapter`**: Diagnose adapter injection issues for a specific plugin.
+
+When the user says "reload the extension", "check the side panel", "send a Slack message", or "screenshot Discord" — they expect you to use these MCP tools directly. You are both the developer and a live consumer of this platform.
+
 ### Tech Stack
 
 - **Language**: TypeScript (strict, ES Modules)
