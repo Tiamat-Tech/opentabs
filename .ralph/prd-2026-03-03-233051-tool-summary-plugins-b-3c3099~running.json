@@ -35,7 +35,7 @@
         "cd plugins/jira && npm run format:check passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "e2eCheckpoint": false,
       "model": "opus",
       "notes": "Edit all 14 files in `plugins/jira/src/tools/`. Examples:\n\n- `create-issue.ts`: `summary: 'Create a new Jira issue'`\n- `search-issues.ts`: `summary: 'Search issues using JQL'`\n- `get-issue.ts`: `summary: 'Get details of an issue'`\n- `transition-issue.ts`: `summary: 'Change an issue\\'s status'`\n- `add-comment.ts`: `summary: 'Add a comment to an issue'`\n- `assign-issue.ts`: `summary: 'Assign or unassign an issue'`"
