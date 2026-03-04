@@ -1,4 +1,4 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { ToolError, defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { figmaApi, getAuthContext } from '../figma-api.js';
 import type { RawTeam } from './schemas.js';
@@ -23,7 +23,7 @@ export const getTeamInfo = defineTool({
     });
     const teams = data.meta?.teams ?? [];
     const team = teams.find(t => t.id === params.team_id) ?? teams[0];
-    if (!team) throw new Error('Team not found');
+    if (!team) throw ToolError.notFound('Team not found');
     return { team: mapTeam(team) };
   },
 });

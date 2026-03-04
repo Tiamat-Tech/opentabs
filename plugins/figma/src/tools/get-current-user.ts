@@ -1,4 +1,4 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { ToolError, defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { figmaApi, getAuthContext } from '../figma-api.js';
 import type { RawUser } from './schemas.js';
@@ -21,7 +21,7 @@ export const getCurrentUser = defineTool({
     });
     const users = data.meta?.users ?? [];
     const me = users.find(u => u.id === fuid) ?? users[0];
-    if (!me) throw new Error('User not found in session state');
+    if (!me) throw ToolError.notFound('User not found in session state');
     return { user: mapUser(me) };
   },
 });
