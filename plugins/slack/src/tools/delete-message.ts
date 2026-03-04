@@ -7,6 +7,7 @@ export const deleteMessage = defineTool({
   displayName: 'Delete Message',
   description:
     'Delete a Slack message. The caller must be the original author, or the channel must allow message deletion.',
+  summary: 'Delete a message from a channel',
   icon: 'trash-2',
   group: 'Messages',
   input: z.object({

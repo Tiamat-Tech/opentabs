@@ -8,6 +8,7 @@ export const listChannels = defineTool({
   name: 'list_channels',
   displayName: 'List Channels',
   description: 'List channels in the Slack workspace with optional pagination',
+  summary: 'List workspace channels',
   icon: 'list',
   group: 'Channels',
   input: z.object({

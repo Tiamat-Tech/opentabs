@@ -6,6 +6,7 @@ export const setChannelTopic = defineTool({
   name: 'set_channel_topic',
   displayName: 'Set Channel Topic',
   description: 'Set the topic of a Slack channel',
+  summary: 'Set the topic of a channel',
   icon: 'hash',
   group: 'Channels',
   input: z.object({

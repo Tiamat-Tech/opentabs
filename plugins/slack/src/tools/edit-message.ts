@@ -6,6 +6,7 @@ export const editMessage = defineTool({
   name: 'edit_message',
   displayName: 'Edit Message',
   description: 'Edit an existing Slack message. The caller must be the original author of the message.',
+  summary: 'Edit an existing message',
   icon: 'pencil',
   group: 'Messages',
   input: z.object({

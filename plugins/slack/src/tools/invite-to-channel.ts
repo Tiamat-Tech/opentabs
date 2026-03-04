@@ -6,6 +6,7 @@ export const inviteToChannel = defineTool({
   name: 'invite_to_channel',
   displayName: 'Invite to Channel',
   description: 'Invite a user to a Slack channel',
+  summary: 'Invite a user to a channel',
   icon: 'user-plus',
   group: 'Users',
   input: z.object({

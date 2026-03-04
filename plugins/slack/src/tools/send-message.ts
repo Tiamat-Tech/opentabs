@@ -6,6 +6,7 @@ export const sendMessage = defineTool({
   name: 'send_message',
   displayName: 'Send Message',
   description: 'Send a message to a Slack channel or thread',
+  summary: 'Send a message to a channel or thread',
   icon: 'send',
   group: 'Messages',
   input: z.object({

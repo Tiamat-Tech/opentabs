@@ -6,6 +6,7 @@ export const setChannelPurpose = defineTool({
   name: 'set_channel_purpose',
   displayName: 'Set Channel Purpose',
   description: 'Set the purpose of a Slack channel',
+  summary: 'Set the purpose of a channel',
   icon: 'target',
   group: 'Channels',
   input: z.object({

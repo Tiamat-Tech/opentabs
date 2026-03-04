@@ -24,6 +24,7 @@ export const listFiles = defineTool({
   name: 'list_files',
   displayName: 'List Files',
   description: 'List files in a Slack channel or workspace with optional filters',
+  summary: 'List files in a channel or workspace',
   icon: 'files',
   group: 'Files',
   input: z.object({

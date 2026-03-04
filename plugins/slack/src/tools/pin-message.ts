@@ -6,6 +6,7 @@ export const pinMessage = defineTool({
   name: 'pin_message',
   displayName: 'Pin Message',
   description: 'Pin a message to a Slack channel',
+  summary: 'Pin a message to a channel',
   icon: 'pin',
   group: 'Reactions',
   input: z.object({

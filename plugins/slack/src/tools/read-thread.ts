@@ -12,6 +12,7 @@ export const readThread = defineTool({
   displayName: 'Read Thread',
   description:
     'Read replies in a Slack thread. Returns all messages including the parent message, with optional pagination.',
+  summary: 'Read replies in a thread',
   icon: 'message-square',
   group: 'Messages',
   input: z.object({

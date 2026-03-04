@@ -7,6 +7,7 @@ export const listUsers = defineTool({
   name: 'list_users',
   displayName: 'List Users',
   description: 'List users in the Slack workspace with optional pagination',
+  summary: 'List workspace users',
   icon: 'contact',
   group: 'Users',
   input: z.object({

@@ -6,6 +6,7 @@ export const getUserProfile = defineTool({
   name: 'get_user_profile',
   displayName: 'Get User Profile',
   description: "Retrieve a Slack user's profile information by user ID",
+  summary: "Get a user's profile information",
   icon: 'user',
   group: 'Users',
   input: z.object({

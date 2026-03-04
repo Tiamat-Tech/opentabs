@@ -40,6 +40,7 @@ export const searchMessages = defineTool({
   name: 'search_messages',
   displayName: 'Search Messages',
   description: 'Search for messages across Slack channels with optional pagination and sorting',
+  summary: 'Search messages across channels',
   icon: 'search',
   group: 'Messages',
   input: z.object({

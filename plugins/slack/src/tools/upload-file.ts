@@ -6,6 +6,7 @@ export const uploadFile = defineTool({
   name: 'upload_file',
   displayName: 'Upload File',
   description: 'Upload a file to a Slack channel',
+  summary: 'Upload a file to a channel',
   icon: 'upload',
   group: 'Files',
   input: z.object({

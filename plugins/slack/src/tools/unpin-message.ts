@@ -6,6 +6,7 @@ export const unpinMessage = defineTool({
   name: 'unpin_message',
   displayName: 'Unpin Message',
   description: 'Unpin a message from a Slack channel',
+  summary: 'Unpin a message from a channel',
   icon: 'pin-off',
   group: 'Reactions',
   input: z.object({

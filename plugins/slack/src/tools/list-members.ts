@@ -9,6 +9,7 @@ export const listMembers = defineTool({
   description:
     'List member user IDs of a Slack channel with optional pagination. Returns user IDs only — ' +
     'use get_user_profile to resolve a specific user ID to a name/profile, or list_users to get all workspace users with names.',
+  summary: 'List members of a channel',
   icon: 'users',
   group: 'Users',
   input: z.object({
