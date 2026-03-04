@@ -192,13 +192,11 @@ interface OpentabsConfig {
   /** Filesystem paths to locally-developed plugin directories. */
   localPlugins: string[];
   /** Per-plugin permission configuration (plugin name → permission config). */
-  plugins?: Record<string, PluginPermissionConfig>;
+  permissions?: Record<string, PluginPermissionConfig>;
   /**
    * Legacy tool enable/disable map (prefixed tool names → boolean).
-   * Ignored by the server — kept for backward compatibility with tests
-   * that haven't been migrated yet. All E2E tests run with
-   * OPENTABS_SKIP_PERMISSIONS=1, so the plugins map is irrelevant for
-   * most tests. Remove this field once all tests are migrated.
+   * Ignored by the server. Used by older E2E tests that haven't been
+   * migrated to the permissions map yet.
    */
   tools?: Record<string, boolean>;
 }
@@ -236,7 +234,7 @@ const createTestConfigDir = (): string => {
 
   const config: OpentabsConfig = {
     localPlugins: [absPluginPath],
-    plugins: {},
+    permissions: {},
   };
 
   const configPath = path.join(configDir, 'config.json');

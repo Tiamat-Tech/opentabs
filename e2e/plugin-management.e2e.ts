@@ -511,7 +511,7 @@ test.describe('config.setPluginPermission', () => {
     // Create standalone server without skipPermissions
     const configDir = createTestConfigDir();
     const config = readTestConfig(configDir);
-    config.plugins = { 'e2e-test': { permission: 'auto' } };
+    config.permissions = { 'e2e-test': { permission: 'auto' } };
     writeTestConfig(configDir, config);
 
     const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '' });
@@ -556,7 +556,7 @@ test.describe('config.setPluginPermission', () => {
   test('setting plugin to auto removes [Disabled] prefix from its tools', async () => {
     const configDir = createTestConfigDir();
     const config = readTestConfig(configDir);
-    config.plugins = { 'e2e-test': { permission: 'auto' } };
+    config.permissions = { 'e2e-test': { permission: 'auto' } };
     writeTestConfig(configDir, config);
 
     const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '' });
@@ -608,7 +608,7 @@ test.describe('config.setPluginPermission', () => {
   test('calling an off tool returns isError: true with disabled message', async () => {
     const configDir = createTestConfigDir();
     const config = readTestConfig(configDir);
-    config.plugins = { 'e2e-test': { permission: 'auto' } };
+    config.permissions = { 'e2e-test': { permission: 'auto' } };
     writeTestConfig(configDir, config);
 
     const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '' });
@@ -663,7 +663,7 @@ test.describe('config.setToolPermission', () => {
   test('setting a tool to off adds [Disabled] prefix to only that tool', async () => {
     const configDir = createTestConfigDir();
     const config = readTestConfig(configDir);
-    config.plugins = { 'e2e-test': { permission: 'auto' } };
+    config.permissions = { 'e2e-test': { permission: 'auto' } };
     writeTestConfig(configDir, config);
 
     const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '' });

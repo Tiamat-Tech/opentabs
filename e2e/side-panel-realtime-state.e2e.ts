@@ -44,7 +44,7 @@ test.describe('Side panel real-time state propagation', () => {
     // Start with all e2e-test tools at 'auto' permission
     writeTestConfig(configDir, {
       localPlugins: [absPluginPath],
-      plugins: { 'e2e-test': { permission: 'auto' } },
+      permissions: { 'e2e-test': { permission: 'auto' } },
     });
 
     // Disable skipPermissions so permission changes are visible in the UI
@@ -76,7 +76,7 @@ test.describe('Side panel real-time state propagation', () => {
       // side panel receives the push and updates without reload.
       writeTestConfig(configDir, {
         localPlugins: [absPluginPath],
-        plugins: { 'e2e-test': { permission: 'auto', tools: { echo: 'off' } } },
+        permissions: { 'e2e-test': { permission: 'auto', tools: { echo: 'off' } } },
       });
       await waitForLog(server, 'Config reload complete', 10_000);
 
@@ -98,7 +98,7 @@ test.describe('Side panel real-time state propagation', () => {
       // Re-enable the tool via config change (remove per-tool override)
       writeTestConfig(configDir, {
         localPlugins: [absPluginPath],
-        plugins: { 'e2e-test': { permission: 'auto' } },
+        permissions: { 'e2e-test': { permission: 'auto' } },
       });
       server.logs.length = 0;
       await waitForLog(server, 'Config reload complete', 10_000);
@@ -120,7 +120,7 @@ test.describe('Side panel real-time state propagation', () => {
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-realtime-auth-'));
-    writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: {} });
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], permissions: {} });
 
     const server = await startMcpServer(configDir, true);
     const testServer = await startTestServer();
@@ -177,7 +177,7 @@ test.describe('Side panel real-time state propagation', () => {
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-realtime-close-'));
-    writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: {} });
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], permissions: {} });
 
     const server = await startMcpServer(configDir, true);
     const testServer = await startTestServer();
@@ -225,7 +225,7 @@ test.describe('Side panel real-time state propagation', () => {
     // Start with browser tools at 'auto' permission
     writeTestConfig(configDir, {
       localPlugins: [absPluginPath],
-      plugins: { browser: { permission: 'auto' } },
+      permissions: { browser: { permission: 'auto' } },
     });
 
     // Disable skipPermissions so permission changes are visible in the UI
@@ -257,7 +257,7 @@ test.describe('Side panel real-time state propagation', () => {
       // Browser tool permission keys use the full prefixed name
       writeTestConfig(configDir, {
         localPlugins: [absPluginPath],
-        plugins: { browser: { permission: 'auto', tools: { [targetBrowserTool]: 'off' } } },
+        permissions: { browser: { permission: 'auto', tools: { [targetBrowserTool]: 'off' } } },
       });
       await waitForLog(server, 'Config reload complete', 10_000);
 
@@ -279,7 +279,7 @@ test.describe('Side panel real-time state propagation', () => {
       // Re-enable the browser tool by removing the per-tool override
       writeTestConfig(configDir, {
         localPlugins: [absPluginPath],
-        plugins: { browser: { permission: 'auto' } },
+        permissions: { browser: { permission: 'auto' } },
       });
       server.logs.length = 0;
       await waitForLog(server, 'Config reload complete', 10_000);
@@ -305,7 +305,7 @@ test.describe('Side panel real-time state propagation', () => {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-realtime-reconn-'));
     writeTestConfig(configDir, {
       localPlugins: [absPluginPath],
-      plugins: { 'e2e-test': { permission: 'auto' } },
+      permissions: { 'e2e-test': { permission: 'auto' } },
     });
 
     const server = await startMcpServer(configDir, true);
