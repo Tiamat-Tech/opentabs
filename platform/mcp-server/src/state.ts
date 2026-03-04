@@ -293,7 +293,7 @@ export interface ServerState {
   discoveryErrors: ReadonlyArray<{ specifier: string; error: string }>;
   /** Circular buffer of recent tool invocations for diagnostics and monitoring */
   auditLog: AuditEntry[];
-  /** Whether permission prompts are bypassed (from CLI flag, env var, or config) */
+  /** Whether approval prompts for ask-mode tools are bypassed (off tools remain disabled) */
   skipPermissions: boolean;
 
   /** Per-plugin permission configuration from config.json */
@@ -374,12 +374,12 @@ export const getNextRequestId = (): string => crypto.randomUUID();
 export const prefixedToolName = (plugin: string, tool: string): string => `${plugin}_${tool}`;
 
 /** Resolve the effective permission for a tool.
- *  Resolution order: skipPermissions → per-tool override → plugin default → 'off'. */
+ *  Resolution order: per-tool override → plugin default → 'off', then skipPermissions converts 'ask' to 'auto'. */
 export const getToolPermission = (state: ServerState, pluginName: string, toolName: string): ToolPermission => {
-  if (state.skipPermissions) return 'auto';
   const pluginConfig = state.pluginPermissions[pluginName];
-  if (!pluginConfig) return 'off';
-  return pluginConfig.tools?.[toolName] ?? pluginConfig.permission ?? 'off';
+  const resolved = pluginConfig ? (pluginConfig.tools?.[toolName] ?? pluginConfig.permission ?? 'off') : 'off';
+  if (state.skipPermissions && resolved === 'ask') return 'auto';
+  return resolved;
 };
 
 /**

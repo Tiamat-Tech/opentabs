@@ -235,7 +235,10 @@ const createTestConfigDir = (): string => {
 
   const config: OpentabsConfig = {
     localPlugins: [absPluginPath],
-    permissions: {},
+    permissions: {
+      'e2e-test': { permission: 'auto' },
+      browser: { permission: 'auto' },
+    },
   };
 
   const configPath = path.join(configDir, 'config.json');
@@ -273,9 +276,23 @@ const readTestConfig = (configDir: string): OpentabsConfig => {
 
 /**
  * Write a new config.json to an isolated test config directory.
+ *
+ * When `permissions` is not provided, auto-generates `permission: 'auto'`
+ * entries for all localPlugins (by directory basename) plus browser tools.
+ * This ensures tests work correctly with skipPermissions's semantics
+ * where 'off' (the default) is respected even when skipPermissions is true.
  */
 const writeTestConfig = (configDir: string, config: OpentabsConfig): void => {
-  fs.writeFileSync(path.join(configDir, 'config.json'), `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+  const effective = { ...config };
+  if (!effective.permissions) {
+    const permissions: Record<string, PluginPermissionConfig> = { browser: { permission: 'auto' } };
+    for (const pluginPath of effective.localPlugins) {
+      const name = path.basename(pluginPath);
+      permissions[name] = { permission: 'auto' };
+    }
+    effective.permissions = permissions;
+  }
+  fs.writeFileSync(path.join(configDir, 'config.json'), `${JSON.stringify(effective, null, 2)}\n`, 'utf-8');
 };
 
 /** Minimal plugin manifest tool definition */

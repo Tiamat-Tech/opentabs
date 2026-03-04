@@ -82,17 +82,38 @@ describe('prefixedToolName', () => {
 });
 
 describe('getToolPermission', () => {
-  test('returns "auto" when skipPermissions is true', () => {
+  test('returns "off" when skipPermissions is true but no plugin config', () => {
     const state = createState();
     state.skipPermissions = true;
-    expect(getToolPermission(state, 'slack', 'send_message')).toBe('auto');
+    expect(getToolPermission(state, 'slack', 'send_message')).toBe('off');
   });
 
-  test('returns "auto" when skipPermissions is true even with plugin config', () => {
+  test('returns "off" when skipPermissions is true and plugin permission is "off"', () => {
     const state = createState();
     state.skipPermissions = true;
     state.pluginPermissions = { slack: { permission: 'off' } };
+    expect(getToolPermission(state, 'slack', 'send_message')).toBe('off');
+  });
+
+  test('returns "auto" when skipPermissions is true and permission is "ask"', () => {
+    const state = createState();
+    state.skipPermissions = true;
+    state.pluginPermissions = { slack: { permission: 'ask' } };
     expect(getToolPermission(state, 'slack', 'send_message')).toBe('auto');
+  });
+
+  test('returns "auto" when skipPermissions is true and permission is "auto"', () => {
+    const state = createState();
+    state.skipPermissions = true;
+    state.pluginPermissions = { slack: { permission: 'auto' } };
+    expect(getToolPermission(state, 'slack', 'send_message')).toBe('auto');
+  });
+
+  test('returns "off" when skipPermissions is true and per-tool override is "off" despite plugin default "ask"', () => {
+    const state = createState();
+    state.skipPermissions = true;
+    state.pluginPermissions = { slack: { permission: 'ask', tools: { send_message: 'off' } } };
+    expect(getToolPermission(state, 'slack', 'send_message')).toBe('off');
   });
 
   test('returns "off" for unconfigured plugin', () => {

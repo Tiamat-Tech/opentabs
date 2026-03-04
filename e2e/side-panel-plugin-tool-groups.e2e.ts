@@ -113,4 +113,52 @@ test.describe('Side panel — plugin tool groups', () => {
       cleanupTestConfigDir(configDir);
     }
   });
+
+  test('group headers are plain text dividers', async () => {
+    // Group headers are non-interactive text labels (uppercase, tracking-wider)
+    // displayed inside a bg-muted/20 container. There are no Switch toggles.
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const tools = buildToolsMap();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-plugin-groups-headers-'));
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
+
+    const server = await startMcpServer(configDir, true);
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      const sidePanelPage = await openSidePanel(context);
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      // Expand the E2E Test plugin accordion
+      const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
+      await pluginCard.click();
+
+      const pluginItem = sidePanelPage.locator('[data-state="open"]').filter({ hasText: 'E2E Test' });
+
+      // Wait for group headers to appear
+      const groupHeaders = pluginItem.locator('span.uppercase.tracking-wider');
+      await expect(groupHeaders.first()).toBeVisible({ timeout: 5_000 });
+
+      // Group headers live inside bg-muted/20 containers
+      const groupHeaderContainers = pluginItem.locator('div.bg-muted\\/20');
+      const containerCount = await groupHeaderContainers.count();
+      expect(containerCount).toBeGreaterThanOrEqual(2);
+
+      // No Switch components exist — group headers are non-interactive dividers
+      const switches = pluginItem.locator('[role="switch"]');
+      await expect(switches).toHaveCount(0);
+
+      await sidePanelPage.close();
+    } finally {
+      await context.close().catch(() => {});
+      await server.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
 });
