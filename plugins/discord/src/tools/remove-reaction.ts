@@ -6,6 +6,7 @@ export const removeReaction = defineTool({
   name: 'remove_reaction',
   displayName: 'Remove Reaction',
   description: 'Remove your emoji reaction from a message',
+  summary: 'Remove an emoji reaction from a message',
   icon: 'frown',
   group: 'Reactions',
   input: z.object({

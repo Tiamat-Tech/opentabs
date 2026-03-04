@@ -6,6 +6,7 @@ export const deleteMessage = defineTool({
   name: 'delete_message',
   displayName: 'Delete Message',
   description: 'Delete a message from a channel',
+  summary: 'Delete a message from a channel',
   icon: 'trash-2',
   group: 'Messages',
   input: z.object({

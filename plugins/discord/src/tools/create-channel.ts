@@ -7,6 +7,7 @@ export const createChannel = defineTool({
   name: 'create_channel',
   displayName: 'Create Channel',
   description: 'Create a new channel in a Discord guild (server). Requires Manage Channels permission.',
+  summary: 'Create a new channel in a server',
   icon: 'plus-circle',
   group: 'Channels',
   input: z.object({

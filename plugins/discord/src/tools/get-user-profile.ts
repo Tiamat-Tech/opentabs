@@ -6,6 +6,7 @@ export const getUserProfile = defineTool({
   name: 'get_user_profile',
   displayName: 'Get User Profile',
   description: 'Get a Discord user\'s profile by their user ID. Use "@me" for the authenticated user.',
+  summary: "Get a user's profile information",
   icon: 'user',
   group: 'Users',
   input: z.object({

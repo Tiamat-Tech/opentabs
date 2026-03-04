@@ -7,6 +7,7 @@ export const listMembers = defineTool({
   name: 'list_members',
   displayName: 'List Members',
   description: 'List members in a Discord guild (server)',
+  summary: 'List members in a server',
   icon: 'users',
   group: 'Users',
   input: z.object({

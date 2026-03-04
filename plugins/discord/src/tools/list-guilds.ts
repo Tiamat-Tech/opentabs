@@ -7,6 +7,7 @@ export const listGuilds = defineTool({
   name: 'list_guilds',
   displayName: 'List Guilds',
   description: 'List all Discord guilds (servers) the authenticated user is a member of',
+  summary: 'List servers the user belongs to',
   icon: 'server',
   group: 'Servers',
   input: z.object({

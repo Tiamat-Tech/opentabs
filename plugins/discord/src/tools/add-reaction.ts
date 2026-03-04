@@ -6,6 +6,7 @@ export const addReaction = defineTool({
   name: 'add_reaction',
   displayName: 'Add Reaction',
   description: 'Add an emoji reaction to a message',
+  summary: 'Add an emoji reaction to a message',
   icon: 'smile-plus',
   group: 'Reactions',
   input: z.object({

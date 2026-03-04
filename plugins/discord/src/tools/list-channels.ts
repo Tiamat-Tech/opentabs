@@ -7,6 +7,7 @@ export const listChannels = defineTool({
   name: 'list_channels',
   displayName: 'List Channels',
   description: 'List all channels in a Discord guild (server)',
+  summary: 'List channels in a server',
   icon: 'hash',
   group: 'Channels',
   input: z.object({

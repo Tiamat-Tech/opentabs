@@ -7,6 +7,7 @@ export const sendMessage = defineTool({
   name: 'send_message',
   displayName: 'Send Message',
   description: 'Send a message to a Discord channel',
+  summary: 'Send a message to a channel',
   icon: 'send',
   group: 'Messages',
   input: z.object({

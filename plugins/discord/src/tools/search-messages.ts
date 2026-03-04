@@ -8,6 +8,7 @@ export const searchMessages = defineTool({
   displayName: 'Search Messages',
   description:
     'Search for messages in a guild. Supports content queries and filters like from:, in:, has:, before:, after:',
+  summary: 'Search messages in a server',
   icon: 'search',
   group: 'Messages',
   input: z.object({

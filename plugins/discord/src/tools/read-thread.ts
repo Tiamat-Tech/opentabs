@@ -8,6 +8,7 @@ export const readThread = defineTool({
   displayName: 'Read Thread',
   description:
     'Read messages from a thread. Threads are channels, so this works the same as read_messages but is semantically specific to threads.',
+  summary: 'Read messages from a thread',
   icon: 'git-branch',
   group: 'Messages',
   input: z.object({

@@ -8,6 +8,7 @@ export const createThread = defineTool({
   displayName: 'Create Thread',
   description:
     'Create a new thread from a message, or a standalone thread in a channel. Threads are temporary sub-channels for focused conversation.',
+  summary: 'Create a new thread',
   icon: 'git-branch',
   group: 'Channels',
   input: z.object({

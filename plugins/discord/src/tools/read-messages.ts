@@ -7,6 +7,7 @@ export const readMessages = defineTool({
   name: 'read_messages',
   displayName: 'Read Messages',
   description: 'Read recent messages from a Discord channel with optional pagination',
+  summary: 'Read recent messages from a channel',
   icon: 'message-square',
   group: 'Messages',
   input: z.object({

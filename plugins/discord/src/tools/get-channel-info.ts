@@ -7,6 +7,7 @@ export const getChannelInfo = defineTool({
   name: 'get_channel_info',
   displayName: 'Get Channel Info',
   description: 'Get detailed information about a specific Discord channel',
+  summary: 'Get detailed information about a channel',
   icon: 'info',
   group: 'Channels',
   input: z.object({
