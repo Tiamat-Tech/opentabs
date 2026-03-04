@@ -425,6 +425,24 @@ const Unreviewed: Story = {
   render: () => <UnreviewedDemo />,
 };
 
+const UnreviewedOffDemo = () => {
+  const [plugins, setPlugins] = useState([mockPlugin({ reviewed: false, permission: 'off' })]);
+  const plugin = plugins[0];
+  if (!plugin) return null;
+  return (
+    <div>
+      <p className="mb-2 text-muted-foreground text-xs">
+        Change permission from Off to Ask or Auto to see the confirmation dialog:
+      </p>
+      <PluginCard plugin={plugin} activeTools={new Set()} setPlugins={setPlugins} />
+    </div>
+  );
+};
+
+const UnreviewedWithDialog: Story = {
+  render: () => <UnreviewedOffDemo />,
+};
+
 export default meta;
 export {
   Ready,
@@ -441,4 +459,5 @@ export {
   SkipPermissions,
   Reviewed,
   Unreviewed,
+  UnreviewedWithDialog,
 };
