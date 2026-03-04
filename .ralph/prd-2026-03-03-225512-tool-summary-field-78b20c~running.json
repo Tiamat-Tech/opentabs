@@ -106,7 +106,7 @@
         "npm run test passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "e2eCheckpoint": false,
       "model": "opus",
       "notes": "Edit all 40 files in `platform/mcp-server/src/browser-tools/`. Each file has a `defineBrowserTool({...})` call. Add a `summary` field after `description`. Examples:\n\n- `click-element.ts`: `summary: 'Click an element on the page'`\n- `type-text.ts`: `summary: 'Type text into an input field'`\n- `screenshot-tab.ts`: `summary: 'Capture a screenshot of a tab'`\n- `execute-script.ts`: `summary: 'Run JavaScript in a tab'`\n- `get-tab-content.ts`: `summary: 'Extract visible text from a page'`\n- `list-tabs.ts`: `summary: 'List all open browser tabs'`\n- `enable-network-capture.ts`: `summary: 'Start capturing network traffic'`\n- `plugin-list-tabs.ts`: `summary: 'List tabs matching a plugin'`\n- `plugin-analyze-site.ts`: `summary: 'Analyze a site for plugin development'`\n- `extension-get-state.ts`: `summary: 'Get extension internal state'`\n\nFor tools where the current description is already short and human-readable (e.g., 'Add an emoji reaction to a message'), the summary can match or be slightly shorter. The key difference is: description can be verbose for AI context, summary is always concise for UI display.\n\nIMPORTANT: Many browser tool descriptions are already relatively short. Focus on tools with long descriptions (like `plugin_analyze_site`, `browser_execute_script`, `browser_export_har`, `browser_query_elements`) where the summary adds the most value. For tools with already-short descriptions, still add a summary for consistency — it can be the same text or slightly abbreviated."
