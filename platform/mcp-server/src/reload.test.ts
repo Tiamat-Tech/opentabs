@@ -191,6 +191,66 @@ describe('performReload', () => {
     expect('my-plugin' in state.pluginPermissions).toBe(true);
   });
 
+  test('prunes stale per-tool overrides within surviving plugin permissions', async () => {
+    const pluginDir = createPluginDir(configDir, 'my-plugin');
+
+    // Write config with per-tool overrides including a stale tool name
+    writeFileSync(
+      join(configDir, 'config.json'),
+      JSON.stringify({
+        localPlugins: [pluginDir],
+        plugins: {
+          'my-plugin': {
+            permission: 'ask',
+            tools: {
+              test_tool: 'auto', // matches the tool in createPluginDir
+              removed_tool: 'off', // stale — no such tool in registry
+            },
+          },
+        },
+      }),
+    );
+
+    await performReload(state, [], emptyTransports(), false);
+
+    const pluginPerms = state.pluginPermissions['my-plugin'];
+    expect(pluginPerms?.tools?.test_tool).toBe('auto');
+    expect(pluginPerms?.tools?.removed_tool).toBeUndefined();
+  });
+
+  test('prunes stale per-tool overrides for browser pseudo-plugin', async () => {
+    writeConfig(configDir);
+
+    // Pre-populate pluginPermissions with browser tool overrides
+    // (config.plugins is empty, so browser entry won't survive config swap)
+    // Instead, write it into the config
+    writeFileSync(
+      join(configDir, 'config.json'),
+      JSON.stringify({
+        localPlugins: [],
+        plugins: {
+          browser: {
+            permission: 'auto',
+            tools: {
+              existing_tool: 'ask',
+              removed_tool: 'off',
+            },
+          },
+        },
+      }),
+    );
+
+    await performReload(state, [], emptyTransports(), false);
+
+    // After reload, cachedBrowserTools has the actual browser tools.
+    // The pruning should remove 'removed_tool' and 'existing_tool' since
+    // neither matches any actual browser tool names in cachedBrowserTools.
+    const browserPerms = state.pluginPermissions.browser;
+    // Both tool names are stale (not real browser tool names)
+    expect(browserPerms?.tools?.removed_tool).toBeUndefined();
+    expect(browserPerms?.tools?.existing_tool).toBeUndefined();
+  });
+
   test('rebuilds toolLookup after reload', async () => {
     const pluginDir = createPluginDir(configDir, 'my-plugin');
     writeConfig(configDir, [pluginDir]);

@@ -56,8 +56,10 @@ const setReloadChain = (promise: Promise<void>): void => {
 
 /**
  * Remove stale entries from state maps after a registry swap.
- * Prunes tabMapping, activeDispatches, toolConfig, and outdatedPlugins
- * for plugins/tools that no longer exist in the current registry.
+ * Prunes tabMapping, activeDispatches, pluginPermissions (both
+ * plugin-level and per-tool entries), outdatedPlugins, log buffers,
+ * and activeNetworkCaptures for plugins/tools that no longer exist
+ * in the current registry.
  */
 const pruneStaleState = (state: ServerState): void => {
   for (const pluginName of state.tabMapping.keys()) {
@@ -72,7 +74,8 @@ const pruneStaleState = (state: ServerState): void => {
     }
   }
 
-  // Prune stale pluginPermissions entries for removed plugins
+  // Prune stale pluginPermissions entries for removed plugins,
+  // and prune stale per-tool overrides within surviving plugins.
   const activePluginNames = new Set(state.registry.plugins.keys());
   let prunedPluginPermissionsCount = 0;
   for (const key of Object.keys(state.pluginPermissions)) {
@@ -83,6 +86,28 @@ const pruneStaleState = (state: ServerState): void => {
   }
   if (prunedPluginPermissionsCount > 0) {
     log.info(`Pruned ${prunedPluginPermissionsCount} stale plugin permission entry/entries`);
+  }
+
+  // Prune per-tool overrides for tools that no longer exist in the plugin
+  for (const [pluginName, config] of Object.entries(state.pluginPermissions)) {
+    if (!config.tools) continue;
+    const plugin = pluginName === 'browser' ? null : state.registry.plugins.get(pluginName);
+    if (pluginName === 'browser') {
+      // Browser tool names are in cachedBrowserTools
+      const browserToolNames = new Set(state.cachedBrowserTools.map(bt => bt.name));
+      for (const toolName of Object.keys(config.tools)) {
+        if (!browserToolNames.has(toolName)) {
+          Reflect.deleteProperty(config.tools, toolName);
+        }
+      }
+    } else if (plugin) {
+      const pluginToolNames = new Set(plugin.tools.map(t => t.name));
+      for (const toolName of Object.keys(config.tools)) {
+        if (!pluginToolNames.has(toolName)) {
+          Reflect.deleteProperty(config.tools, toolName);
+        }
+      }
+    }
   }
 
   // Prune stale log buffers for removed plugins
