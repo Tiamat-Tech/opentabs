@@ -66,10 +66,10 @@ test.describe('Side panel real-time state propagation', () => {
       const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
       await pluginCard.click();
 
-      // Verify echo tool's permission selector shows 'auto' initially
-      const echoSelect = sidePanelPage.locator('select[aria-label="Permission for echo tool"]');
-      await expect(echoSelect).toBeVisible({ timeout: 5_000 });
-      await expect(echoSelect).toHaveValue('auto', { timeout: 5_000 });
+      // Verify echo tool's Radix Select trigger shows 'Auto' initially
+      const echoTrigger = sidePanelPage.locator('[aria-label="Permission for echo tool"]');
+      await expect(echoTrigger).toBeVisible({ timeout: 5_000 });
+      await expect(echoTrigger).toContainText('Auto', { timeout: 5_000 });
 
       // Change the echo tool to 'off' by modifying config.json and triggering reload.
       // This sends plugins.changed to the extension → background updates cache →
@@ -80,8 +80,8 @@ test.describe('Side panel real-time state propagation', () => {
       });
       await waitForLog(server, 'Config reload complete', 10_000);
 
-      // Verify the side panel select reflects 'off' state WITHOUT reloading
-      await expect(echoSelect).toHaveValue('off', { timeout: 10_000 });
+      // Verify the side panel Radix Select reflects 'Off' state WITHOUT reloading
+      await expect(echoTrigger).toContainText('Off', { timeout: 10_000 });
 
       // Verify the MCP server sees the tool with [Disabled] prefix via tools/list
       await expect
@@ -103,8 +103,8 @@ test.describe('Side panel real-time state propagation', () => {
       server.logs.length = 0;
       await waitForLog(server, 'Config reload complete', 10_000);
 
-      // Verify the side panel select reflects 'auto' state WITHOUT reloading
-      await expect(echoSelect).toHaveValue('auto', { timeout: 10_000 });
+      // Verify the side panel Radix Select reflects 'Auto' state WITHOUT reloading
+      await expect(echoTrigger).toContainText('Auto', { timeout: 10_000 });
 
       await sidePanelPage.close();
     } finally {
@@ -249,9 +249,9 @@ test.describe('Side panel real-time state propagation', () => {
 
       // Pick a browser tool to toggle — the ToolRow aria-label uses the full prefixed name
       const targetBrowserTool = BROWSER_TOOL_NAMES[0] ?? 'browser_list_tabs';
-      const toolSelect = sidePanelPage.locator(`select[aria-label="Permission for ${targetBrowserTool} tool"]`);
-      await expect(toolSelect).toBeVisible({ timeout: 5_000 });
-      await expect(toolSelect).toHaveValue('auto', { timeout: 5_000 });
+      const toolTrigger = sidePanelPage.locator(`[aria-label="Permission for ${targetBrowserTool} tool"]`);
+      await expect(toolTrigger).toBeVisible({ timeout: 5_000 });
+      await expect(toolTrigger).toContainText('Auto', { timeout: 5_000 });
 
       // Disable the browser tool by writing plugins config to config.json
       // Browser tool permission keys use the full prefixed name
@@ -261,8 +261,8 @@ test.describe('Side panel real-time state propagation', () => {
       });
       await waitForLog(server, 'Config reload complete', 10_000);
 
-      // Verify the side panel select reflects 'off' state WITHOUT reloading
-      await expect(toolSelect).toHaveValue('off', { timeout: 10_000 });
+      // Verify the side panel Radix Select reflects 'Off' state WITHOUT reloading
+      await expect(toolTrigger).toContainText('Off', { timeout: 10_000 });
 
       // Verify the tool has [Disabled] prefix in MCP tools/list
       await expect
@@ -284,8 +284,8 @@ test.describe('Side panel real-time state propagation', () => {
       server.logs.length = 0;
       await waitForLog(server, 'Config reload complete', 10_000);
 
-      // Verify the side panel select reflects 'auto' state WITHOUT reloading
-      await expect(toolSelect).toHaveValue('auto', { timeout: 10_000 });
+      // Verify the side panel Radix Select reflects 'Auto' state WITHOUT reloading
+      await expect(toolTrigger).toContainText('Auto', { timeout: 10_000 });
 
       await sidePanelPage.close();
     } finally {
@@ -347,11 +347,11 @@ test.describe('Side panel real-time state propagation', () => {
       // Verify green dot recovers (from sendTabSyncAll → tab.stateChanged push)
       await expect(e2ePluginCard.locator('.bg-success')).toBeVisible({ timeout: 30_000 });
 
-      // Expand plugin card and verify tool permission selects are correct
+      // Expand plugin card and verify tool permission Radix Select triggers are correct
       await e2ePluginCard.click();
-      const echoSelect = sidePanelPage.locator('select[aria-label="Permission for echo tool"]');
-      await expect(echoSelect).toBeVisible({ timeout: 5_000 });
-      await expect(echoSelect).toHaveValue('auto', { timeout: 5_000 });
+      const echoTrigger = sidePanelPage.locator('[aria-label="Permission for echo tool"]');
+      await expect(echoTrigger).toBeVisible({ timeout: 5_000 });
+      await expect(echoTrigger).toContainText('Auto', { timeout: 5_000 });
 
       await sidePanelPage.close();
       await appTab.close();

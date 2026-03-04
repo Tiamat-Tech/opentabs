@@ -110,6 +110,7 @@ const sendSyncFull = async (state: ServerState): Promise<void> => {
       failedPlugins: configState.failedPlugins,
       browserTools: configState.browserTools,
       serverVersion: configState.serverVersion,
+      skipPermissions: configState.skipPermissions,
     },
   });
   if (sent) {

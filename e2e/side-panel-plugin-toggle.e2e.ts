@@ -3,10 +3,20 @@
  *
  * Verifies:
  *   1. Plugin cards display correct name and icon state
- *   2. Changing a tool permission select sends config.setToolPermission to the MCP server
+ *   2. Changing a tool permission via Radix Select sends config.setToolPermission to the MCP server
  *   3. MCP server receives the permission change and updates its state
  *   4. Side panel reflects the updated tool permission state
  *   5. Plugin-level permission select sets all tools' default permission
+ *   6. Smart cleanup: setting tool permission back to plugin default removes the per-tool override
+ *   7. No Switch components exist in the side panel (group headers are plain text dividers)
+ *   8. skipPermissions mode disables all Select components
+ *
+ * PermissionSelect is a Radix Select component. Playwright interactions:
+ *   - Locate trigger: page.locator('[aria-label="..."]')
+ *   - Open dropdown: trigger.click()
+ *   - Select option: page.locator('[role="option"]', { hasText: 'Auto' }).click()
+ *   - Verify value: expect(trigger).toContainText('Auto')
+ *   - Verify disabled: expect(trigger).toBeDisabled()
  *
  * These tests open the side panel as a regular chrome-extension:// page
  * (Playwright cannot open the real Chrome side panel API) and exercise
@@ -16,6 +26,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { Page } from '@playwright/test';
 import {
   cleanupTestConfigDir,
   createMcpClient,
@@ -23,6 +34,7 @@ import {
   expect,
   launchExtensionContext,
   readPluginToolNames,
+  readTestConfig,
   startMcpServer,
   startTestServer,
   test,
@@ -37,6 +49,16 @@ import {
   waitForLog,
   waitForToolResult,
 } from './helpers.js';
+
+// ---------------------------------------------------------------------------
+// Radix Select helpers
+// ---------------------------------------------------------------------------
+
+/** Click a Radix Select trigger (by aria-label) and choose an option by display text. */
+const selectPermission = async (page: Page, ariaLabel: string, optionText: string) => {
+  await page.locator(`[aria-label="${ariaLabel}"]`).click();
+  await page.locator('[role="option"]', { hasText: optionText }).click();
+};
 
 // ---------------------------------------------------------------------------
 // Plugin list rendering — name and icon state
@@ -125,11 +147,11 @@ test.describe('Side panel — plugin list rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tool permission — config.setToolPermission flow
+// Tool permission — config.setToolPermission flow + smart cleanup
 // ---------------------------------------------------------------------------
 
 test.describe('Side panel — tool permission change', () => {
-  test('changing a tool permission select sends config.setToolPermission and MCP server updates state', async () => {
+  test('changing a tool permission via Select sends config.setToolPermission, MCP server updates, and smart cleanup removes override', async () => {
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-toggle-'));
@@ -160,18 +182,18 @@ test.describe('Side panel — tool permission change', () => {
       // Verify tool rows are visible
       await expect(sidePanelPage.getByText('Echo', { exact: true })).toBeVisible({ timeout: 5_000 });
 
-      // Find the permission select for the 'echo' tool
-      const echoSelect = sidePanelPage.locator('select[aria-label="Permission for echo tool"]');
-      await expect(echoSelect).toBeVisible({ timeout: 5_000 });
+      // Verify the tool-level Radix Select trigger is visible
+      const echoTrigger = sidePanelPage.locator('[aria-label="Permission for echo tool"]');
+      await expect(echoTrigger).toBeVisible({ timeout: 5_000 });
 
-      // Verify initial state: auto (plugin permission is 'auto')
-      await expect(echoSelect).toHaveValue('auto', { timeout: 5_000 });
+      // Verify initial state: Auto (plugin permission is 'auto')
+      await expect(echoTrigger).toContainText('Auto', { timeout: 5_000 });
 
-      // Change the echo tool permission to 'off'
-      await echoSelect.selectOption('off');
+      // Change the echo tool permission to 'off' via Radix Select
+      await selectPermission(sidePanelPage, 'Permission for echo tool', 'Off');
 
       // Verify the select UI immediately reflects the new value
-      await expect(echoSelect).toHaveValue('off', { timeout: 5_000 });
+      await expect(echoTrigger).toContainText('Off', { timeout: 5_000 });
 
       // Verify the MCP server received the permission change by polling
       // tools/list — once the server processes the change, the tool gets
@@ -190,13 +212,27 @@ test.describe('Side panel — tool permission change', () => {
         )
         .toBe(true);
 
-      // Re-enable the echo tool by setting permission to 'auto'
-      await echoSelect.selectOption('auto');
+      // Verify the per-tool override exists in config.json
+      await expect
+        .poll(
+          () => {
+            const config = readTestConfig(configDir);
+            return config.plugins?.['e2e-test']?.tools?.echo;
+          },
+          {
+            timeout: 15_000,
+            message: 'Config should have per-tool override for echo after setting to off',
+          },
+        )
+        .toBe('off');
+
+      // Re-enable the echo tool by setting permission back to 'auto' (the plugin default)
+      await selectPermission(sidePanelPage, 'Permission for echo tool', 'Auto');
 
       // Verify the select UI reflects the change
-      await expect(echoSelect).toHaveValue('auto', { timeout: 5_000 });
+      await expect(echoTrigger).toContainText('Auto', { timeout: 5_000 });
 
-      // Verify the MCP server persisted the re-enabled state.
+      // Verify the MCP server persisted the re-enabled state
       await expect
         .poll(
           async () => {
@@ -210,6 +246,21 @@ test.describe('Side panel — tool permission change', () => {
           },
         )
         .toBe(true);
+
+      // Smart cleanup: verify the per-tool override was REMOVED from config
+      // because the tool permission now matches the plugin default ('auto').
+      await expect
+        .poll(
+          () => {
+            const config = readTestConfig(configDir);
+            return config.plugins?.['e2e-test']?.tools;
+          },
+          {
+            timeout: 15_000,
+            message: 'Config tools map should be removed after setting echo back to plugin default',
+          },
+        )
+        .toBeUndefined();
 
       await sidePanelPage.close();
     } finally {
@@ -266,12 +317,14 @@ test.describe('Side panel — disabled tool dispatch rejection', () => {
       const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
       await pluginCard.click();
 
-      // Find the echo tool permission select and set to 'off'
-      const echoSelect = sidePanelPage.locator('select[aria-label="Permission for echo tool"]');
-      await expect(echoSelect).toBeVisible({ timeout: 5_000 });
-      await expect(echoSelect).toHaveValue('auto', { timeout: 5_000 });
-      await echoSelect.selectOption('off');
-      await expect(echoSelect).toHaveValue('off', { timeout: 5_000 });
+      // Find the echo tool permission select trigger and verify initial value
+      const echoTrigger = sidePanelPage.locator('[aria-label="Permission for echo tool"]');
+      await expect(echoTrigger).toBeVisible({ timeout: 5_000 });
+      await expect(echoTrigger).toContainText('Auto', { timeout: 5_000 });
+
+      // Set echo to 'off'
+      await selectPermission(sidePanelPage, 'Permission for echo tool', 'Off');
+      await expect(echoTrigger).toContainText('Off', { timeout: 5_000 });
 
       // Wait for tools/list to reflect echo as disabled
       await expect
@@ -294,8 +347,8 @@ test.describe('Side panel — disabled tool dispatch rejection', () => {
       expect(disabledResult.content).toContain('disabled');
 
       // Re-enable the echo tool
-      await echoSelect.selectOption('auto');
-      await expect(echoSelect).toHaveValue('auto', { timeout: 5_000 });
+      await selectPermission(sidePanelPage, 'Permission for echo tool', 'Auto');
+      await expect(echoTrigger).toContainText('Auto', { timeout: 5_000 });
 
       // Wait for tool to no longer have [Disabled] prefix
       await expect
@@ -388,12 +441,15 @@ test.describe('Side panel — plugin-level permission select', () => {
         timeout: 30_000,
       });
 
-      // Find the plugin-level permission select
-      const pluginSelect = sidePanelPage.locator('select[aria-label="Permission for e2e-test plugin"]');
-      await expect(pluginSelect).toBeVisible({ timeout: 5_000 });
+      // Find the plugin-level permission select trigger
+      const pluginTrigger = sidePanelPage.locator('[aria-label="Permission for e2e-test plugin"]');
+      await expect(pluginTrigger).toBeVisible({ timeout: 5_000 });
+
+      // Verify initial state: Auto
+      await expect(pluginTrigger).toContainText('Auto', { timeout: 5_000 });
 
       // Set plugin permission to 'off'
-      await pluginSelect.selectOption('off');
+      await selectPermission(sidePanelPage, 'Permission for e2e-test plugin', 'Off');
 
       // Wait for all e2e-test plugin tools to get [Disabled] prefix
       await expect
@@ -419,7 +475,7 @@ test.describe('Side panel — plugin-level permission select', () => {
       }
 
       // Set plugin permission back to 'auto'
-      await pluginSelect.selectOption('auto');
+      await selectPermission(sidePanelPage, 'Permission for e2e-test plugin', 'Auto');
 
       // Wait for all e2e-test plugin tools to lose the [Disabled] prefix
       await expect
@@ -447,6 +503,72 @@ test.describe('Side panel — plugin-level permission select', () => {
       await sidePanelPage.close();
     } finally {
       await mcpClient.close().catch(() => {});
+      await context.close().catch(() => {});
+      await server.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// skipPermissions mode — all selects disabled, no Switch components
+// ---------------------------------------------------------------------------
+
+test.describe('Side panel — skipPermissions mode and group headers', () => {
+  test('skipPermissions disables all Select components and no Switch components exist', async () => {
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-skip-'));
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: { 'e2e-test': { permission: 'auto' } } });
+
+    // Enable skipPermissions so all selects should be disabled
+    const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '1' });
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      // Open side panel
+      const sidePanelPage = await openSidePanel(context);
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({
+        timeout: 30_000,
+      });
+
+      // Wait for the "PERMISSIONS BYPASSED" banner to confirm skipPermissions propagated
+      await expect(sidePanelPage.getByText('PERMISSIONS BYPASSED')).toBeVisible({ timeout: 15_000 });
+
+      // Verify the plugin-level select trigger is visible but disabled
+      const pluginTrigger = sidePanelPage.locator('[aria-label="Permission for e2e-test plugin"]');
+      await expect(pluginTrigger).toBeVisible({ timeout: 5_000 });
+      await expect(pluginTrigger).toBeDisabled();
+
+      // Verify the browser tools select trigger is visible but disabled
+      const browserTrigger = sidePanelPage.locator('[aria-label="Permission for browser tools"]');
+      await expect(browserTrigger).toBeVisible({ timeout: 5_000 });
+      await expect(browserTrigger).toBeDisabled();
+
+      // Expand the plugin card to reveal tool rows
+      const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
+      await pluginCard.click();
+
+      // Wait for tool rows to be visible
+      await expect(sidePanelPage.getByText('Echo', { exact: true })).toBeVisible({ timeout: 5_000 });
+
+      // Verify tool-level select triggers are disabled
+      const echoTrigger = sidePanelPage.locator('[aria-label="Permission for echo tool"]');
+      await expect(echoTrigger).toBeVisible({ timeout: 5_000 });
+      await expect(echoTrigger).toBeDisabled();
+
+      // Verify no Switch components exist anywhere in the side panel
+      // (group headers are plain text dividers, not interactive switches)
+      const switches = sidePanelPage.locator('[role="switch"]');
+      await expect(switches).toHaveCount(0);
+
+      await sidePanelPage.close();
+    } finally {
       await context.close().catch(() => {});
       await server.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
