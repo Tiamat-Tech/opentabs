@@ -66,7 +66,7 @@
         "npm run test passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "e2eCheckpoint": false,
       "model": "opus",
       "notes": "Four locations to update:\n\n1. platform/mcp-server/src/skip-permissions.ts lines 4-5:\n   Current: 'The --dangerously-skip-permissions flag ... bypasses all browser tool permission prompts.'\n   New: Should say it bypasses approval prompts (ask→auto) but does not enable disabled (off) tools.\n\n2. platform/mcp-server/src/config.ts line 47-48:\n   Current: '/** Whether to skip all permission prompts (dangerous — disables human-in-the-loop) */'\n   New: Should clarify it skips approval prompts, not all permissions.\n\n3. platform/cli/src/commands/start.ts line 449-452 (flag description):\n   Current: 'Bypass all browser tool confirmation dialogs (WARNING: sensitive operations execute without human approval)'\n   New: Should say something like 'Skip approval prompts for tools set to ask mode (disabled tools stay disabled)'\n\n4. platform/cli/src/commands/start.ts lines 318-324 (console.warn):\n   Current: 'WARNING: All browser tool confirmations are bypassed. Sensitive operations will execute without human approval.'\n   New: Should clarify that only ask→auto is bypassed, off tools remain off."
