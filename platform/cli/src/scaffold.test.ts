@@ -1,14 +1,22 @@
+import type * as ChildProcess from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import type * as FsPromises from 'node:fs/promises';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { ScaffoldError, scaffoldPlugin, toPascalCase, toTitleCase } from './scaffold.js';
+import type { ResolvedVersions } from './scaffold.js';
+import { resolvePluginSdkVersions, ScaffoldError, scaffoldPlugin, toPascalCase, toTitleCase } from './scaffold.js';
 
 vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof FsPromises>();
   return { ...actual, writeFile: vi.fn(actual.writeFile) };
+});
+
+vi.mock('node:child_process', async importOriginal => {
+  const actual = await importOriginal<typeof ChildProcess>();
+  return { ...actual, execFile: vi.fn(actual.execFile) };
 });
 
 describe('toTitleCase', () => {
@@ -139,5 +147,142 @@ describe('scaffoldPlugin', () => {
     // Retry with same name succeeds now that the partial dir was cleaned up
     await expect(scaffoldPlugin({ name: 'cleanup-test', domain: 'example.com' })).resolves.toBeDefined();
     expect(existsSync(join(projectDir, 'package.json'))).toBe(true);
+  });
+});
+
+// --- Version resolution ---
+
+type ExecFileCallback = (err: Error | null, stdout: string, stderr: string) => void;
+
+/** Mock execFile to simulate a successful `npm view` returning the given version. */
+const mockNpmViewSuccess = (version: string) => {
+  vi.mocked(execFile).mockImplementation(((_cmd: unknown, _args: unknown, _opts: unknown, callback: unknown) => {
+    (callback as ExecFileCallback)(null, `${version}\n`, '');
+    return undefined as never;
+  }) as unknown as typeof execFile);
+};
+
+/** Mock execFile to simulate a failed `npm view` (offline/auth error). */
+const mockNpmViewFailure = () => {
+  vi.mocked(execFile).mockImplementation(((_cmd: unknown, _args: unknown, _opts: unknown, callback: unknown) => {
+    (callback as ExecFileCallback)(new Error('npm ERR! 404 Not Found'), '', '');
+    return undefined as never;
+  }) as unknown as typeof execFile);
+};
+
+describe('resolvePluginSdkVersions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('uses npm registry version when npm view succeeds', async () => {
+    mockNpmViewSuccess('0.0.99');
+
+    const versions: ResolvedVersions = await resolvePluginSdkVersions();
+
+    expect(versions.openTabsVersion).toBe('^0.0.99');
+    expect(versions.source).toBe('registry');
+  });
+
+  test('falls back to local SDK version when npm view fails', async () => {
+    mockNpmViewFailure();
+
+    const versions: ResolvedVersions = await resolvePluginSdkVersions();
+
+    expect(versions.source).toBe('local');
+    expect(versions.openTabsVersion).toMatch(/^\^\d+\.\d+\.\d+$/);
+  });
+
+  test('resolved version is a valid semver caret range', async () => {
+    mockNpmViewSuccess('1.2.3');
+
+    const versions: ResolvedVersions = await resolvePluginSdkVersions();
+
+    expect(versions.openTabsVersion).toMatch(/^\^\d+\.\d+\.\d+$/);
+  });
+
+  test('resolved version is never "*" when npm view succeeds', async () => {
+    mockNpmViewSuccess('0.0.60');
+
+    const versions: ResolvedVersions = await resolvePluginSdkVersions();
+
+    expect(versions.openTabsVersion).not.toBe('*');
+  });
+
+  test('zod version comes from local SDK regardless of registry source', async () => {
+    mockNpmViewSuccess('0.0.99');
+
+    const versions: ResolvedVersions = await resolvePluginSdkVersions();
+
+    // zod version should be a real version from the local SDK, not '*'
+    expect(versions.zodVersion).toBeDefined();
+    expect(typeof versions.zodVersion).toBe('string');
+  });
+});
+
+describe('scaffoldPlugin version resolution', () => {
+  let tmpDir: string;
+  let originalCwd: string;
+  let originalConfigDir: string | undefined;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'opentabs-scaffold-ver-test-'));
+    originalCwd = process.cwd();
+    originalConfigDir = process.env.OPENTABS_CONFIG_DIR;
+    process.chdir(tmpDir);
+    process.env.OPENTABS_CONFIG_DIR = join(tmpDir, '.opentabs');
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.chdir(originalCwd);
+    if (originalConfigDir !== undefined) {
+      process.env.OPENTABS_CONFIG_DIR = originalConfigDir;
+    } else {
+      delete process.env.OPENTABS_CONFIG_DIR;
+    }
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('scaffolded package.json uses npm registry version when available', async () => {
+    mockNpmViewSuccess('0.0.99');
+
+    await scaffoldPlugin({ name: 'registry-test', domain: 'example.com' });
+
+    const pkg = JSON.parse(await readFile(join(tmpDir, 'registry-test', 'package.json'), 'utf-8')) as {
+      dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
+    };
+
+    expect(pkg.dependencies['@opentabs-dev/plugin-sdk']).toBe('^0.0.99');
+    expect(pkg.devDependencies['@opentabs-dev/plugin-tools']).toBe('^0.0.99');
+  });
+
+  test('scaffolded package.json falls back to local version when npm view fails', async () => {
+    mockNpmViewFailure();
+
+    await scaffoldPlugin({ name: 'fallback-test', domain: 'example.com' });
+
+    const pkg = JSON.parse(await readFile(join(tmpDir, 'fallback-test', 'package.json'), 'utf-8')) as {
+      dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
+    };
+
+    // Should be a valid caret range (from local SDK), not '*'
+    expect(pkg.dependencies['@opentabs-dev/plugin-sdk']).toMatch(/^\^\d+\.\d+\.\d+$/);
+    expect(pkg.devDependencies['@opentabs-dev/plugin-tools']).toMatch(/^\^\d+\.\d+\.\d+$/);
+  });
+
+  test('plugin-sdk and plugin-tools receive the same resolved version', async () => {
+    mockNpmViewSuccess('0.0.77');
+
+    await scaffoldPlugin({ name: 'same-ver', domain: 'example.com' });
+
+    const pkg = JSON.parse(await readFile(join(tmpDir, 'same-ver', 'package.json'), 'utf-8')) as {
+      dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
+    };
+
+    expect(pkg.dependencies['@opentabs-dev/plugin-sdk']).toBe(pkg.devDependencies['@opentabs-dev/plugin-tools']);
   });
 });
