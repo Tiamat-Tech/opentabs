@@ -46,7 +46,7 @@ describe('loadConfig / saveConfig round-trip', () => {
     const config = await loadConfig();
 
     expect(config.localPlugins).toEqual([]);
-    expect(config.plugins).toEqual({});
+    expect(config.permissions).toEqual({});
 
     // File was created on disk
     expect(existsSync(configPath)).toBe(true);
@@ -57,7 +57,7 @@ describe('loadConfig / saveConfig round-trip', () => {
 
     const custom: OpentabsConfig = {
       localPlugins: ['/path/to/plugin-a', '/path/to/plugin-b'],
-      plugins: {
+      permissions: {
         slack: { permission: 'auto', tools: { send_message: 'ask' } },
         discord: { permission: 'off' },
       },
@@ -66,7 +66,7 @@ describe('loadConfig / saveConfig round-trip', () => {
 
     const loaded = await loadConfig();
     expect(loaded.localPlugins).toEqual(custom.localPlugins);
-    expect(loaded.plugins).toEqual(custom.plugins);
+    expect(loaded.permissions).toEqual(custom.permissions);
   });
 
   test('filters non-string elements from localPlugins array', async () => {
@@ -74,7 +74,7 @@ describe('loadConfig / saveConfig round-trip', () => {
       configPath,
       JSON.stringify({
         localPlugins: ['/valid/path', 123, null, true, '/another/path'],
-        plugins: {},
+        permissions: {},
       }),
     );
 
@@ -87,7 +87,7 @@ describe('loadConfig / saveConfig round-trip', () => {
       configPath,
       JSON.stringify({
         localPlugins: [],
-        plugins: {
+        permissions: {
           slack: { permission: 'auto', tools: { send_message: 'ask' } },
           invalid_perm: { permission: 'bogus' },
           invalid_tool_perm: { tools: { foo: 'bogus' } },
@@ -99,103 +99,13 @@ describe('loadConfig / saveConfig round-trip', () => {
     );
 
     const config = await loadConfig();
-    expect(config.plugins).toEqual({
+    expect(config.permissions).toEqual({
       slack: { permission: 'auto', tools: { send_message: 'ask' } },
       valid_tools_only: { tools: { bar: 'off' } },
     });
   });
 
-  test('migrates old-format config with tools/browserToolPolicy to empty plugins', async () => {
-    await writeFile(
-      configPath,
-      JSON.stringify({
-        localPlugins: ['/some/plugin'],
-        tools: { slack_send_message: false, slack_read_messages: true },
-        browserToolPolicy: { browser_screenshot_tab: false },
-        permissions: {
-          trustedDomains: ['localhost'],
-          sensitiveDomains: [],
-          toolPolicy: {},
-          domainToolPolicy: {},
-        },
-      }),
-    );
-
-    const config = await loadConfig();
-    expect(config.localPlugins).toEqual(['/some/plugin']);
-    // Old tool/browserToolPolicy/permissions are discarded — plugins map is empty
-    expect(config.plugins).toEqual({});
-    // Old fields are not present on the new config shape
-    expect(config).not.toHaveProperty('tools');
-    expect(config).not.toHaveProperty('browserToolPolicy');
-    expect(config).not.toHaveProperty('permissions');
-  });
-
-  test('migrates local paths from legacy plugins array into localPlugins', async () => {
-    await writeFile(
-      configPath,
-      JSON.stringify({
-        plugins: ['/local/plugin', './relative/plugin', 'opentabs-plugin-jira', '@myorg/opentabs-plugin-github'],
-      }),
-    );
-
-    const config = await loadConfig();
-    // Local paths are migrated, npm package names are dropped
-    expect(config.localPlugins).toEqual(['/local/plugin', './relative/plugin']);
-  });
-
-  test('migrates Windows-style paths from legacy plugins array into localPlugins', async () => {
-    await writeFile(
-      configPath,
-      JSON.stringify({
-        plugins: [
-          '.\\relative\\plugin',
-          '..\\parent\\plugin',
-          'C:\\Users\\dev\\plugin',
-          'D:/projects/plugin',
-          'opentabs-plugin-npm',
-        ],
-      }),
-    );
-
-    const config = await loadConfig();
-    expect(config.localPlugins).toEqual([
-      '.\\relative\\plugin',
-      '..\\parent\\plugin',
-      'C:\\Users\\dev\\plugin',
-      'D:/projects/plugin',
-    ]);
-  });
-
-  test('drops legacy npmPlugins entries with a log notice', async () => {
-    await writeFile(
-      configPath,
-      JSON.stringify({
-        localPlugins: ['/existing/plugin'],
-        plugins: {},
-        npmPlugins: ['opentabs-plugin-jira', '@myorg/opentabs-plugin-github'],
-      }),
-    );
-
-    const config = await loadConfig();
-    expect(config.localPlugins).toEqual(['/existing/plugin']);
-    expect(config).not.toHaveProperty('npmPlugins');
-  });
-
-  test('migration deduplicates local paths from plugins array into localPlugins', async () => {
-    await writeFile(
-      configPath,
-      JSON.stringify({
-        localPlugins: ['/already/here'],
-        plugins: ['/already/here', '/new/plugin'],
-      }),
-    );
-
-    const config = await loadConfig();
-    expect(config.localPlugins).toEqual(['/already/here', '/new/plugin']);
-  });
-
-  test('ignores absent plugins and npmPlugins fields without error', async () => {
+  test('ignores absent permissions field without error', async () => {
     await writeFile(
       configPath,
       JSON.stringify({
@@ -205,39 +115,12 @@ describe('loadConfig / saveConfig round-trip', () => {
 
     const config = await loadConfig();
     expect(config.localPlugins).toEqual(['/some/plugin']);
-    expect(config.plugins).toEqual({});
+    expect(config.permissions).toEqual({});
   });
 
-  test('default config has empty plugins map', async () => {
+  test('default config has empty permissions map', async () => {
     const config = await loadConfig();
-    expect(config.plugins).toEqual({});
-    expect(config).not.toHaveProperty('npmPlugins');
-  });
-
-  test('preserves skipPermissions flag', async () => {
-    const custom: OpentabsConfig = {
-      localPlugins: [],
-      plugins: {},
-      skipPermissions: true,
-    };
-    await saveConfigWrapped(custom);
-
-    const loaded = await loadConfig();
-    expect(loaded.skipPermissions).toBe(true);
-  });
-
-  test('migrates skipConfirmation to skipPermissions', async () => {
-    await writeFile(
-      configPath,
-      JSON.stringify({
-        localPlugins: [],
-        plugins: {},
-        skipConfirmation: true,
-      }),
-    );
-
-    const config = await loadConfig();
-    expect(config.skipPermissions).toBe(true);
+    expect(config.permissions).toEqual({});
   });
 });
 
@@ -251,7 +134,7 @@ describe('savePluginPermissions round-trip', () => {
     // Create initial config with localPlugins
     const initial: OpentabsConfig = {
       localPlugins: ['/my/plugin'],
-      plugins: {},
+      permissions: {},
     };
     await saveConfigWrapped(initial);
 
@@ -262,10 +145,10 @@ describe('savePluginPermissions round-trip', () => {
       discord: { permission: 'ask', tools: { send_message: 'auto' } },
     });
 
-    // Verify localPlugins are preserved and plugins are updated
+    // Verify localPlugins are preserved and permissions are updated
     const loaded = await loadConfig();
     expect(loaded.localPlugins).toEqual(['/my/plugin']);
-    expect(loaded.plugins).toEqual({
+    expect(loaded.permissions).toEqual({
       slack: { permission: 'auto' },
       discord: { permission: 'ask', tools: { send_message: 'auto' } },
     });
@@ -274,7 +157,7 @@ describe('savePluginPermissions round-trip', () => {
   test('overwrites previous plugin permissions completely', async () => {
     const initial: OpentabsConfig = {
       localPlugins: [],
-      plugins: { slack: { permission: 'auto' } },
+      permissions: { slack: { permission: 'auto' } },
     };
     await saveConfigWrapped(initial);
 
@@ -284,8 +167,8 @@ describe('savePluginPermissions round-trip', () => {
     });
 
     const loaded = await loadConfig();
-    // Previous slack entry is gone — replaced by new plugins map
-    expect(loaded.plugins).toEqual({
+    // Previous slack entry is gone — replaced by new permissions map
+    expect(loaded.permissions).toEqual({
       discord: { permission: 'off' },
     });
   });
@@ -309,7 +192,7 @@ describe('saveConfig error propagation', () => {
     const state = { configWriteMutex: Promise.resolve() };
     const config: OpentabsConfig = {
       localPlugins: [],
-      plugins: {},
+      permissions: {},
     };
 
     await expect(saveConfig(state, config)).rejects.toThrow();
@@ -325,7 +208,7 @@ describe('saveConfig error propagation', () => {
     const state = { configWriteMutex: Promise.resolve() };
     const config: OpentabsConfig = {
       localPlugins: ['/test/path'],
-      plugins: {},
+      permissions: {},
     };
 
     // First write fails
@@ -369,7 +252,7 @@ describe('saveConfig error propagation', () => {
     await savePluginPermissions(state, { discord: { permission: 'auto' } });
 
     const loaded = await loadConfig();
-    expect(loaded.plugins).toEqual({ discord: { permission: 'auto' } });
+    expect(loaded.permissions).toEqual({ discord: { permission: 'auto' } });
   });
 });
 

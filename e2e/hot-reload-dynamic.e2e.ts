@@ -227,7 +227,10 @@ test.describe
     test('setting a tool to off via config adds [Disabled] prefix after hot reload', async () => {
       const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
       const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-hr-perm-off-'));
-      writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: { 'e2e-test': { permission: 'auto' } } });
+      writeTestConfig(configDir, {
+        localPlugins: [absPluginPath],
+        permissions: { 'e2e-test': { permission: 'auto' } },
+      });
 
       // Disable skipPermissions so [Disabled] prefix appears
       const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '' });
@@ -242,7 +245,7 @@ test.describe
 
         // Set the echo tool permission to 'off'
         const config = readTestConfig(configDir);
-        config.plugins = { ...config.plugins, 'e2e-test': { permission: 'auto', tools: { echo: 'off' } } };
+        config.permissions = { ...config.permissions, 'e2e-test': { permission: 'auto', tools: { echo: 'off' } } };
         writeTestConfig(configDir, config);
 
         server.logs.length = 0;
@@ -270,7 +273,10 @@ test.describe
     test('re-enabling a tool via config removes [Disabled] prefix after hot reload', async () => {
       const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
       const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-hr-perm-reenable-'));
-      writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: { 'e2e-test': { permission: 'auto' } } });
+      writeTestConfig(configDir, {
+        localPlugins: [absPluginPath],
+        permissions: { 'e2e-test': { permission: 'auto' } },
+      });
 
       // Disable skipPermissions so [Disabled] prefix appears
       const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '' });
@@ -281,7 +287,7 @@ test.describe
 
         // Set echo to off
         const config = readTestConfig(configDir);
-        config.plugins = { ...config.plugins, 'e2e-test': { permission: 'auto', tools: { echo: 'off' } } };
+        config.permissions = { ...config.permissions, 'e2e-test': { permission: 'auto', tools: { echo: 'off' } } };
         writeTestConfig(configDir, config);
 
         server.logs.length = 0;
@@ -292,7 +298,7 @@ test.describe
         expect(echoDisabled?.description).toMatch(/^\[Disabled\]/);
 
         // Remove the per-tool override (reverts to plugin default 'auto')
-        config.plugins = { ...config.plugins, 'e2e-test': { permission: 'auto' } };
+        config.permissions = { ...config.permissions, 'e2e-test': { permission: 'auto' } };
         writeTestConfig(configDir, config);
 
         server.logs.length = 0;
@@ -322,7 +328,7 @@ test.describe
       const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-config-'));
 
       // Build config pointing to the copy, pre-enable the future tool
-      writeTestConfig(configDir, { localPlugins: [pluginDir], plugins: {} });
+      writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: {} });
 
       const server = await startMcpServer(configDir, true);
       const client = createMcpClient(server.port, server.secret);
@@ -381,7 +387,7 @@ test.describe
       const { pluginDir, tmpDir } = copyE2eTestPlugin();
       const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-remove-'));
 
-      writeTestConfig(configDir, { localPlugins: [pluginDir], plugins: {} });
+      writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: {} });
 
       const server = await startMcpServer(configDir, true);
       const client = createMcpClient(server.port, server.secret);
@@ -430,7 +436,7 @@ test.describe('File watcher — IIFE changes', () => {
     const { pluginDir, tmpDir } = copyE2eTestPlugin();
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-iife-'));
 
-    writeTestConfig(configDir, { localPlugins: [pluginDir], plugins: {} });
+    writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: {} });
 
     const server = await startMcpServer(configDir, true);
 
@@ -495,7 +501,7 @@ test.describe('Hot reload — multiple MCP sessions', () => {
   test('all sessions see config changes after hot reload', async () => {
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-hr-multi-cfg-'));
-    writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: { 'e2e-test': { permission: 'auto' } } });
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], permissions: { 'e2e-test': { permission: 'auto' } } });
 
     // Disable skipPermissions so [Disabled] prefix appears
     const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '' });
@@ -512,7 +518,7 @@ test.describe('Hot reload — multiple MCP sessions', () => {
 
       // Set echo tool to 'off' and hot reload
       const config = readTestConfig(configDir);
-      config.plugins = { ...config.plugins, 'e2e-test': { permission: 'auto', tools: { echo: 'off' } } };
+      config.permissions = { ...config.permissions, 'e2e-test': { permission: 'auto', tools: { echo: 'off' } } };
       writeTestConfig(configDir, config);
 
       server.logs.length = 0;
@@ -682,7 +688,7 @@ test.describe('File watcher + hot reload combined', () => {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-combined-'));
 
     // Start with e2e-test at 'auto' permission; disable skipPermissions so [Disabled] prefix appears
-    writeTestConfig(configDir, { localPlugins: [pluginDir], plugins: { 'e2e-test': { permission: 'auto' } } });
+    writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: { 'e2e-test': { permission: 'auto' } } });
 
     const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '' });
     const client = createMcpClient(server.port, server.secret);
@@ -720,7 +726,7 @@ test.describe('File watcher + hot reload combined', () => {
 
       // 2. Now trigger a hot reload (config change: set echo tool to off)
       const config = readTestConfig(configDir);
-      config.plugins = { ...config.plugins, 'e2e-test': { permission: 'auto', tools: { echo: 'off' } } };
+      config.permissions = { ...config.permissions, 'e2e-test': { permission: 'auto', tools: { echo: 'off' } } };
       writeTestConfig(configDir, config);
 
       server.logs.length = 0;
@@ -751,7 +757,7 @@ test.describe
     test('server starts with no plugins, hot reload adds plugin', async () => {
       // Start with an EMPTY config (no plugins, no tools)
       const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-empty-'));
-      writeTestConfig(configDir, { localPlugins: [], plugins: {} });
+      writeTestConfig(configDir, { localPlugins: [], permissions: {} });
 
       const server = await startMcpServer(configDir, true);
       const client = createMcpClient(server.port, server.secret);
@@ -772,7 +778,7 @@ test.describe
         // Add e2e-test plugin via config
         const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
         const prefixedToolNames = readPluginToolNames();
-        writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: {} });
+        writeTestConfig(configDir, { localPlugins: [absPluginPath], permissions: {} });
 
         server.logs.length = 0;
         server.triggerHotReload();
@@ -887,7 +893,7 @@ test.describe
       const { pluginDir, tmpDir } = copyE2eTestPlugin();
       const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-desc-'));
 
-      writeTestConfig(configDir, { localPlugins: [pluginDir], plugins: {} });
+      writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: {} });
 
       const server = await startMcpServer(configDir, true);
       const client = createMcpClient(server.port, server.secret);
@@ -949,7 +955,7 @@ test.describe('File watcher — corrupted manifest', () => {
     const { pluginDir, tmpDir } = copyE2eTestPlugin();
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-corrupt-'));
 
-    writeTestConfig(configDir, { localPlugins: [pluginDir], plugins: {} });
+    writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: {} });
 
     const server = await startMcpServer(configDir, true);
     const client = createMcpClient(server.port, server.secret);
@@ -1089,7 +1095,7 @@ test.describe
       const { pluginDir, tmpDir } = copyE2eTestPlugin();
       const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-schema-'));
 
-      writeTestConfig(configDir, { localPlugins: [pluginDir], plugins: {} });
+      writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: {} });
 
       const server = await startMcpServer(configDir, true);
       const client = createMcpClient(server.port, server.secret);
@@ -1166,7 +1172,7 @@ test.describe
       const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-restart-'));
 
       // Pre-enable a future dynamic tool for the second file watcher change
-      writeTestConfig(configDir, { localPlugins: [pluginDir], plugins: {} });
+      writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: {} });
 
       const server = await startMcpServer(configDir, true);
       const client = createMcpClient(server.port, server.secret);
@@ -1269,7 +1275,7 @@ test.describe
       const { pluginDir, tmpDir } = copyE2eTestPlugin();
       const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-rewrite-'));
 
-      writeTestConfig(configDir, { localPlugins: [pluginDir], plugins: {} });
+      writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: {} });
 
       const server = await startMcpServer(configDir, true);
       const client = createMcpClient(server.port, server.secret);

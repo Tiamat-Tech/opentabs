@@ -181,7 +181,7 @@ test.describe('Permission: auto', () => {
   }) => {
     // Set browser tools to 'auto' permission
     const config = readTestConfig(mcpServer.configDir);
-    config.plugins = { browser: { permission: 'auto' } };
+    config.permissions = { browser: { permission: 'auto' } };
     writeTestConfig(mcpServer.configDir, config);
 
     // Trigger config reload
@@ -212,7 +212,7 @@ test.describe('Confirmation dialog — Allow', () => {
   }) => {
     // Set browser tools to 'ask' permission
     const config = readTestConfig(mcpServer.configDir);
-    config.plugins = { browser: { permission: 'ask' } };
+    config.permissions = { browser: { permission: 'ask' } };
     writeTestConfig(mcpServer.configDir, config);
 
     mcpServer.logs.length = 0;
@@ -248,7 +248,7 @@ test.describe('Confirmation dialog — Allow', () => {
     mcpClient,
   }) => {
     const config = readTestConfig(mcpServer.configDir);
-    config.plugins = { browser: { permission: 'ask' } };
+    config.permissions = { browser: { permission: 'ask' } };
     writeTestConfig(mcpServer.configDir, config);
 
     mcpServer.logs.length = 0;
@@ -283,7 +283,7 @@ test.describe('Confirmation dialog — Allow', () => {
 test.describe('Confirmation dialog — Deny', () => {
   test('Deny returns PERMISSION_DENIED error', async ({ mcpServer, extensionContext, mcpClient }) => {
     const config = readTestConfig(mcpServer.configDir);
-    config.plugins = { browser: { permission: 'ask' } };
+    config.permissions = { browser: { permission: 'ask' } };
     writeTestConfig(mcpServer.configDir, config);
 
     mcpServer.logs.length = 0;
@@ -316,7 +316,7 @@ test.describe('Confirmation dialog — Always Allow', () => {
     mcpClient,
   }) => {
     const config = readTestConfig(mcpServer.configDir);
-    config.plugins = { browser: { permission: 'ask' } };
+    config.permissions = { browser: { permission: 'ask' } };
     writeTestConfig(mcpServer.configDir, config);
 
     mcpServer.logs.length = 0;
@@ -401,7 +401,7 @@ test.describe('Plugin-level permission', () => {
   test('setting plugin to auto makes all its tools auto', async ({ mcpServer, extensionContext: _ctx, mcpClient }) => {
     // Set browser plugin to 'auto' — all browser tools should inherit 'auto'
     const config = readTestConfig(mcpServer.configDir);
-    config.plugins = { browser: { permission: 'auto' } };
+    config.permissions = { browser: { permission: 'auto' } };
     writeTestConfig(mcpServer.configDir, config);
 
     mcpServer.logs.length = 0;
@@ -420,7 +420,7 @@ test.describe('Plugin-level permission', () => {
     // Set browser plugin to 'auto' but override browser_list_tabs to 'off'
     // Browser tool permission keys use the full prefixed name
     const config = readTestConfig(mcpServer.configDir);
-    config.plugins = {
+    config.permissions = {
       browser: {
         permission: 'auto',
         tools: { browser_list_tabs: 'off' },
@@ -462,7 +462,7 @@ test.describe('Confirmation notification — badge lifecycle', () => {
     mcpClient,
   }) => {
     const config = readTestConfig(mcpServer.configDir);
-    config.plugins = { browser: { permission: 'ask' } };
+    config.permissions = { browser: { permission: 'ask' } };
     writeTestConfig(mcpServer.configDir, config);
 
     mcpServer.logs.length = 0;
@@ -504,7 +504,7 @@ test.describe('Confirmation dialog — late side panel open', () => {
     mcpClient,
   }) => {
     const config = readTestConfig(mcpServer.configDir);
-    config.plugins = { browser: { permission: 'ask' } };
+    config.permissions = { browser: { permission: 'ask' } };
     writeTestConfig(mcpServer.configDir, config);
 
     mcpServer.logs.length = 0;
@@ -552,7 +552,7 @@ test.describe('Tool description prefixes', () => {
     // Configure: browser_list_tabs=off, browser_screenshot_tab=ask, browser_open_tab=auto
     // Browser tool permission keys use the full prefixed name
     const config = readTestConfig(mcpServer.configDir);
-    config.plugins = {
+    config.permissions = {
       browser: {
         tools: {
           browser_list_tabs: 'off',

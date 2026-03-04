@@ -69,7 +69,7 @@ test.describe('Side panel — plugin list rendering', () => {
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-render-'));
-    writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: {} });
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], permissions: {} });
 
     const server = await startMcpServer(configDir, true);
     const testServer = await startTestServer();
@@ -156,7 +156,7 @@ test.describe('Side panel — tool permission change', () => {
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-toggle-'));
     // Start with e2e-test plugin at 'auto' so all tools default to auto
-    writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: { 'e2e-test': { permission: 'auto' } } });
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], permissions: { 'e2e-test': { permission: 'auto' } } });
 
     // Disable skipPermissions so permission selects are interactive
     const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '' });
@@ -217,7 +217,7 @@ test.describe('Side panel — tool permission change', () => {
         .poll(
           () => {
             const config = readTestConfig(configDir);
-            return config.plugins?.['e2e-test']?.tools?.echo;
+            return config.permissions?.['e2e-test']?.tools?.echo;
           },
           {
             timeout: 15_000,
@@ -253,7 +253,7 @@ test.describe('Side panel — tool permission change', () => {
         .poll(
           () => {
             const config = readTestConfig(configDir);
-            return config.plugins?.['e2e-test']?.tools;
+            return config.permissions?.['e2e-test']?.tools;
           },
           {
             timeout: 15_000,
@@ -283,7 +283,7 @@ test.describe('Side panel — disabled tool dispatch rejection', () => {
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-dispatch-'));
     // Start with e2e-test plugin at 'auto' so tools are callable initially
-    writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: { 'e2e-test': { permission: 'auto' } } });
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], permissions: { 'e2e-test': { permission: 'auto' } } });
 
     // Disable skipPermissions so permission selects are interactive
     const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '' });
@@ -399,7 +399,7 @@ test.describe('Side panel — plugin-level permission select', () => {
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-toggle-all-'));
     // Start with e2e-test plugin at 'auto' so tools default to auto
-    writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: { 'e2e-test': { permission: 'auto' } } });
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], permissions: { 'e2e-test': { permission: 'auto' } } });
 
     // Disable skipPermissions so permission selects are interactive
     const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '' });
@@ -520,7 +520,7 @@ test.describe('Side panel — skipPermissions mode and group headers', () => {
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-skip-'));
-    writeTestConfig(configDir, { localPlugins: [absPluginPath], plugins: { 'e2e-test': { permission: 'auto' } } });
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], permissions: { 'e2e-test': { permission: 'auto' } } });
 
     // Enable skipPermissions so all selects should be disabled
     const server = await startMcpServer(configDir, true, undefined, { OPENTABS_SKIP_PERMISSIONS: '1' });

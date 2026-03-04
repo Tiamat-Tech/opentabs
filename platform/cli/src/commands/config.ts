@@ -51,11 +51,11 @@ const colorPermission = (perm: string): string => {
   return pc.red('off');
 };
 
-const CANONICAL_CONFIG_SECTIONS = ['localPlugins', 'plugins'] as const;
+const CANONICAL_CONFIG_SECTIONS = ['localPlugins', 'permissions'] as const;
 
 /**
  * Normalize a raw config object for display: ensures expected sections always appear
- * in canonical order (localPlugins, plugins) regardless of whether they were written
+ * in canonical order (localPlugins, permissions) regardless of whether they were written
  * to the config file. Does not modify the file.
  */
 const normalizeConfigForDisplay = (config: Record<string, unknown>): Record<string, unknown> => {
@@ -68,7 +68,7 @@ const normalizeConfigForDisplay = (config: Record<string, unknown>): Record<stri
   }
   // Canonical sections always appear in defined order with defaults for absent keys
   normalized.localPlugins = config.localPlugins ?? [];
-  normalized.plugins = config.plugins ?? {};
+  normalized.permissions = config.permissions ?? {};
   return normalized;
 };
 
@@ -121,9 +121,9 @@ const handleConfigShow = async (options: ConfigShowOptions & { port?: number }):
             console.log(`    - ${String(p)}`);
           }
         }
-      } else if (key === 'plugins' && typeof value === 'object' && value !== null) {
+      } else if (key === 'permissions' && typeof value === 'object' && value !== null) {
         const entries = Object.entries(value as Record<string, unknown>);
-        console.log(`  ${pc.cyan('plugins')}`);
+        console.log(`  ${pc.cyan('permissions')}`);
         if (entries.length === 0) {
           console.log(`    ${pc.dim('(none)')}`);
         } else {
@@ -192,36 +192,36 @@ const loadConfig = async (): Promise<{ config: Record<string, unknown>; configPa
 };
 
 /**
- * Ensure config.plugins[pluginName] exists and return it.
+ * Ensure config.permissions[pluginName] exists and return it.
  * Mutates config in place.
  */
 const ensurePluginEntry = (config: Record<string, unknown>, pluginName: string): PluginPermissionConfig => {
-  if (!config.plugins || typeof config.plugins !== 'object' || Array.isArray(config.plugins)) {
-    config.plugins = {};
+  if (!config.permissions || typeof config.permissions !== 'object' || Array.isArray(config.permissions)) {
+    config.permissions = {};
   }
-  const plugins = config.plugins as Record<string, PluginPermissionConfig>;
-  if (!plugins[pluginName]) {
-    plugins[pluginName] = {};
+  const permissions = config.permissions as Record<string, PluginPermissionConfig>;
+  if (!permissions[pluginName]) {
+    permissions[pluginName] = {};
   }
-  return plugins[pluginName];
+  return permissions[pluginName];
 };
 
 /**
- * Remove empty entries from config.plugins to keep the config file clean.
+ * Remove empty entries from config.permissions to keep the config file clean.
  * An entry is empty if it has no permission and no tools overrides.
  */
 const pruneEmptyPluginEntries = (config: Record<string, unknown>): void => {
-  if (!config.plugins || typeof config.plugins !== 'object' || Array.isArray(config.plugins)) return;
-  const plugins = config.plugins as Record<string, PluginPermissionConfig>;
-  for (const [name, entry] of Object.entries(plugins)) {
+  if (!config.permissions || typeof config.permissions !== 'object' || Array.isArray(config.permissions)) return;
+  const permissions = config.permissions as Record<string, PluginPermissionConfig>;
+  for (const [name, entry] of Object.entries(permissions)) {
     const hasPermission = entry.permission !== undefined;
     const hasTools = entry.tools !== undefined && Object.keys(entry.tools).length > 0;
     if (!hasPermission && !hasTools) {
-      delete plugins[name];
+      delete permissions[name];
     }
   }
-  if (Object.keys(plugins).length === 0) {
-    delete config.plugins;
+  if (Object.keys(permissions).length === 0) {
+    delete config.permissions;
   }
 };
 

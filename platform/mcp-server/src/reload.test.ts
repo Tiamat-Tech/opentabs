@@ -36,7 +36,7 @@ const emptyTransports = (): Map<string, WebStandardStreamableHTTPServerTransport
 
 /** Write a config.json to the given directory */
 const writeConfig = (configDir: string, localPlugins: string[] = []): void => {
-  writeFileSync(join(configDir, 'config.json'), JSON.stringify({ localPlugins, plugins: {} }));
+  writeFileSync(join(configDir, 'config.json'), JSON.stringify({ localPlugins, permissions: {} }));
 };
 
 /** Create a minimal valid plugin directory with package.json, tools.json, and adapter */
@@ -166,14 +166,14 @@ describe('performReload', () => {
   test('prunes stale pluginPermissions entries for removed plugins', async () => {
     const pluginDir = createPluginDir(configDir, 'my-plugin');
 
-    // Write config with 'browser' in the plugins map so it survives the config swap.
-    // reloadCore replaces state.pluginPermissions with { ...config.plugins } before
-    // pruning, so only keys present in config.plugins can be tested for pruning behavior.
+    // Write config with 'browser' in the permissions map so it survives the config swap.
+    // reloadCore replaces state.pluginPermissions with { ...config.permissions } before
+    // pruning, so only keys present in config.permissions can be tested for pruning behavior.
     writeFileSync(
       join(configDir, 'config.json'),
       JSON.stringify({
         localPlugins: [pluginDir],
-        plugins: {
+        permissions: {
           'my-plugin': { permission: 'auto' },
           'old-plugin': { permission: 'ask' },
           browser: { permission: 'auto' },
@@ -199,7 +199,7 @@ describe('performReload', () => {
       join(configDir, 'config.json'),
       JSON.stringify({
         localPlugins: [pluginDir],
-        plugins: {
+        permissions: {
           'my-plugin': {
             permission: 'ask',
             tools: {
@@ -222,13 +222,13 @@ describe('performReload', () => {
     writeConfig(configDir);
 
     // Pre-populate pluginPermissions with browser tool overrides
-    // (config.plugins is empty, so browser entry won't survive config swap)
+    // (config.permissions is empty, so browser entry won't survive config swap)
     // Instead, write it into the config
     writeFileSync(
       join(configDir, 'config.json'),
       JSON.stringify({
         localPlugins: [],
-        plugins: {
+        permissions: {
           browser: {
             permission: 'auto',
             tools: {

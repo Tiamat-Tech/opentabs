@@ -171,20 +171,20 @@ describe('resolveStoredPluginPath', () => {
 // ---------------------------------------------------------------------------
 
 describe('normalizeConfigForDisplay', () => {
-  test('adds plugins: {} when key is absent from config', () => {
+  test('adds permissions: {} when key is absent from config', () => {
     const result = normalizeConfigForDisplay({});
-    expect(result.plugins).toEqual({});
+    expect(result.permissions).toEqual({});
   });
 
-  test('preserves existing plugins entries when present', () => {
-    const plugins = { slack: { permission: 'auto' } };
-    const result = normalizeConfigForDisplay({ plugins });
-    expect(result.plugins).toEqual(plugins);
+  test('preserves existing permissions entries when present', () => {
+    const permissions = { slack: { permission: 'auto' } };
+    const result = normalizeConfigForDisplay({ permissions });
+    expect(result.permissions).toEqual(permissions);
   });
 
-  test('preserves empty object {} plugins as-is', () => {
-    const result = normalizeConfigForDisplay({ plugins: {} });
-    expect(result.plugins).toEqual({});
+  test('preserves empty object {} permissions as-is', () => {
+    const result = normalizeConfigForDisplay({ permissions: {} });
+    expect(result.permissions).toEqual({});
   });
 
   test('preserves all other keys unchanged', () => {
@@ -200,35 +200,35 @@ describe('normalizeConfigForDisplay', () => {
   test('does not modify the input config object', () => {
     const config: Record<string, unknown> = {};
     normalizeConfigForDisplay(config);
-    expect(Object.hasOwn(config, 'plugins')).toBe(false);
+    expect(Object.hasOwn(config, 'permissions')).toBe(false);
   });
 
-  test('plugins appears in output even for empty config', () => {
+  test('permissions appears in output even for empty config', () => {
     const result = normalizeConfigForDisplay({});
-    expect(Object.hasOwn(result, 'plugins')).toBe(true);
-    expect(result.plugins).toEqual({});
+    expect(Object.hasOwn(result, 'permissions')).toBe(true);
+    expect(result.permissions).toEqual({});
   });
 
-  test('canonical sections always appear in order: localPlugins, plugins', () => {
+  test('canonical sections always appear in order: localPlugins, permissions', () => {
     const result = normalizeConfigForDisplay({ localPlugins: [] });
     const keys = Object.keys(result);
-    expect(keys.indexOf('localPlugins')).toBeLessThan(keys.indexOf('plugins'));
+    expect(keys.indexOf('localPlugins')).toBeLessThan(keys.indexOf('permissions'));
   });
 
-  test('key ordering is identical whether plugins is present or absent in input', () => {
-    const withoutPlugins = normalizeConfigForDisplay({ localPlugins: [] });
-    const withPlugins = normalizeConfigForDisplay({
+  test('key ordering is identical whether permissions is present or absent in input', () => {
+    const withoutPermissions = normalizeConfigForDisplay({ localPlugins: [] });
+    const withPermissions = normalizeConfigForDisplay({
       localPlugins: [],
-      plugins: { slack: { permission: 'auto' } },
+      permissions: { slack: { permission: 'auto' } },
     });
-    expect(Object.keys(withoutPlugins)).toEqual(Object.keys(withPlugins));
+    expect(Object.keys(withoutPermissions)).toEqual(Object.keys(withPermissions));
   });
 
   test('non-canonical keys (e.g., port) appear before canonical sections', () => {
     const result = normalizeConfigForDisplay({ port: 9000, localPlugins: [] });
     const keys = Object.keys(result);
     expect(keys.indexOf('port')).toBeLessThan(keys.indexOf('localPlugins'));
-    expect(keys.indexOf('port')).toBeLessThan(keys.indexOf('plugins'));
+    expect(keys.indexOf('port')).toBeLessThan(keys.indexOf('permissions'));
   });
 });
 

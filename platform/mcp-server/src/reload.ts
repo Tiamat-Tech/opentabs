@@ -218,10 +218,10 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
     // Compute all new state values locally before touching state.
     // This ensures an atomic swap: if any step throws, state retains its previous values.
     const newRegistry = registry;
-    const newPluginPermissions = { ...config.plugins };
+    const newPluginPermissions = { ...config.permissions };
     const newPluginPaths = [...config.localPlugins];
     const newDiscoveryErrors = errors;
-    const newSkipPermissions = isCliSkipPermissions() || config.skipPermissions === true;
+    const newSkipPermissions = isCliSkipPermissions();
 
     // Build the new cached browser tools on a staging object so a throw here
     // does not partially update state. rebuildCachedBrowserTools only reads
@@ -238,7 +238,7 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
     }
 
     log.info(
-      `Config loaded: ${config.localPlugins.length} local plugin path(s), ${Object.keys(config.plugins).length} plugin permission(s)`,
+      `Config loaded: ${config.localPlugins.length} local plugin path(s), ${Object.keys(config.permissions).length} plugin permission(s)`,
     );
 
     // All preparation succeeded — swap all state fields atomically.
