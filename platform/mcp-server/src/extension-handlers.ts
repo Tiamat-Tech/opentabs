@@ -515,6 +515,15 @@ const handleConfigSetSkipPermissions = (
 
   state.skipPermissions = skipPermissions;
 
+  // Notify the dev proxy so it can pass the updated value to the next worker.
+  if (process.env.OPENTABS_PROXY === '1' && process.send) {
+    try {
+      process.send({ type: 'skipPermissions', value: skipPermissions });
+    } catch {
+      // Fire-and-forget — IPC errors are silently ignored.
+    }
+  }
+
   sendToExtension(state, {
     jsonrpc: '2.0',
     method: 'plugins.changed',
