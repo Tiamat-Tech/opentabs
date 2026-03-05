@@ -595,6 +595,55 @@ test.describe('Confirmation dialog — late side panel open', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests — Confirmation dialog — close/reopen persistence
+// ---------------------------------------------------------------------------
+
+test.describe('Confirmation dialog — close/reopen persistence', () => {
+  test('dialog reappears after side panel close and reopen', async ({ mcpServer, extensionContext, mcpClient }) => {
+    const config = readTestConfig(mcpServer.configDir);
+    config.permissions = { browser: { permission: 'ask' } };
+    writeTestConfig(mcpServer.configDir, config);
+
+    mcpServer.logs.length = 0;
+    mcpServer.triggerHotReload();
+    await waitForLog(mcpServer, 'Hot reload complete', 20_000);
+
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    let sidePanel = await openSidePanel(extensionContext);
+
+    const [result] = await Promise.all([
+      mcpClient.callTool('browser_list_tabs', {}, { timeout: 60_000 }),
+      (async () => {
+        // Wait for the dialog to appear
+        await waitForConfirmationDialog(sidePanel);
+        const dialog = sidePanel.locator('[role="dialog"]');
+        await expect(dialog.getByText('browser_list_tabs')).toBeVisible();
+
+        // Close the side panel (destroys React tree and all component state)
+        await sidePanel.close();
+        await new Promise(r => setTimeout(r, 500));
+
+        // Reopen the side panel — it should hydrate pending confirmations from the background
+        sidePanel = await openSidePanel(extensionContext);
+
+        // Dialog should reappear with the same tool info
+        await waitForConfirmationDialog(sidePanel, 20_000);
+        const dialog2 = sidePanel.locator('[role="dialog"]');
+        await expect(dialog2.getByText('browser_list_tabs')).toBeVisible();
+        await expect(dialog2.getByText('Approve Tool')).toBeVisible();
+
+        // Allow the tool to complete
+        await sidePanel.getByRole('button', { name: 'Allow' }).click();
+      })(),
+    ]);
+
+    expect(result.isError).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests — Confirmation dialog — multiple pending confirmations
 // ---------------------------------------------------------------------------
 
