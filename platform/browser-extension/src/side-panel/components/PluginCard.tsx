@@ -17,6 +17,7 @@ import { Button } from './retro/Button.js';
 import { Dialog } from './retro/Dialog.js';
 import { Tooltip } from './retro/Tooltip.js';
 import { PermissionSelect, ToolRow } from './ToolRow.js';
+import { groupTools } from './tool-groups.js';
 
 const PluginCard = ({
   plugin,
@@ -137,30 +138,7 @@ const PluginCard = ({
   const visibleTools = filterLower ? pluginTools.filter(t => matchesTool(t, filterLower)) : pluginTools;
   const hasActiveTool = pluginTools.some(t => activeTools.has(`${plugin.name}:${t.name}`));
 
-  // Group tools by their group field, preserving first-seen order
-  const hasAnyGroup = visibleTools.some(t => t.group);
-  const toolGroups: { name: string; tools: WireToolDef[] }[] = [];
-  if (hasAnyGroup) {
-    const groupMap = new Map<string, WireToolDef[]>();
-    for (const tool of visibleTools) {
-      const groupName = tool.group ?? 'Other';
-      let bucket = groupMap.get(groupName);
-      if (!bucket) {
-        bucket = [];
-        groupMap.set(groupName, bucket);
-      }
-      bucket.push(tool);
-    }
-    // Move 'Other' to the end if it exists
-    const otherBucket = groupMap.get('Other');
-    groupMap.delete('Other');
-    for (const [name, tools] of groupMap) {
-      toolGroups.push({ name, tools });
-    }
-    if (otherBucket) {
-      toolGroups.push({ name: 'Other', tools: otherBucket });
-    }
-  }
+  const toolGroups = groupTools(visibleTools);
 
   const inactive = plugin.tabState !== 'ready';
 
@@ -266,7 +244,7 @@ const PluginCard = ({
             {visibleTools.length} of {pluginTools.length} tools
           </div>
         )}
-        {hasAnyGroup
+        {toolGroups !== null
           ? toolGroups.map(group => (
               <div key={group.name}>
                 <div className="border-border border-b bg-muted/20 px-3 py-1">

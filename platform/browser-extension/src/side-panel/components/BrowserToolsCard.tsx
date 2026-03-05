@@ -11,6 +11,7 @@ import { Accordion } from './retro/Accordion.js';
 import { Alert } from './retro/Alert.js';
 import { Badge } from './retro/Badge.js';
 import { PermissionSelect, ToolRow } from './ToolRow.js';
+import { groupTools } from './tool-groups.js';
 
 /** Raw SVG string for the Chrome logo, rendered via PluginIcon's sanitized SVG path. */
 const CHROME_ICON_SVG = [
@@ -113,29 +114,7 @@ const BrowserToolsCard = ({
     : tools;
   const hasActiveTool = tools.some(t => activeTools.has(`browser:${t.name}`));
 
-  // Group tools by their group field, preserving first-seen order
-  const hasAnyGroup = visibleTools.some(t => t.group);
-  const toolGroups: { name: string; tools: BrowserToolState[] }[] = [];
-  if (hasAnyGroup) {
-    const groupMap = new Map<string, BrowserToolState[]>();
-    for (const tool of visibleTools) {
-      const groupName = tool.group ?? 'Other';
-      let bucket = groupMap.get(groupName);
-      if (!bucket) {
-        bucket = [];
-        groupMap.set(groupName, bucket);
-      }
-      bucket.push(tool);
-    }
-    const otherBucket = groupMap.get('Other');
-    groupMap.delete('Other');
-    for (const [name, groupTools] of groupMap) {
-      toolGroups.push({ name, tools: groupTools });
-    }
-    if (otherBucket) {
-      toolGroups.push({ name: 'Other', tools: otherBucket });
-    }
-  }
+  const toolGroups = groupTools(visibleTools);
 
   return (
     <Accordion.Item value="browser-tools">
@@ -181,7 +160,7 @@ const BrowserToolsCard = ({
             {visibleTools.length} of {tools.length} tools
           </div>
         )}
-        {hasAnyGroup
+        {toolGroups !== null
           ? toolGroups.map(group => (
               <div key={group.name}>
                 <div className="border-border border-b bg-muted/20 px-3 py-1">
