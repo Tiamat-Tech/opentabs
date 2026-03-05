@@ -877,6 +877,9 @@ test.describe('Confirmation dialog — plugin tools', () => {
     mcpServer.triggerHotReload();
     await waitForLog(mcpServer, 'Hot reload complete', 20_000);
 
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
     const sidePanel = await openSidePanel(extensionContext);
 
     const [result] = await Promise.all([
@@ -928,6 +931,9 @@ test.describe('Confirmation dialog — plugin tools', () => {
     mcpServer.logs.length = 0;
     mcpServer.triggerHotReload();
     await waitForLog(mcpServer, 'Hot reload complete', 20_000);
+
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
 
     const sidePanel = await openSidePanel(extensionContext);
 
@@ -1004,6 +1010,62 @@ test.describe('Confirmation dialog — Always Allow switch reset', () => {
     expect(result1.isError).toBe(false);
     expect(result2.isError).toBe(true);
     expect(result2.content).toContain('denied by the user');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests — Badge count for multiple pending confirmations
+// ---------------------------------------------------------------------------
+
+test.describe('Confirmation notification — badge count for multiple pending', () => {
+  test('badge shows correct count for multiple pending confirmations', async ({
+    mcpServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    const config = readTestConfig(mcpServer.configDir);
+    config.permissions = { browser: { permission: 'ask' } };
+    writeTestConfig(mcpServer.configDir, config);
+
+    mcpServer.logs.length = 0;
+    mcpServer.triggerHotReload();
+    await waitForLog(mcpServer, 'Hot reload complete', 20_000);
+
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    const sw = await getBackgroundWorker(extensionContext);
+    const sidePanel = await openSidePanel(extensionContext);
+
+    // Three concurrent 'ask' calls
+    const [r1, r2, r3] = await Promise.all([
+      mcpClient.callTool('browser_list_tabs', {}, { timeout: 60_000 }),
+      mcpClient.callTool('browser_list_tabs', {}, { timeout: 60_000 }),
+      mcpClient.callTool('browser_list_tabs', {}, { timeout: 60_000 }),
+      (async () => {
+        // Wait for badge to show '3' (all three confirmations arrived)
+        await waitFor(async () => (await getBadgeText(sw)) === '3', 15_000, 200, 'badge text === "3"');
+
+        // Allow first
+        await waitForConfirmationDialog(sidePanel);
+        await sidePanel.getByRole('button', { name: 'Allow' }).click();
+        await waitFor(async () => (await getBadgeText(sw)) === '2', 10_000, 200, 'badge text === "2"');
+
+        // Allow second
+        await waitForConfirmationDialog(sidePanel);
+        await sidePanel.getByRole('button', { name: 'Allow' }).click();
+        await waitFor(async () => (await getBadgeText(sw)) === '1', 10_000, 200, 'badge text === "1"');
+
+        // Allow third
+        await waitForConfirmationDialog(sidePanel);
+        await sidePanel.getByRole('button', { name: 'Allow' }).click();
+        await waitFor(async () => (await getBadgeText(sw)) === '', 10_000, 200, 'badge text === ""');
+      })(),
+    ]);
+
+    expect(r1.isError).toBe(false);
+    expect(r2.isError).toBe(false);
+    expect(r3.isError).toBe(false);
   });
 });
 
