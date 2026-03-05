@@ -719,6 +719,47 @@ test.describe('Confirmation dialog — multiple pending', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests — Confirmation dialog — dismiss resistance (Escape / outside click)
+// ---------------------------------------------------------------------------
+
+test.describe('Confirmation dialog — dismiss resistance', () => {
+  test('Escape key and outside click do not dismiss the dialog', async ({ mcpServer, extensionContext, mcpClient }) => {
+    const config = readTestConfig(mcpServer.configDir);
+    config.permissions = { browser: { permission: 'ask' } };
+    writeTestConfig(mcpServer.configDir, config);
+
+    mcpServer.logs.length = 0;
+    mcpServer.triggerHotReload();
+    await waitForLog(mcpServer, 'Hot reload complete', 20_000);
+
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    const sidePanel = await openSidePanel(extensionContext);
+
+    const [result] = await Promise.all([
+      mcpClient.callTool('browser_list_tabs', {}, { timeout: 35_000 }),
+      (async () => {
+        await waitForConfirmationDialog(sidePanel);
+
+        // Press Escape — dialog should stay open
+        await sidePanel.keyboard.press('Escape');
+        await expect(sidePanel.locator('[role="dialog"]')).toBeVisible({ timeout: 2_000 });
+
+        // Click outside the dialog content (top-left corner, on the overlay)
+        await sidePanel.mouse.click(5, 5);
+        await expect(sidePanel.locator('[role="dialog"]')).toBeVisible({ timeout: 2_000 });
+
+        // Dialog survived — Allow it to complete the test
+        await sidePanel.getByRole('button', { name: 'Allow' }).click();
+      })(),
+    ]);
+
+    expect(result.isError).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests — Tool description prefixes in tools/list
 // ---------------------------------------------------------------------------
 
