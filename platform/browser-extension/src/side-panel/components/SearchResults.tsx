@@ -1,3 +1,4 @@
+import type { ToolPermission } from '@opentabs-dev/shared';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { BrowserToolState, FailedPluginState, PluginSearchResult, PluginState } from '../bridge';
 import { extractShortName, matchesPlugin } from '../bridge';
@@ -25,6 +26,8 @@ interface SearchResultsProps {
   removingPlugins?: Set<string>;
   pluginErrors?: Map<string, string>;
   serverVersion?: string;
+  browserPermission?: ToolPermission;
+  onBrowserPermissionChange?: (permission: ToolPermission) => void;
 }
 
 const SectionHeader = ({ children }: { children: ReactNode }) => (
@@ -55,6 +58,8 @@ const SearchResults = ({
   removingPlugins,
   pluginErrors,
   serverVersion,
+  browserPermission = 'off',
+  onBrowserPermissionChange,
 }: SearchResultsProps) => {
   const filterLower = toolFilter.toLowerCase();
 
@@ -94,6 +99,8 @@ const SearchResults = ({
                 onToolsChange={setBrowserTools}
                 toolFilter={toolFilter}
                 serverVersion={serverVersion}
+                browserPermission={browserPermission}
+                onBrowserPermissionChange={onBrowserPermissionChange}
               />
             </Accordion>
           )}

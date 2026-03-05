@@ -420,6 +420,8 @@ const App = () => {
                 removingPlugins={removingPlugins}
                 pluginErrors={pluginErrors}
                 serverVersion={serverVersion}
+                browserPermission={browserPermission}
+                onBrowserPermissionChange={setBrowserPermission}
               />
             ) : hasContent ? (
               <>
