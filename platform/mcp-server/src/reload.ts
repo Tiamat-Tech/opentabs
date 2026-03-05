@@ -211,6 +211,7 @@ const resetStaleReviewedVersions = (state: ServerState): void => {
       );
       config.permission = 'off';
       config.reviewedVersion = undefined;
+      delete config.tools;
       resetCount++;
     }
   }

@@ -714,6 +714,58 @@ describe('reviewedVersion reset on plugin update', () => {
     expect(persisted.permissions['my-plugin'].reviewedVersion).toBeUndefined();
   });
 
+  test('version mismatch clears per-tool overrides', async () => {
+    const pluginDir = createPluginDir(configDir, 'my-plugin');
+
+    writeFileSync(
+      join(configDir, 'config.json'),
+      JSON.stringify({
+        localPlugins: [pluginDir],
+        permissions: {
+          'my-plugin': {
+            permission: 'auto',
+            tools: { test_tool: 'auto', other_tool: 'ask' },
+            reviewedVersion: '0.9.0',
+          },
+        },
+      }),
+    );
+
+    await performReload(state, [], emptyTransports(), false);
+
+    expect(state.pluginPermissions['my-plugin']?.permission).toBe('off');
+    expect(state.pluginPermissions['my-plugin']?.reviewedVersion).toBeUndefined();
+    expect(state.pluginPermissions['my-plugin']?.tools).toBeUndefined();
+  });
+
+  test('version reset persists cleared tools to config.json', async () => {
+    const pluginDir = createPluginDir(configDir, 'my-plugin');
+
+    writeFileSync(
+      join(configDir, 'config.json'),
+      JSON.stringify({
+        localPlugins: [pluginDir],
+        permissions: {
+          'my-plugin': {
+            permission: 'auto',
+            tools: { test_tool: 'auto' },
+            reviewedVersion: '0.9.0',
+          },
+        },
+      }),
+    );
+
+    await performReload(state, [], emptyTransports(), false);
+
+    // savePluginPermissions is fire-and-forget — wait for the async write to complete
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const persisted = JSON.parse(readFileSync(join(configDir, 'config.json'), 'utf-8'));
+    expect(persisted.permissions['my-plugin'].permission).toBe('off');
+    expect(persisted.permissions['my-plugin'].reviewedVersion).toBeUndefined();
+    expect(persisted.permissions['my-plugin'].tools).toBeUndefined();
+  });
+
   test('browser pseudo-plugin is not affected by version reset', async () => {
     const pluginDir = createPluginDir(configDir, 'my-plugin');
 
