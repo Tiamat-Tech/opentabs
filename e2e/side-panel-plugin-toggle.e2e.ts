@@ -916,6 +916,72 @@ test.describe('Side panel — skipPermissions mode and group headers', () => {
     }
   });
 
+  test('Restore approvals survives dev proxy hot reload (worker restart)', async () => {
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const pluginVersion = getPluginVersion();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-hot-restore-'));
+    writeTestConfig(configDir, {
+      localPlugins: [absPluginPath],
+      permissions: {
+        browser: { permission: 'auto' },
+        'e2e-test': { permission: 'ask', reviewedVersion: pluginVersion },
+      },
+    });
+
+    const server = await startMcpServer(configDir, true, undefined, { OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '1' });
+    const mcpClient = createMcpClient(server.port, server.secret);
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+      await mcpClient.initialize();
+
+      const sidePanelPage = await openSidePanel(context);
+
+      // Verify the 'Approvals skipped' banner is visible
+      await expect(sidePanelPage.getByText('Approvals skipped')).toBeVisible({ timeout: 15_000 });
+
+      // Click 'Restore approvals' button
+      await sidePanelPage.getByRole('button', { name: 'Restore approvals' }).click();
+
+      // Verify the banner disappears
+      await expect(sidePanelPage.getByText('Approvals skipped')).toBeHidden({ timeout: 5_000 });
+
+      // Trigger hot reload (kills the worker, forks a new one)
+      server.logs.length = 0;
+      server.triggerHotReload();
+      await waitForLog(server, 'Hot reload complete', 20_000);
+
+      // Wait for reconnection and state sync
+      await waitForExtensionConnected(server, 30_000);
+      await waitForLog(server, 'Sent sync.full to extension', 15_000);
+
+      // Verify the banner is still hidden after the hot reload
+      await expect(sidePanelPage.getByText('Approvals skipped')).toBeHidden({ timeout: 10_000 });
+
+      // Verify via MCP client that 'ask' tools are NOT auto-promoted.
+      // When skipPermissions is active, tool descriptions get an '[Auto]' prefix.
+      // After restoring approvals, 'ask' tools must retain their 'ask' behavior.
+      const toolList = await mcpClient.listTools();
+      const e2eTestTools = toolList.filter(t => t.name.startsWith('e2e-test_'));
+      expect(e2eTestTools.length).toBeGreaterThan(0);
+      for (const tool of e2eTestTools) {
+        expect(tool.description.startsWith('[Auto]')).toBe(false);
+      }
+
+      await sidePanelPage.close();
+    } finally {
+      await mcpClient.close().catch(() => {});
+      await context.close().catch(() => {});
+      await server.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+
   test('Restore approvals button disables skipPermissions and survives permission change reload', async () => {
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
     const pluginVersion = getPluginVersion();
