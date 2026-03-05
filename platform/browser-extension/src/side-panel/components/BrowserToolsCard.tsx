@@ -9,7 +9,6 @@ import { BrowserToolsMenu } from './BrowserToolsMenu.js';
 import { PluginIcon } from './PluginIcon.js';
 import { Accordion } from './retro/Accordion.js';
 import { Alert } from './retro/Alert.js';
-import { Badge } from './retro/Badge.js';
 import { PermissionSelect, ToolRow } from './ToolRow.js';
 import { groupTools } from './tool-groups.js';
 
@@ -131,9 +130,6 @@ const BrowserToolsCard = ({
           />
           <div className="flex min-w-0 flex-1 items-center gap-1.5 truncate font-head text-foreground text-sm">
             Browser
-            <Badge variant="default" size="sm" className="align-middle">
-              CORE
-            </Badge>
           </div>
           <ChevronDown className="chevron h-4 w-4 shrink-0 transition-transform duration-200" />
         </AccordionPrimitive.Trigger>
