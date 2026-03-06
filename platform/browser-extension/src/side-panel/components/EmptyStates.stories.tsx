@@ -8,8 +8,9 @@ const meta: Meta = {
 
 type Story = StoryObj;
 
-const Disconnected: Story = { render: () => <DisconnectedState /> };
+const ConnectionRefused: Story = { render: () => <DisconnectedState /> };
+const AuthFailed: Story = { render: () => <DisconnectedState reason="auth_failed" /> };
 const Loading: Story = { render: () => <LoadingState /> };
 
 export default meta;
-export { Disconnected, Loading };
+export { AuthFailed, ConnectionRefused, Loading };

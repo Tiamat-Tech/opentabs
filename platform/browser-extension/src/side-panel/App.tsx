@@ -1,6 +1,6 @@
 import type { ToolPermission } from '@opentabs-dev/shared';
 import { BROWSER_TOOLS_CATALOG } from '@opentabs-dev/shared/browser-tools-catalog';
-import { Search, ShieldOff, X } from 'lucide-react';
+import { Package, Search, ShieldOff, X } from 'lucide-react';
 import { OverlayScrollbarsComponent } from 'overlayscrollbars-react';
 import { useEffect, useRef, useState } from 'react';
 import type { DisconnectReason, InternalMessage } from '../extension-messages.js';
@@ -27,6 +27,7 @@ import { DisconnectedState, LoadingState } from './components/EmptyStates.js';
 import { Footer } from './components/Footer.js';
 import { PluginList } from './components/PluginList.js';
 import { Accordion } from './components/retro/Accordion.js';
+import { Empty } from './components/retro/Empty.js';
 import { Input } from './components/retro/Input.js';
 import { Tooltip } from './components/retro/Tooltip.js';
 import { SearchResults } from './components/SearchResults.js';
@@ -479,10 +480,18 @@ const App = () => {
                   pluginErrors={pluginErrors}
                 />
                 {plugins.length === 0 && failedPlugins.length === 0 && (
-                  <div className="py-8 text-center">
-                    <p className="font-head text-muted-foreground text-sm">No plugins installed</p>
-                    <p className="mt-1 text-muted-foreground text-xs">Search to discover and install plugins</p>
-                  </div>
+                  <Empty className="border-muted" role="status">
+                    <Empty.Content>
+                      <Empty.Icon className="h-10 w-10 text-muted-foreground">
+                        <Package className="h-full w-full" />
+                      </Empty.Icon>
+                      <Empty.Title className="text-base">No Plugins Installed</Empty.Title>
+                      <Empty.Separator />
+                      <Empty.Description className="text-xs">
+                        Use the search bar above to discover and install plugins from npm.
+                      </Empty.Description>
+                    </Empty.Content>
+                  </Empty>
                 )}
               </>
             ) : null}

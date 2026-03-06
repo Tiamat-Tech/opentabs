@@ -1,8 +1,32 @@
+import { Check, Copy, KeyRound, Unplug } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DEFAULT_SERVER_PORT, SERVER_PORT_KEY } from '../../constants.js';
 import type { DisconnectReason } from '../../extension-messages.js';
 import { Empty } from './retro/Empty.js';
 import { Loader } from './retro/Loader.js';
+
+const CopyButton = ({ text }: { text: string }) => {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  return (
+    <button
+      type="button"
+      aria-label="Copy command"
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+      }}
+      className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground">
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  );
+};
 
 const ConnectionRefusedState = () => {
   const [port, setPort] = useState(DEFAULT_SERVER_PORT);
@@ -36,13 +60,19 @@ const ConnectionRefusedState = () => {
   return (
     <Empty className="border-destructive/60">
       <Empty.Content>
+        <Empty.Icon className="h-10 w-10 text-destructive/60">
+          <Unplug className="h-full w-full" />
+        </Empty.Icon>
         <Empty.Title>Cannot Reach MCP Server</Empty.Title>
         <Empty.Separator className="bg-destructive" />
         <Empty.Description>Start the MCP server:</Empty.Description>
-        <code className="rounded border-2 border-destructive/40 bg-destructive/10 px-3 py-2 font-mono text-sm">
-          {command}
-        </code>
-        <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="relative">
+          <code className="block rounded border-2 border-destructive/40 bg-destructive/10 px-3 py-2 pr-9 font-mono text-sm">
+            {command}
+          </code>
+          <CopyButton text={command} />
+        </div>
+        <div className="flex items-center gap-2 text-muted-foreground" role="status">
           <Loader size="sm" variant="muted" />
           <span className="text-xs">Reconnecting...</span>
         </div>
@@ -54,14 +84,20 @@ const ConnectionRefusedState = () => {
 const AuthFailedState = () => (
   <Empty className="border-destructive/60">
     <Empty.Content>
+      <Empty.Icon className="h-10 w-10 text-destructive/60">
+        <KeyRound className="h-full w-full" />
+      </Empty.Icon>
       <Empty.Title>Authentication Failed</Empty.Title>
       <Empty.Separator className="bg-destructive" />
       <Empty.Description>
         The extension&rsquo;s secret does not match the server. Reload the extension to pick up the latest secret:
       </Empty.Description>
-      <code className="rounded border-2 border-destructive/40 bg-destructive/10 px-3 py-2 font-mono text-sm">
-        chrome://extensions/ → reload
-      </code>
+      <div className="relative">
+        <code className="block rounded border-2 border-destructive/40 bg-destructive/10 px-3 py-2 pr-9 font-mono text-sm">
+          chrome://extensions/ → reload
+        </code>
+        <CopyButton text="chrome://extensions/" />
+      </div>
     </Empty.Content>
   </Empty>
 );
