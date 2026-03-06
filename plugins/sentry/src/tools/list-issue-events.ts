@@ -14,6 +14,7 @@ export const listIssueEvents = defineTool({
   group: 'Issues',
   input: z.object({
     issue_id: z.string().describe('The issue ID to list events for'),
+    limit: z.number().optional().describe('Maximum number of events to return (default 25, max 100)'),
     cursor: z.string().optional().describe('Pagination cursor from a previous response'),
   }),
   output: z.object({
@@ -23,7 +24,7 @@ export const listIssueEvents = defineTool({
     const orgSlug = getOrgSlug();
     const data = await sentryApi<Record<string, unknown>[]>(
       `/organizations/${orgSlug}/issues/${params.issue_id}/events/`,
-      { query: { cursor: params.cursor } },
+      { query: { per_page: params.limit, cursor: params.cursor } },
     );
     return {
       events: (Array.isArray(data) ? data : []).map(e => mapEvent(e)),

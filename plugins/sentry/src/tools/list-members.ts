@@ -12,6 +12,7 @@ export const listMembers = defineTool({
   icon: 'users',
   group: 'Organizations',
   input: z.object({
+    limit: z.number().optional().describe('Maximum number of members to return (default 25, max 100)'),
     cursor: z.string().optional().describe('Pagination cursor from a previous response'),
   }),
   output: z.object({
@@ -20,7 +21,7 @@ export const listMembers = defineTool({
   handle: async params => {
     const orgSlug = getOrgSlug();
     const data = await sentryApi<Record<string, unknown>[]>(`/organizations/${orgSlug}/members/`, {
-      query: { cursor: params.cursor },
+      query: { per_page: params.limit, cursor: params.cursor },
     });
     return {
       members: (Array.isArray(data) ? data : []).map(m => mapMember(m)),

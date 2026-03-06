@@ -23,6 +23,7 @@ export const updateIssue = defineTool({
     is_bookmarked: z.boolean().optional().describe('Bookmark or unbookmark the issue'),
     is_public: z.boolean().optional().describe('Make the issue public or private'),
     is_subscribed: z.boolean().optional().describe('Subscribe or unsubscribe from notifications'),
+    priority: z.enum(['critical', 'high', 'medium', 'low']).optional().describe('Set issue priority level'),
   }),
   output: z.object({
     issue: issueSchema.describe('The updated issue'),
@@ -36,6 +37,7 @@ export const updateIssue = defineTool({
     if (params.is_bookmarked !== undefined) body.isBookmarked = params.is_bookmarked;
     if (params.is_public !== undefined) body.isPublic = params.is_public;
     if (params.is_subscribed !== undefined) body.isSubscribed = params.is_subscribed;
+    if (params.priority !== undefined) body.priority = params.priority;
 
     const data = await sentryApi<Record<string, unknown>>(`/organizations/${orgSlug}/issues/${params.issue_id}/`, {
       method: 'PUT',

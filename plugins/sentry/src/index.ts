@@ -1,16 +1,22 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { isSentryAuthenticated, waitForSentryAuth } from './sentry-api.js';
+import { createComment } from './tools/create-comment.js';
 import { getEvent } from './tools/get-event.js';
 import { getIssue } from './tools/get-issue.js';
 import { getOrganization } from './tools/get-organization.js';
 import { getProject } from './tools/get-project.js';
+import { getProjectKeys } from './tools/get-project-keys.js';
 import { listAlerts } from './tools/list-alerts.js';
+import { listComments } from './tools/list-comments.js';
 import { listIssueEvents } from './tools/list-issue-events.js';
+import { listIssueTags } from './tools/list-issue-tags.js';
 import { listMembers } from './tools/list-members.js';
+import { listMonitors } from './tools/list-monitors.js';
 import { listOrganizations } from './tools/list-organizations.js';
 import { listProjects } from './tools/list-projects.js';
 import { listReleases } from './tools/list-releases.js';
+import { listReplays } from './tools/list-replays.js';
 import { listTeams } from './tools/list-teams.js';
 import { searchIssues } from './tools/search-issues.js';
 import { updateIssue } from './tools/update-issue.js';
@@ -27,9 +33,13 @@ class SentryPlugin extends OpenTabsPlugin {
     updateIssue,
     listIssueEvents,
     getEvent,
+    listIssueTags,
+    listComments,
+    createComment,
     // Projects
     listProjects,
     getProject,
+    getProjectKeys,
     // Organizations
     listOrganizations,
     getOrganization,
@@ -40,6 +50,10 @@ class SentryPlugin extends OpenTabsPlugin {
     listReleases,
     // Alerts
     listAlerts,
+    // Monitors (Crons)
+    listMonitors,
+    // Replays
+    listReplays,
   ];
 
   async isReady(): Promise<boolean> {
