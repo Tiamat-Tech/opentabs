@@ -234,7 +234,7 @@ const PluginCard = ({
         {toolGroups !== null
           ? toolGroups.map(group => (
               <div key={group.name}>
-                <div className="border-border border-b bg-muted/20 px-3 py-1">
+                <div className="border-border border-b border-l-2 border-l-primary bg-muted/30 px-3 py-1">
                   <span className="font-head text-muted-foreground text-xs uppercase tracking-wider">{group.name}</span>
                 </div>
                 {group.tools.map(tool => (
