@@ -8,6 +8,12 @@
  *
  * Static resources return pre-built markdown content (guides, references).
  * The `opentabs://status` resource is dynamic — built from ServerState at read time.
+ *
+ * Resources include MCP annotations (audience, priority) that help AI clients
+ * decide which resources to auto-include and which to present to users:
+ *   - audience: ['assistant'] — content intended for the AI model
+ *   - audience: ['user', 'assistant'] — content useful for both parties
+ *   - priority: 0.0–1.0 — importance hint (1.0 = effectively required)
  */
 
 import { BROWSER_TOOLS_CONTENT } from './resources/browser-tools.js';
@@ -19,12 +25,19 @@ import { buildStatusResource } from './resources/status.js';
 import { TROUBLESHOOTING_CONTENT } from './resources/troubleshooting.js';
 import type { ServerState } from './state.js';
 
+/** MCP resource annotations per the 2025-06-18 spec */
+interface ResourceAnnotations {
+  audience?: Array<'user' | 'assistant'>;
+  priority?: number;
+}
+
 /** A resource definition for MCP resources/list */
 export interface ResourceDefinition {
   uri: string;
   name: string;
   description: string;
   mimeType: string;
+  annotations?: ResourceAnnotations;
 }
 
 /** A resolved resource for MCP resources/read */
@@ -41,42 +54,49 @@ const RESOURCES: ResourceDefinition[] = [
     name: 'Quick Start Guide',
     description: 'Installation, configuration, and first tool call',
     mimeType: 'text/markdown',
+    annotations: { audience: ['user', 'assistant'], priority: 0.7 },
   },
   {
     uri: 'opentabs://guide/plugin-development',
     name: 'Plugin Development Guide',
     description: 'Full guide to building OpenTabs plugins (SDK, patterns, conventions)',
     mimeType: 'text/markdown',
+    annotations: { audience: ['assistant'], priority: 0.9 },
   },
   {
     uri: 'opentabs://guide/troubleshooting',
     name: 'Troubleshooting Guide',
     description: 'Common errors and resolution steps',
     mimeType: 'text/markdown',
+    annotations: { audience: ['assistant'], priority: 0.6 },
   },
   {
     uri: 'opentabs://reference/sdk-api',
     name: 'SDK API Reference',
     description: 'Plugin SDK API reference (utilities, errors, lifecycle hooks)',
     mimeType: 'text/markdown',
+    annotations: { audience: ['assistant'], priority: 0.8 },
   },
   {
     uri: 'opentabs://reference/cli',
     name: 'CLI Reference',
     description: 'CLI command reference (opentabs, opentabs-plugin)',
     mimeType: 'text/markdown',
+    annotations: { audience: ['user', 'assistant'], priority: 0.5 },
   },
   {
     uri: 'opentabs://reference/browser-tools',
     name: 'Browser Tools Reference',
     description: 'All browser tools organized by category',
     mimeType: 'text/markdown',
+    annotations: { audience: ['assistant'], priority: 0.5 },
   },
   {
     uri: 'opentabs://status',
     name: 'Server Status',
     description: 'Live server state: loaded plugins, extension connectivity, tab states',
     mimeType: 'application/json',
+    annotations: { audience: ['assistant'], priority: 0.4 },
   },
 ];
 
@@ -93,13 +113,14 @@ const CONTENT_MAP = new Map<string, string>([
   ['opentabs://reference/browser-tools', BROWSER_TOOLS_CONTENT],
 ]);
 
-/** Return all resource definitions for resources/list */
+/** Return all resource definitions for resources/list, including annotations. */
 export const getAllResources = (_state: ServerState): ResourceDefinition[] =>
   RESOURCES.map(r => ({
     uri: r.uri,
     name: r.name,
     description: r.description,
     mimeType: r.mimeType,
+    ...(r.annotations ? { annotations: r.annotations } : {}),
   }));
 
 /**
@@ -122,3 +143,10 @@ export const resolveResource = (state: ServerState, uri: string): ResolvedResour
   // Static resources without content yet return a placeholder
   return { uri, mimeType: def.mimeType, text: `# ${def.name}\n\nContent coming soon.` };
 };
+
+/**
+ * Get the text content of a static resource by URI (without needing ServerState).
+ * Returns null for dynamic or unknown resources. Used by prompt resolvers to
+ * embed resource content directly into prompt messages.
+ */
+export const getStaticResourceContent = (uri: string): string | null => CONTENT_MAP.get(uri) ?? null;

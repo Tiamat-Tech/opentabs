@@ -60,7 +60,7 @@ interface ServerModuleShape {
         tools: { listChanged: boolean };
         logging: Record<string, never>;
         prompts: { listChanged: boolean };
-        resources: Record<string, never>;
+        resources: { listChanged?: boolean; subscribe?: boolean };
       };
       instructions?: string;
     },
@@ -79,6 +79,7 @@ interface McpServerInstance {
   connect: (transport: unknown) => Promise<void>;
   sendToolListChanged: () => Promise<void>;
   sendPromptListChanged: () => Promise<void>;
+  sendResourceListChanged: () => Promise<void>;
   sendLoggingMessage: (params: { level: string; logger?: string; data?: unknown }) => Promise<void>;
 }
 
@@ -403,7 +404,7 @@ const createMcpServer = async (state: ServerState): Promise<McpServerInstance> =
         tools: { listChanged: true },
         logging: {},
         prompts: { listChanged: true },
-        resources: {},
+        resources: { listChanged: true },
       },
       instructions: SERVER_INSTRUCTIONS,
     },

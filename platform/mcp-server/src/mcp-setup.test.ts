@@ -227,6 +227,7 @@ const createMockServer = (): {
     connect: () => Promise.resolve(),
     sendToolListChanged: () => Promise.resolve(),
     sendPromptListChanged: () => Promise.resolve(),
+    sendResourceListChanged: () => Promise.resolve(),
     sendLoggingMessage: () => Promise.resolve(),
   };
   return { server, handlers };
@@ -1008,14 +1009,18 @@ describe('registerMcpHandlers — prompts/get handler', () => {
       mockExtra,
     ) as {
       description: string;
-      messages: Array<{ role: string; content: { type: string; text: string } }>;
+      messages: Array<{ role: string; content: { type: string; text?: string; resource?: { uri: string } } }>;
     };
 
     expect(result.description).toContain('https://slack.com');
-    expect(result.messages).toHaveLength(1);
+    // First message is the workflow text, subsequent messages are embedded resources
+    expect(result.messages.length).toBeGreaterThanOrEqual(1);
     expect(result.messages[0]?.role).toBe('user');
     expect(result.messages[0]?.content.type).toBe('text');
     expect(result.messages[0]?.content.text).toContain('https://slack.com');
+    // Verify embedded resources are included
+    const resourceMessages = result.messages.filter(m => m.content.type === 'resource');
+    expect(resourceMessages.length).toBe(2);
   });
 
   test('throws for unknown prompt name', () => {

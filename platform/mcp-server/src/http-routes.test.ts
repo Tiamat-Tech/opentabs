@@ -20,6 +20,7 @@ const createMockSession = (): McpServerInstance => ({
   connect: () => Promise.resolve(),
   sendToolListChanged: () => Promise.resolve(),
   sendPromptListChanged: () => Promise.resolve(),
+  sendResourceListChanged: () => Promise.resolve(),
   sendLoggingMessage: () => Promise.resolve(),
 });
 

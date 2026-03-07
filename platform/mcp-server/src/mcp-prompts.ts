@@ -5,6 +5,15 @@
  * Unlike instructions (sent on every session), prompts are pull-based — clients
  * fetch them on demand via `prompts/get` when the user invokes them.
  *
+ * Each prompt resolver returns messages that combine:
+ *   1. A user-role text message with the workflow/task instructions
+ *   2. Embedded resource content blocks for relevant guides and references
+ *
+ * Embedding resources directly into prompt messages ensures that MCP clients
+ * automatically receive the full context they need — they do not need to
+ * separately fetch resources via resources/read. This is the MCP-native
+ * mechanism for composing prompts with reference material.
+ *
  * Current prompts:
  *   - `build_plugin`: Full workflow for building a new OpenTabs plugin
  *   - `troubleshoot`: Guided debugging workflow for diagnosing platform issues
@@ -13,6 +22,7 @@
  *   - `audit_ai_docs`: Audit and improve AI-facing documentation (instructions, resources, prompts)
  */
 
+import { getStaticResourceContent } from './mcp-resources.js';
 import { auditAiDocsPromptText } from './prompts/audit-ai-docs.js';
 import { buildPluginPromptText } from './prompts/build-plugin.js';
 import { pluginIconPromptText } from './prompts/plugin-icon.js';
@@ -33,10 +43,29 @@ export interface PromptDefinition {
   arguments: PromptArgument[];
 }
 
+/** Text content block in a prompt message */
+interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+/** Embedded resource content block in a prompt message (MCP 2025-06-18 spec) */
+interface EmbeddedResourceContent {
+  type: 'resource';
+  resource: {
+    uri: string;
+    mimeType: string;
+    text: string;
+  };
+}
+
+/** Content types that can appear in prompt messages */
+type PromptContent = TextContent | EmbeddedResourceContent;
+
 /** A resolved prompt message for MCP prompts/get */
 export interface PromptMessage {
   role: 'user' | 'assistant';
-  content: { type: 'text'; text: string };
+  content: PromptContent;
 }
 
 /** Result of resolving a prompt */
@@ -125,6 +154,33 @@ export const PROMPTS: PromptDefinition[] = [
 const PROMPT_MAP = new Map(PROMPTS.map(p => [p.name, p]));
 
 /**
+ * Build an embedded resource content block from a resource URI.
+ * Returns null if the resource content is not available (dynamic or unknown).
+ */
+const embedResource = (uri: string, mimeType: string): EmbeddedResourceContent | null => {
+  const text = getStaticResourceContent(uri);
+  if (!text) return null;
+  return { type: 'resource', resource: { uri, mimeType, text } };
+};
+
+/**
+ * Build prompt messages: a primary text message followed by embedded resources.
+ * Resources that fail to resolve (dynamic resources, unknown URIs) are silently skipped.
+ */
+const buildMessages = (text: string, resourceUris: Array<{ uri: string; mimeType: string }>): PromptMessage[] => {
+  const messages: PromptMessage[] = [{ role: 'user', content: { type: 'text', text } }];
+
+  for (const { uri, mimeType } of resourceUris) {
+    const embedded = embedResource(uri, mimeType);
+    if (embedded) {
+      messages.push({ role: 'user', content: embedded });
+    }
+  }
+
+  return messages;
+};
+
+/**
  * Resolve a prompt by name with the given arguments.
  * Returns null if the prompt name is not recognized.
  */
@@ -158,15 +214,10 @@ const resolveBuildPlugin = (args: Record<string, string>): PromptResult => {
 
   return {
     description: `Build an OpenTabs plugin for ${url}`,
-    messages: [
-      {
-        role: 'user',
-        content: {
-          type: 'text',
-          text: buildPluginPromptText(url, name),
-        },
-      },
-    ],
+    messages: buildMessages(buildPluginPromptText(url, name), [
+      { uri: 'opentabs://guide/plugin-development', mimeType: 'text/markdown' },
+      { uri: 'opentabs://reference/sdk-api', mimeType: 'text/markdown' },
+    ]),
   };
 };
 
@@ -179,15 +230,9 @@ const resolveTroubleshoot = (args: Record<string, string>): PromptResult => {
 
   return {
     description: error ? `Troubleshoot OpenTabs issue: ${error}` : 'Run a general OpenTabs health check',
-    messages: [
-      {
-        role: 'user',
-        content: {
-          type: 'text',
-          text: troubleshootPromptText(error),
-        },
-      },
-    ],
+    messages: buildMessages(troubleshootPromptText(error), [
+      { uri: 'opentabs://guide/troubleshooting', mimeType: 'text/markdown' },
+    ]),
   };
 };
 
@@ -200,15 +245,9 @@ const resolveSetupPlugin = (args: Record<string, string>): PromptResult => {
 
   return {
     description: `Set up the ${name} OpenTabs plugin`,
-    messages: [
-      {
-        role: 'user',
-        content: {
-          type: 'text',
-          text: setupPluginPromptText(name),
-        },
-      },
-    ],
+    messages: buildMessages(setupPluginPromptText(name), [
+      { uri: 'opentabs://guide/quick-start', mimeType: 'text/markdown' },
+    ]),
   };
 };
 
@@ -221,15 +260,7 @@ const resolvePluginIcon = (args: Record<string, string>): PromptResult => {
 
   return {
     description: `Add or update icon for the ${plugin} plugin`,
-    messages: [
-      {
-        role: 'user',
-        content: {
-          type: 'text',
-          text: pluginIconPromptText(plugin),
-        },
-      },
-    ],
+    messages: buildMessages(pluginIconPromptText(plugin), []),
   };
 };
 
@@ -239,13 +270,12 @@ const resolvePluginIcon = (args: Record<string, string>): PromptResult => {
 
 const resolveAuditAiDocs = (): PromptResult => ({
   description: 'Audit and improve AI-facing documentation',
-  messages: [
-    {
-      role: 'user',
-      content: {
-        type: 'text',
-        text: auditAiDocsPromptText(),
-      },
-    },
-  ],
+  messages: buildMessages(auditAiDocsPromptText(), [
+    { uri: 'opentabs://guide/quick-start', mimeType: 'text/markdown' },
+    { uri: 'opentabs://guide/plugin-development', mimeType: 'text/markdown' },
+    { uri: 'opentabs://guide/troubleshooting', mimeType: 'text/markdown' },
+    { uri: 'opentabs://reference/sdk-api', mimeType: 'text/markdown' },
+    { uri: 'opentabs://reference/cli', mimeType: 'text/markdown' },
+    { uri: 'opentabs://reference/browser-tools', mimeType: 'text/markdown' },
+  ]),
 });

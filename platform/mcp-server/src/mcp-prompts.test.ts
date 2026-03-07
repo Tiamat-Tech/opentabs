@@ -1,5 +1,21 @@
 import { describe, expect, test } from 'vitest';
-import { PROMPTS, resolvePrompt } from './mcp-prompts.js';
+import { PROMPTS, type PromptMessage, resolvePrompt } from './mcp-prompts.js';
+
+/** Extract the text from the first message (always a text content block). */
+const firstMessageText = (messages: PromptMessage[] | undefined): string => {
+  const msg = messages?.[0];
+  if (!msg || msg.content.type !== 'text') return '';
+  return msg.content.text;
+};
+
+/** Extract embedded resource URIs from prompt messages. */
+const embeddedResourceUris = (messages: PromptMessage[]): string[] =>
+  messages
+    .filter((m): m is PromptMessage & { content: { type: 'resource' } } => m.content.type === 'resource')
+    .map(m => {
+      const content = m.content as { type: 'resource'; resource: { uri: string } };
+      return content.resource.uri;
+    });
 
 describe('PROMPTS — prompt definitions', () => {
   test('contains build_plugin prompt', () => {
@@ -46,32 +62,33 @@ describe('resolvePrompt — build_plugin', () => {
     const result = resolvePrompt('build_plugin', { url: 'https://app.slack.com' });
     expect(result).not.toBeNull();
     expect(result?.description).toContain('https://app.slack.com');
-    expect(result?.messages).toHaveLength(1);
+    // First message is the workflow text, subsequent messages are embedded resources
+    expect(result?.messages.length).toBeGreaterThanOrEqual(1);
     const msg = result?.messages[0];
     expect(msg?.role).toBe('user');
     expect(msg?.content.type).toBe('text');
-    expect(msg?.content.text).toContain('https://app.slack.com');
+    expect(firstMessageText(result?.messages)).toContain('https://app.slack.com');
   });
 
   test('includes plugin name in output when name argument is provided', () => {
     const result = resolvePrompt('build_plugin', { url: 'https://slack.com', name: 'slack' });
-    expect(result?.messages[0]?.content.text).toContain('`slack`');
+    expect(firstMessageText(result?.messages)).toContain('`slack`');
   });
 
   test('omits name clause when name argument is empty', () => {
     const result = resolvePrompt('build_plugin', { url: 'https://slack.com' });
-    const text = result?.messages[0]?.content.text ?? '';
+    const text = firstMessageText(result?.messages);
     expect(text).not.toContain('The plugin name should be');
   });
 
   test('uses default url when url argument is missing', () => {
     const result = resolvePrompt('build_plugin', {});
-    expect(result?.messages[0]?.content.text).toContain('https://example.com');
+    expect(firstMessageText(result?.messages)).toContain('https://example.com');
   });
 
   test('includes key workflow phases', () => {
     const result = resolvePrompt('build_plugin', { url: 'https://example.com' });
-    const text = result?.messages[0]?.content.text ?? '';
+    const text = firstMessageText(result?.messages);
     expect(text).toContain('Phase 1');
     expect(text).toContain('Phase 2');
     expect(text).toContain('Phase 3');
@@ -81,14 +98,14 @@ describe('resolvePrompt — build_plugin', () => {
 
   test('includes plugin_analyze_site tool reference with provided URL', () => {
     const result = resolvePrompt('build_plugin', { url: 'https://linear.app' });
-    const text = result?.messages[0]?.content.text ?? '';
+    const text = firstMessageText(result?.messages);
     expect(text).toContain('plugin_analyze_site');
     expect(text).toContain('https://linear.app');
   });
 
   test('includes SDK references and code patterns', () => {
     const result = resolvePrompt('build_plugin', { url: 'https://example.com' });
-    const text = result?.messages[0]?.content.text ?? '';
+    const text = firstMessageText(result?.messages);
     expect(text).toContain('OpenTabsPlugin');
     expect(text).toContain('defineTool');
     expect(text).toContain('ToolError');
@@ -97,7 +114,7 @@ describe('resolvePrompt — build_plugin', () => {
 
   test('includes common gotchas', () => {
     const result = resolvePrompt('build_plugin', { url: 'https://example.com' });
-    const text = result?.messages[0]?.content.text ?? '';
+    const text = firstMessageText(result?.messages);
     expect(text).toContain('Common Gotchas');
     expect(text).toContain('credentials');
   });
@@ -105,6 +122,45 @@ describe('resolvePrompt — build_plugin', () => {
   test('description reflects the target URL', () => {
     const result = resolvePrompt('build_plugin', { url: 'https://my-app.io' });
     expect(result?.description).toBe('Build an OpenTabs plugin for https://my-app.io');
+  });
+
+  test('embeds plugin-development and sdk-api resources', () => {
+    const result = resolvePrompt('build_plugin', { url: 'https://example.com' });
+    expect(result).not.toBeNull();
+    const uris = embeddedResourceUris(result?.messages ?? []);
+    expect(uris).toHaveLength(2);
+    expect(uris).toContain('opentabs://guide/plugin-development');
+    expect(uris).toContain('opentabs://reference/sdk-api');
+  });
+});
+
+describe('resolvePrompt — troubleshoot', () => {
+  test('embeds troubleshooting resource', () => {
+    const result = resolvePrompt('troubleshoot', {});
+    expect(result).not.toBeNull();
+    const uris = embeddedResourceUris(result?.messages ?? []);
+    expect(uris).toHaveLength(1);
+    expect(uris).toContain('opentabs://guide/troubleshooting');
+  });
+});
+
+describe('resolvePrompt — setup_plugin', () => {
+  test('embeds quick-start resource', () => {
+    const result = resolvePrompt('setup_plugin', { name: 'slack' });
+    expect(result).not.toBeNull();
+    const uris = embeddedResourceUris(result?.messages ?? []);
+    expect(uris).toHaveLength(1);
+    expect(uris).toContain('opentabs://guide/quick-start');
+  });
+});
+
+describe('resolvePrompt — audit_ai_docs', () => {
+  test('embeds all static resources', () => {
+    const result = resolvePrompt('audit_ai_docs', {});
+    expect(result).not.toBeNull();
+    const uris = embeddedResourceUris(result?.messages ?? []);
+    // All 6 static resources (excludes dynamic opentabs://status)
+    expect(uris).toHaveLength(6);
   });
 });
 
