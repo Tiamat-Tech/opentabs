@@ -457,6 +457,68 @@ const removeLocalPlugin = async (state: { configWriteMutex: Promise<void> }, plu
 };
 
 /**
+ * Remove a local plugin from config.json's localPlugins array by exact specifier string.
+ * Unlike removeLocalPlugin (which matches by resolved path / package name), this matches
+ * the raw string from config.json directly — needed for failed plugins that never loaded
+ * and therefore have no name or resolvable path.
+ *
+ * Uses a read-modify-write pattern serialized via state.configWriteMutex.
+ *
+ * @returns true if the specifier was found and removed, false if not found
+ */
+const removeLocalPluginBySpecifier = async (
+  state: { configWriteMutex: Promise<void> },
+  specifier: string,
+): Promise<boolean> => {
+  const configDir = getConfigDir();
+  const configPath = getConfigPath();
+  let removed = false;
+
+  const prev = state.configWriteMutex;
+  const writePromise = (async () => {
+    await prev;
+    await mkdir(configDir, { recursive: true, mode: 0o700 });
+
+    let raw: string;
+    try {
+      raw = await readFile(configPath, 'utf-8');
+    } catch {
+      log.warn('Cannot remove local plugin by specifier — config file unreadable');
+      return;
+    }
+
+    let record: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        log.warn('Cannot remove local plugin by specifier — config file is not a JSON object');
+        return;
+      }
+      record = parsed as Record<string, unknown>;
+    } catch {
+      log.warn('Cannot remove local plugin by specifier — config file contains invalid JSON');
+      return;
+    }
+
+    const localPlugins = Array.isArray(record.localPlugins)
+      ? (record.localPlugins as unknown[]).filter((p): p is string => typeof p === 'string')
+      : [];
+
+    const updatedPlugins = localPlugins.filter(p => p !== specifier);
+
+    if (updatedPlugins.length < localPlugins.length) {
+      record.localPlugins = updatedPlugins;
+      await atomicWrite(configPath, `${JSON.stringify(record, null, 2)}\n`, 0o600);
+      removed = true;
+    }
+  })();
+  // The mutex chain always fulfills so subsequent writes proceed even after a failure.
+  state.configWriteMutex = writePromise.catch(() => {});
+  await writePromise;
+  return removed;
+};
+
+/**
  * Remove a plugin (npm or local) and trigger server rediscovery.
  *
  * @param name - Plugin name (shorthand or full npm package name)
@@ -540,6 +602,7 @@ export {
   installPlugin,
   updatePlugin,
   removePlugin,
+  removeLocalPluginBySpecifier,
   checkPluginUpdates,
   findPlugin,
 };

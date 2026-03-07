@@ -23,6 +23,7 @@ import { log } from './logger.js';
 import {
   checkPluginUpdates,
   installPlugin,
+  removeLocalPluginBySpecifier,
   removePlugin,
   searchNpmPlugins,
   updatePlugin,
@@ -787,6 +788,42 @@ const handlePluginRemove = async (
   }
 };
 
+const handlePluginRemoveBySpecifier = async (
+  state: ServerState,
+  params: Record<string, unknown> | undefined,
+  id: string | number,
+  callbacks: McpCallbacks,
+): Promise<void> => {
+  if (!params || typeof params.specifier !== 'string' || params.specifier.length === 0) {
+    sendJsonRpcError(state, id, -32602, 'Invalid params: specifier must be a non-empty string');
+    return;
+  }
+
+  const specifier = params.specifier;
+  const removed = await removeLocalPluginBySpecifier(state, specifier);
+
+  if (!removed) {
+    sendJsonRpcError(state, id, -32602, `Specifier not found in localPlugins: ${specifier}`);
+    return;
+  }
+
+  log.info(`Removed local plugin by specifier: ${specifier}`);
+
+  await callbacks.onReload();
+
+  sendToExtension(state, {
+    jsonrpc: '2.0',
+    method: 'plugins.changed',
+    params: { ...buildConfigStatePayload(state) },
+  });
+
+  sendToExtension(state, {
+    jsonrpc: '2.0',
+    result: { ok: true },
+    id,
+  });
+};
+
 const handlePluginCheckUpdates = async (state: ServerState, id: string | number): Promise<void> => {
   try {
     const result = await checkPluginUpdates(state);
@@ -820,6 +857,7 @@ export {
   handlePluginInstall,
   handlePluginUpdateFromRegistry,
   handlePluginRemove,
+  handlePluginRemoveBySpecifier,
   handlePluginCheckUpdates,
   handleToolProgress,
   handlePluginLog,

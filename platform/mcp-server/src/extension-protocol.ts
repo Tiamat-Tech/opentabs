@@ -29,6 +29,7 @@ import {
   handlePluginInstall,
   handlePluginLog,
   handlePluginRemove,
+  handlePluginRemoveBySpecifier,
   handlePluginSearch,
   handlePluginUpdateFromRegistry,
   handleTabStateChanged,
@@ -427,6 +428,11 @@ const handleExtensionMessage = (
 
   if (method === 'plugin.remove' && id !== undefined) {
     void handlePluginRemove(state, params, id, callbacks);
+    return;
+  }
+
+  if (method === 'plugin.removeBySpecifier' && id !== undefined) {
+    void handlePluginRemoveBySpecifier(state, params, id, callbacks);
     return;
   }
 
