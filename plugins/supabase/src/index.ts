@@ -33,6 +33,7 @@ class SupabasePlugin extends OpenTabsPlugin {
   readonly description = 'OpenTabs plugin for Supabase';
   override readonly displayName = 'Supabase';
   readonly urlPatterns = ['*://supabase.com/*'];
+  override readonly homepage = 'https://supabase.com/dashboard/projects';
   readonly tools: ToolDefinition[] = [
     listProjects,
     getProject,
