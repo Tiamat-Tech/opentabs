@@ -132,6 +132,13 @@ describe('resolvePrompt — build_plugin', () => {
     expect(uris).toContain('opentabs://guide/plugin-development');
     expect(uris).toContain('opentabs://reference/sdk-api');
   });
+
+  test('Phase 7 includes contribution checklist', () => {
+    const result = resolvePrompt('build_plugin', { url: 'https://example.com' });
+    const text = firstMessageText(result?.messages);
+    expect(text).toContain('Contribution Checklist');
+    expect(text).toContain('Auth extraction pattern');
+  });
 });
 
 describe('resolvePrompt — troubleshoot', () => {
@@ -201,6 +208,18 @@ describe('resolvePrompt — contribute_learnings', () => {
     const result = resolvePrompt('contribute_learnings', {});
     const text = firstMessageText(result?.messages);
     expect(text).toContain('opentabs://guide/self-improvement');
+  });
+
+  test('includes session review checklist', () => {
+    const result = resolvePrompt('contribute_learnings', {});
+    const text = firstMessageText(result?.messages);
+    expect(text).toContain('Session Review Checklist');
+  });
+
+  test('includes contribution examples', () => {
+    const result = resolvePrompt('contribute_learnings', {});
+    const text = firstMessageText(result?.messages);
+    expect(text).toContain('Contribution Examples');
   });
 });
 
