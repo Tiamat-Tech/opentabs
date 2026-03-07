@@ -467,29 +467,19 @@ Admin endpoints (`/reload`, `/extension/reload`) are rate-limited to 10 requests
       <Table.Cell>Fetch current config state (used by side panel).</Table.Cell>
     </Table.Row>
     <Table.Row>
-      <Table.Cell className="font-medium">`config.setToolEnabled`</Table.Cell>
+      <Table.Cell className="font-medium">`config.setToolPermission`</Table.Cell>
       <Table.Cell>Request</Table.Cell>
-      <Table.Cell>Enable or disable a single tool.</Table.Cell>
+      <Table.Cell>Set permission for a single tool (plugin name + tool name + permission: off/ask/auto).</Table.Cell>
     </Table.Row>
     <Table.Row>
-      <Table.Cell className="font-medium">`config.setAllToolsEnabled`</Table.Cell>
+      <Table.Cell className="font-medium">`config.setPluginPermission`</Table.Cell>
       <Table.Cell>Request</Table.Cell>
-      <Table.Cell>Enable or disable all tools in a plugin at once (plugin name + enabled boolean).</Table.Cell>
+      <Table.Cell>Set default permission for all tools in a plugin (plugin name + permission: off/ask/auto).</Table.Cell>
     </Table.Row>
     <Table.Row>
-      <Table.Cell className="font-medium">`config.setToolsEnabled`</Table.Cell>
+      <Table.Cell className="font-medium">`config.setSkipPermissions`</Table.Cell>
       <Table.Cell>Request</Table.Cell>
-      <Table.Cell>Batch enable/disable multiple tools at once.</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">`config.setBrowserToolEnabled`</Table.Cell>
-      <Table.Cell>Request</Table.Cell>
-      <Table.Cell>Enable or disable a single browser tool.</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">`config.setAllBrowserToolsEnabled`</Table.Cell>
-      <Table.Cell>Request</Table.Cell>
-      <Table.Cell>Enable or disable all browser tools at once.</Table.Cell>
+      <Table.Cell>Toggle global skip-permissions flag (boolean).</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`plugin.search`</Table.Cell>
@@ -520,8 +510,8 @@ Admin endpoints (`/reload`, `/extension/reload`) are rate-limited to 10 requests
       <Table.Cell className="font-medium">`confirmation.response`</Table.Cell>
       <Table.Cell>Notification</Table.Cell>
       <Table.Cell>
-        User's approval decision — includes confirmation id, decision (allow_once/allow_always/deny), and optional
-        scope.
+        User's approval decision — includes confirmation id, decision (`allow` or `deny`) and optional `alwaysAllow`
+        boolean for auto-approving future invocations.
       </Table.Cell>
     </Table.Row>
     <Table.Row>
