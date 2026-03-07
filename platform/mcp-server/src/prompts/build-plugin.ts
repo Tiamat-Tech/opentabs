@@ -432,7 +432,25 @@ npm run check  # build + type-check + lint + format:check
 
 Every plugin build surfaces new patterns, gotchas, and techniques. You **must** write them back so the next AI session benefits automatically.
 
+### Contribution Checklist
+
+Review your session and check each item:
+
+- **Auth extraction pattern** — did you discover a new way to extract tokens (cookie, header interception, window globals, localStorage)? → Add to \`plugin-development.ts\` under "Auth Token Extraction" or "Advanced Auth Patterns"
+- **New gotcha encountered** — did you hit an error not in the Common Gotchas list above? If you encountered an error that is not in the Common Gotchas list, ADD IT. → Number it sequentially after the last entry in the gotcha list in \`build-plugin.ts\`
+- **API discovery technique** — did you find a new way to discover or enumerate API endpoints (network capture patterns, global inspection, extension APIs)? → Add to Phase 2 of this prompt
+- **CORS workaround** — did you work around a CORS issue (proxy, same-origin internal endpoints, cookie forwarding)? → Add to \`troubleshooting.ts\`
+- **Zod schema pattern** — did you use a Zod pattern worth documenting (discriminated unions, lazy schemas, transform pipelines, coercion)? → Add to \`plugin-development.ts\` under "Zod Schema Rules"
+- **Error handling pattern** — did you handle a non-obvious error (HTML error responses, rate limiting, auth expiry mid-session)? → Add to \`troubleshooting.ts\` or the Common Gotchas list
+
+### Invoke the Contribution Workflow
+
 **Invoke the \`contribute_learnings\` prompt now** with the task description (e.g., \`contribute_learnings(task: "built a plugin for <DisplayName>")\`). That prompt provides the complete self-improvement workflow: which files to edit, the file-to-resource mapping, rules for deduplication, and verification steps.
+
+The specific files to check when contributing:
+- \`platform/mcp-server/src/prompts/build-plugin.ts\` — for workflow improvements and new gotchas
+- \`platform/mcp-server/src/resources/plugin-development.ts\` — for patterns, auth techniques, and Zod rules
+- \`platform/mcp-server/src/resources/troubleshooting.ts\` — for error resolutions and CORS workarounds
 
 Do not skip this phase. The source files you edit compile into the MCP resources and prompts this server serves. You are reading this prompt because a previous session wrote or improved it — your additions reach the next agent the same way.`;
 };
