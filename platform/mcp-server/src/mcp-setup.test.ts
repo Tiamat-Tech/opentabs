@@ -1064,12 +1064,12 @@ describe('registerMcpHandlers — prompts/get handler', () => {
 });
 
 describe('registerMcpHandlers — handler count', () => {
-  test('registers exactly 4 handlers: tools/list, tools/call, prompts/list, prompts/get', () => {
+  test('registers exactly 6 handlers: tools/list, tools/call, prompts/list, prompts/get, resources/list, resources/read', () => {
     const state = createState();
     const { server, handlers } = createMockServer();
     registerMcpHandlers(server, state);
 
-    expect(handlers.size).toBe(4);
+    expect(handlers.size).toBe(6);
   });
 });
 
