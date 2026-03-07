@@ -7,6 +7,8 @@
  *
  * Current prompts:
  *   - `build_plugin`: Full workflow for building a new OpenTabs plugin
+ *   - `troubleshoot`: Guided debugging workflow for diagnosing platform issues
+ *   - `setup_plugin`: Step-by-step workflow for installing and configuring a plugin
  */
 
 /** A single prompt argument definition */
@@ -56,6 +58,37 @@ export const PROMPTS: PromptDefinition[] = [
       },
     ],
   },
+  {
+    name: 'troubleshoot',
+    description:
+      'Guided debugging workflow for diagnosing OpenTabs platform issues. ' +
+      'Walks through extension connectivity, plugin state, tab readiness, permissions, ' +
+      'and common error scenarios with specific tool calls at each step. ' +
+      'Use this when tools fail, the extension is disconnected, or the platform misbehaves.',
+    arguments: [
+      {
+        name: 'error',
+        description:
+          'The error message or symptom to diagnose (e.g., "Extension not connected", "Tab closed"). ' +
+          'If omitted, runs a general health check workflow.',
+        required: false,
+      },
+    ],
+  },
+  {
+    name: 'setup_plugin',
+    description:
+      'Step-by-step workflow for installing, configuring, reviewing, and testing an existing ' +
+      'OpenTabs plugin from npm. Covers search, install, review flow, permission configuration, ' +
+      'and verification. Use this when you want to add a plugin to the platform.',
+    arguments: [
+      {
+        name: 'name',
+        description: 'Plugin name or npm package name (e.g., "slack" or "@opentabs-dev/opentabs-plugin-slack")',
+        required: true,
+      },
+    ],
+  },
 ];
 
 /** Prompt name → definition for O(1) lookup */
@@ -69,11 +102,16 @@ export const resolvePrompt = (name: string, args: Record<string, string>): Promp
   const def = PROMPT_MAP.get(name);
   if (!def) return null;
 
-  if (name === 'build_plugin') {
-    return resolveBuildPlugin(args);
+  switch (name) {
+    case 'build_plugin':
+      return resolveBuildPlugin(args);
+    case 'troubleshoot':
+      return resolveTroubleshoot(args);
+    case 'setup_plugin':
+      return resolveSetupPlugin(args);
+    default:
+      return null;
   }
-
-  return null;
 };
 
 // ---------------------------------------------------------------------------
@@ -444,4 +482,396 @@ npm run check  # build + type-check + lint + format:check
 6. **Parse error response bodies before classifying by HTTP status** — many apps reuse 403 for both auth and permission errors
 7. **Cross-origin API + cookies: check CORS before choosing fetch strategy**
 8. **Always run \`npm run format\` after writing code** — Biome config uses single quotes`;
+};
+
+// ---------------------------------------------------------------------------
+// troubleshoot prompt
+// ---------------------------------------------------------------------------
+
+const resolveTroubleshoot = (args: Record<string, string>): PromptResult => {
+  const error = args.error ?? '';
+
+  return {
+    description: error ? `Troubleshoot OpenTabs issue: ${error}` : 'Run a general OpenTabs health check',
+    messages: [
+      {
+        role: 'user',
+        content: {
+          type: 'text',
+          text: troubleshootPromptText(error),
+        },
+      },
+    ],
+  };
+};
+
+const troubleshootPromptText = (error: string): string => {
+  const errorClause = error
+    ? `The user is experiencing this issue: "${error}"\n\nDiagnose this specific problem using the workflow below.`
+    : 'Run a general health check of the OpenTabs platform using the workflow below.';
+
+  return `${errorClause}
+
+---
+
+## Step 1: Check Extension Connectivity
+
+\`\`\`
+extension_get_state
+\`\`\`
+
+Verify the response shows the WebSocket is connected. Key fields to check:
+- \`connected\`: must be \`true\`
+- \`tabCount\`: number of tracked tabs
+- \`injectedAdapters\`: plugins with adapters injected into tabs
+
+**If the extension is not connected:**
+1. Verify the Chrome extension is loaded: the user should check \`chrome://extensions/\` and confirm OpenTabs is enabled
+2. Verify the MCP server is running: \`opentabs status\`
+3. Check if the extension needs to be reloaded: the user should click the refresh icon on the OpenTabs extension card at \`chrome://extensions/\`
+4. Check if the side panel is open — opening the OpenTabs side panel triggers the WebSocket connection
+5. If the extension was recently updated, the user needs to reload it and reopen the side panel
+
+---
+
+## Step 2: Check Plugin State and Tab Readiness
+
+\`\`\`
+plugin_list_tabs
+\`\`\`
+
+This returns all loaded plugins with their tab states. For each plugin, verify:
+- **state**: \`ready\` means a matching tab is open and the plugin's \`isReady()\` returned true
+- **state**: \`unavailable\` means a matching tab exists but \`isReady()\` returned false (auth issue, page still loading)
+- **state**: \`closed\` means no tab matches the plugin's URL patterns
+
+**If the target plugin is not listed:**
+- The plugin may not be installed: \`opentabs plugin list\`
+- The plugin may have failed to load: check \`opentabs logs\` for discovery errors
+
+**If state is \`closed\`:**
+- The user needs to open the web app in a browser tab
+- The URL must match the plugin's URL patterns
+
+**If state is \`unavailable\`:**
+- The user may not be logged in to the web app
+- The page may still be loading — wait a few seconds and re-check
+- The plugin's \`isReady()\` function may have a bug
+
+---
+
+## Step 3: Check Plugin Permissions
+
+If the error mentions "not reviewed" or "permission":
+
+**Plugin not reviewed (permission is \`off\`):**
+1. Call \`plugin_inspect\` with the plugin name to retrieve the adapter source code and a review token
+2. Review the code for security concerns (network requests, data access, DOM manipulation)
+3. Ask the user to confirm the review
+4. Call \`plugin_mark_reviewed\` with the plugin name, version, review token, and desired permission (\`ask\` or \`auto\`)
+
+**Permission denied (user rejected approval):**
+- In \`ask\` mode, the user sees an approval dialog for each tool call. If they click "Deny", the tool returns a permission error
+- To avoid repeated prompts, the user can set the permission to \`auto\`:
+  \`\`\`bash
+  opentabs config set plugin-permission.<plugin> auto
+  \`\`\`
+- Or set per-tool permissions:
+  \`\`\`bash
+  opentabs config set tool-permission.<plugin>.<tool> auto
+  \`\`\`
+
+---
+
+## Step 4: Check for Timeout Issues
+
+If the error mentions "timeout" or "timed out":
+
+- The default dispatch timeout is 30 seconds. Tools that report progress get an extended window (timeout resets on each progress update, up to 5 minutes max)
+- Check if the tool is a long-running operation (e.g., large data export, file upload)
+- Check if the target web app is slow to respond — use \`browser_get_network_requests\` to inspect API latency
+- Check if the extension adapter is responsive:
+  \`\`\`
+  extension_check_adapter(plugin: "<plugin-name>")
+  \`\`\`
+
+---
+
+## Step 5: Check for Rate Limiting
+
+If the error mentions "rate limit" or includes \`retryAfterMs\`:
+
+- The target web app's API is throttling requests
+- Wait for the \`retryAfterMs\` duration before retrying
+- Reduce the frequency of tool calls to the affected plugin
+- Check if the web app has a rate limit dashboard or API usage page
+
+---
+
+## Step 6: Check for Tool Not Found
+
+If the error mentions "tool not found" or "unknown tool":
+
+- Verify the tool name uses the correct prefix: \`<plugin>_<tool>\` (e.g., \`slack_send_message\`)
+- Check if the plugin is installed and loaded: \`plugin_list_tabs\`
+- The plugin may have been updated and the tool renamed — check the plugin's tool list
+
+---
+
+## Step 7: Inspect Server and Extension Logs
+
+For deeper diagnosis, check the logs:
+
+\`\`\`
+extension_get_logs
+\`\`\`
+
+This returns recent extension logs including adapter injection events, WebSocket messages, and errors. Look for:
+- Adapter injection failures (CSP violations, script errors)
+- WebSocket disconnection events
+- Tool dispatch errors
+
+Also check the MCP server logs:
+\`\`\`bash
+opentabs logs
+\`\`\`
+
+---
+
+## Step 8: Browser-Level Diagnostics
+
+If the issue persists, use browser tools for deeper investigation:
+
+\`\`\`
+browser_get_console_logs(tabId: <tabId>)
+\`\`\`
+
+Check for JavaScript errors in the target web app's console.
+
+\`\`\`
+browser_enable_network_capture(tabId: <tabId>, urlFilter: "/api")
+\`\`\`
+
+Then reproduce the issue and check captured network requests:
+
+\`\`\`
+browser_get_network_requests(tabId: <tabId>)
+\`\`\`
+
+Look for failed API calls (4xx/5xx responses), CORS errors, or network timeouts.
+
+---
+
+## Quick Reference: Common Errors
+
+| Error | Likely Cause | Resolution |
+|-------|-------------|------------|
+| Extension not connected | Extension not loaded or side panel closed | Reload extension, open side panel |
+| Tab closed | No matching tab open | Open the web app in a browser tab |
+| Tab unavailable | User not logged in or page loading | Log in, wait, re-check |
+| Plugin not reviewed | Permission is \`off\` | Run the review flow (inspect → review → mark reviewed) |
+| Permission denied | User rejected approval dialog | Set permission to \`auto\` via CLI |
+| Dispatch timeout | Tool or API too slow | Check network, increase timeout, check adapter |
+| Rate limited | API throttling | Wait for retryAfterMs, reduce call frequency |
+| Tool not found | Wrong name or plugin not loaded | Verify plugin installed and tool name correct |
+| Concurrent dispatch limit | 5 active dispatches per plugin | Wait for in-flight tools to complete |`;
+};
+
+// ---------------------------------------------------------------------------
+// setup_plugin prompt
+// ---------------------------------------------------------------------------
+
+const resolveSetupPlugin = (args: Record<string, string>): PromptResult => {
+  const name = args.name ?? 'my-plugin';
+
+  return {
+    description: `Set up the ${name} OpenTabs plugin`,
+    messages: [
+      {
+        role: 'user',
+        content: {
+          type: 'text',
+          text: setupPluginPromptText(name),
+        },
+      },
+    ],
+  };
+};
+
+const setupPluginPromptText = (name: string): string => {
+  const isFullPackageName = name.includes('/') || name.startsWith('opentabs-plugin-');
+  const packageName = isFullPackageName ? name : `opentabs-plugin-${name}`;
+  const pluginName = isFullPackageName ? name.replace(/^@[^/]+\//, '').replace(/^opentabs-plugin-/, '') : name;
+
+  return `Set up the **${pluginName}** OpenTabs plugin. Follow each step below.
+
+---
+
+## Step 1: Search for the Plugin
+
+Search npm to find the plugin package:
+
+\`\`\`bash
+opentabs plugin search ${pluginName}
+\`\`\`
+
+This lists matching packages with their descriptions and versions. Look for the official package (usually \`@opentabs-dev/${packageName}\` or \`${packageName}\`).
+
+If the search returns no results, the plugin may not be published to npm. Check if the user has a local plugin directory to add instead.
+
+---
+
+## Step 2: Install the Plugin
+
+Install the plugin via the CLI:
+
+\`\`\`bash
+opentabs plugin install ${packageName}
+\`\`\`
+
+This installs the package globally and triggers plugin rediscovery. The MCP server picks it up automatically (no restart needed).
+
+**If the install fails:**
+- Check the package name is correct
+- Check npm registry access: \`npm ping\`
+- For scoped packages, ensure the user is authenticated: \`npm whoami\`
+
+For local plugins (under active development), add the path instead:
+
+\`\`\`bash
+opentabs config set localPlugins.add /path/to/plugin
+\`\`\`
+
+---
+
+## Step 3: Open the Target Web App
+
+The user needs to open the web app that the plugin targets in a Chrome browser tab. The plugin's URL patterns determine which tabs it matches.
+
+Ask the user to navigate to the appropriate URL in their browser.
+
+---
+
+## Step 4: Verify Plugin Loaded
+
+Check that the plugin was discovered and a matching tab is ready:
+
+\`\`\`
+plugin_list_tabs(plugin: "${pluginName}")
+\`\`\`
+
+Expected result:
+- The plugin appears in the list
+- \`state\` is \`ready\` (the tab matches and the plugin's \`isReady()\` returned true)
+- At least one tab is shown with \`ready: true\`
+
+**If the plugin is not listed:**
+- Check the server logs: \`opentabs logs\`
+- The plugin may have failed to load (missing \`dist/adapter.iife.js\`, invalid \`package.json\`, etc.)
+
+**If state is \`unavailable\`:**
+- The user may need to log in to the web app first
+- Wait a few seconds for the page to finish loading, then re-check
+
+**If state is \`closed\`:**
+- No open tab matches the plugin's URL patterns
+- Ask the user to open the correct URL
+
+---
+
+## Step 5: Review the Plugin
+
+New plugins start with permission \`off\` (disabled) and must be reviewed before use. This is a security measure — the plugin adapter runs code in the user's authenticated browser session.
+
+### 5a. Inspect the plugin's adapter code:
+
+\`\`\`
+plugin_inspect(plugin: "${pluginName}")
+\`\`\`
+
+This returns the full adapter IIFE source code, metadata (name, version, author, line count), and a review token.
+
+### 5b. Review the code for security concerns:
+
+Check for:
+- **Network requests**: Are they only to the expected API domains? No exfiltration to third-party servers?
+- **Data access**: Does it only read data relevant to its tools? No excessive localStorage/cookie reading?
+- **DOM manipulation**: Does it only interact with the target web app's UI? No injecting external scripts?
+- **Permissions**: Does it request only the capabilities it needs?
+
+### 5c. Mark the plugin as reviewed:
+
+After reviewing and confirming with the user:
+
+\`\`\`
+plugin_mark_reviewed(
+  plugin: "${pluginName}",
+  version: "<version from inspect>",
+  reviewToken: "<token from inspect>",
+  permission: "ask"
+)
+\`\`\`
+
+Use \`ask\` permission initially — this requires user approval for each tool call. The user can upgrade to \`auto\` later if they trust the plugin.
+
+---
+
+## Step 6: Test the Plugin
+
+Call a read-only tool first to verify everything works end-to-end:
+
+1. Check which tools are available — they are prefixed with \`${pluginName}_\` (e.g., \`${pluginName}_list_channels\`, \`${pluginName}_get_profile\`)
+2. Call a simple read-only tool (list, get, search) to verify:
+   - The tool dispatches to the browser tab
+   - The adapter extracts auth correctly
+   - The API call succeeds
+   - The response is well-formatted
+
+If the tool call fails, use the \`troubleshoot\` prompt for guided debugging.
+
+---
+
+## Step 7: Configure Permissions
+
+Once the plugin is working, help the user set permissions based on their trust level:
+
+### Plugin-level permission (applies to all tools):
+
+\`\`\`bash
+# Require approval for every tool call (default after review)
+opentabs config set plugin-permission.${pluginName} ask
+
+# Auto-approve all tool calls (skip approval dialogs)
+opentabs config set plugin-permission.${pluginName} auto
+
+# Disable the plugin
+opentabs config set plugin-permission.${pluginName} off
+\`\`\`
+
+### Per-tool permissions (override the plugin-level default):
+
+\`\`\`bash
+# Auto-approve read-only tools, require approval for write tools
+opentabs config set tool-permission.${pluginName}.list_channels auto
+opentabs config set tool-permission.${pluginName}.send_message ask
+\`\`\`
+
+### Permission resolution order:
+1. \`skipPermissions\` env var (bypasses everything — development only)
+2. Per-tool override (\`tool-permission.<plugin>.<tool>\`)
+3. Plugin default (\`plugin-permission.<plugin>\`)
+4. Global default: \`off\`
+
+---
+
+## Summary
+
+After completing all steps, the plugin is:
+- Installed and discovered by the MCP server
+- Loaded with a matching browser tab in \`ready\` state
+- Reviewed and approved with the appropriate permission level
+- Tested with at least one successful tool call
+- Configured with the user's preferred permission settings
+
+The plugin's tools are now available for use in your AI workflow.`;
 };
