@@ -104,6 +104,43 @@ const getSkypeJwt = async (): Promise<string> => {
 };
 
 // ---------------------------------------------------------------------------
+// Current user identity
+// ---------------------------------------------------------------------------
+
+interface SkypeIdentity {
+  skypeid: string;
+  signinname: string;
+}
+
+/**
+ * Get the current user's Skype identity (MRI and sign-in email) by performing
+ * a Skype JWT exchange and reading the identity fields from the response.
+ */
+export const getSkypeIdentity = async (): Promise<SkypeIdentity> => {
+  const msalToken = findMsalToken(SKYPE_API_SCOPE);
+  if (!msalToken) {
+    throw ToolError.auth('Not authenticated — no MSAL Skype API token found. Please log in to Microsoft Teams.');
+  }
+
+  const response = await fetch('https://teams.live.com/api/auth/v1.0/authz/consumer', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${msalToken.secret}`, 'Content-Type': 'application/json' },
+    credentials: 'include',
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!response.ok) {
+    throw ToolError.auth(`Failed to get identity: HTTP ${String(response.status)}`);
+  }
+
+  const data = (await response.json()) as { skypeToken?: { skypeid?: string; signinname?: string } };
+  return {
+    skypeid: data.skypeToken?.skypeid ?? '',
+    signinname: data.skypeToken?.signinname ?? '',
+  };
+};
+
+// ---------------------------------------------------------------------------
 // Authentication detection
 // ---------------------------------------------------------------------------
 
@@ -232,6 +269,47 @@ export const createThread = async (
     throw ToolError.internal('Thread created but no thread ID returned in Location header');
   }
   return threadId;
+};
+
+/**
+ * Make an authenticated request to a thread-level endpoint
+ * (`/v1/threads/{threadId}/...`). Used for member management and
+ * property updates on existing threads.
+ */
+export const threadApi = async <T>(
+  threadId: string,
+  subpath: string,
+  options: {
+    method?: string;
+    body?: Record<string, unknown>;
+  } = {},
+): Promise<T> => {
+  const skypeJwt = await getSkypeJwt();
+  const { method = 'GET', body } = options;
+  const url = `${CHAT_SERVICE_BASE}/v1/threads/${encodeURIComponent(threadId)}${subpath}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: {
+        Authentication: `skypetoken=${skypeJwt}`,
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: 'include',
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'TimeoutError') {
+      throw ToolError.timeout(`Teams thread API timed out: ${method} ${subpath}`);
+    }
+    throw ToolError.internal(
+      `Network error calling Teams thread API: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  return handleApiResponse<T>(response, method, subpath);
 };
 
 // ---------------------------------------------------------------------------
