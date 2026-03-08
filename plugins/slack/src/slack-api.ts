@@ -1,4 +1,10 @@
-import { ToolError, parseRetryAfterMs } from '@opentabs-dev/plugin-sdk';
+import {
+  ToolError,
+  findLocalStorageEntry,
+  getLocalStorage,
+  parseRetryAfterMs,
+  waitUntil,
+} from '@opentabs-dev/plugin-sdk';
 
 /**
  * Slack authentication extracted from the web client's runtime state.
@@ -37,7 +43,7 @@ const getAuthFromLocalStorage = (): SlackAuth | null => {
     const candidates = ['localConfig_v2', 'localConfig_v3'];
     let raw: string | null = null;
     for (const key of candidates) {
-      raw = localStorage.getItem(key);
+      raw = getLocalStorage(key);
       if (raw) break;
     }
     if (!raw) return null;
@@ -229,29 +235,36 @@ const getAuthFromPageScripts = (): SlackAuth | null => {
  */
 const getAuthFromLocalStorageScan = (): SlackAuth | null => {
   try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (!key) continue;
-      // Skip keys already handled by getAuthFromLocalStorage
-      if (key === 'localConfig_v2' || key === 'localConfig_v3') continue;
+    // Use findLocalStorageEntry to iterate localStorage keys safely (handles
+    // environments where localStorage is deleted, e.g., Discord iframe fallback).
+    // We loop by repeatedly searching for the next matching key that we haven't
+    // tried yet, since findLocalStorageEntry returns only the first match.
+    const tried = new Set<string>();
+    for (;;) {
+      const entry = findLocalStorageEntry(key => {
+        if (tried.has(key)) return false;
+        // Skip keys already handled by getAuthFromLocalStorage
+        if (key === 'localConfig_v2' || key === 'localConfig_v3') return false;
+        return true;
+      });
+      if (!entry) return null;
+      tried.add(entry.key);
 
-      const raw = localStorage.getItem(key);
-      if (!raw || !raw.includes('xoxc-')) continue;
+      if (!entry.value.includes('xoxc-')) continue;
 
       // Try to parse as JSON and extract token
       try {
-        const parsed: unknown = JSON.parse(raw);
+        const parsed: unknown = JSON.parse(entry.value);
         const auth = extractAuthFromObject(parsed);
         if (auth) return auth;
       } catch {
         // Not JSON — try regex extraction from raw string
-        const tokenMatch = /(xoxc-[a-zA-Z0-9_-]+)/.exec(raw);
+        const tokenMatch = /(xoxc-[a-zA-Z0-9_-]+)/.exec(entry.value);
         if (tokenMatch?.[1]) {
           return buildAuth(tokenMatch[1]);
         }
       }
     }
-    return null;
   } catch {
     return null;
   }
@@ -323,24 +336,14 @@ const isSlackAuthenticated = (): boolean => getAuth() !== null;
  * for up to 3 seconds — well within the 5-second isReady() timeout
  * enforced by the browser extension.
  */
-const waitForSlackAuth = (): Promise<boolean> =>
-  new Promise(resolve => {
-    let elapsed = 0;
-    const interval = 500;
-    const maxWait = 3000;
-    const timer = setInterval(() => {
-      elapsed += interval;
-      if (isSlackAuthenticated()) {
-        clearInterval(timer);
-        resolve(true);
-        return;
-      }
-      if (elapsed >= maxWait) {
-        clearInterval(timer);
-        resolve(false);
-      }
-    }, interval);
-  });
+const waitForSlackAuth = async (): Promise<boolean> => {
+  try {
+    await waitUntil(() => isSlackAuthenticated(), { interval: 500, timeout: 3000 });
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 /**
  * Call a Slack Web API method with proper authentication.
