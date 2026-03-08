@@ -2,6 +2,23 @@
 
 Build a production-ready OpenTabs plugin. Each phase builds on the previous — do not skip phases.
 
+### Production Quality Standard
+
+**Every plugin you produce must be production-ready, clean, and exemplary.** Your code is a model that other agents and developers will study and learn from. There is no "draft" or "good enough" — when you say the work is done, it is done done: fully reviewed, fully tested, and ready to ship.
+
+**Self-review is not optional and is not a separate step the user must ask for.** Before declaring a plugin complete, you must:
+
+1. **Re-read every file you wrote** — the API wrapper, schemas, every tool file, the plugin class. Read them as if you are seeing them for the first time.
+2. **Eliminate dead code** — no unused exports, no unused imports, no unused types, no commented-out code.
+3. **Eliminate duplication** — if two schemas share fields, use `.extend()`. If two mappers share logic, compose them. If a pattern repeats across tools, extract a helper.
+4. **Verify every function earns its existence** — no functions that extract data nobody uses, no return types with fields no caller reads, no parameters that are always the same value.
+5. **Verify consistency** — naming conventions are uniform, all tools follow the same structural pattern, all mappers use the same defensive style.
+6. **Run `npm run format` then `npm run check`** — every command must exit 0.
+
+**The standard is simple: could this code be published in official documentation as the canonical example of how to build a plugin?** If the answer is no, it is not done. Fix it before declaring completion.
+
+---
+
 ### Prerequisites
 
 **Hot reload mode is strongly recommended for plugin development.** In hot reload mode, the MCP server automatically restarts when plugin code changes, and sends a `tools/list_changed` notification to the MCP client — meaning new tools you build are immediately available to call without restarting or reconnecting. This makes the entire build-test loop seamless.
@@ -431,6 +448,19 @@ curl -s -X POST http://127.0.0.1:$PORT/mcp \
 
 Remove tools you cannot verify rather than shipping them broken.
 
+### Mandatory Self-Review Before Completion
+
+**Do not wait for the user to ask you to review your code.** After all tools are tested and passing, perform a final self-review pass before declaring the plugin done:
+
+1. Re-read every source file — API wrapper, schemas, all tool files, plugin class
+2. Delete dead code: unused exports, unused imports, unused types
+3. Eliminate duplication: shared fields use `.extend()`, shared mapper logic uses spread composition
+4. Verify every export is consumed, every function parameter is used, every return field is read
+5. Run `npm run format` then `npm run check` — all must exit 0
+6. Verify the code is clean enough to serve as a reference implementation for other agents to learn from
+
+**When you say "done", the plugin is production-ready. No cleanup pass needed. No review requested. Done means done.**
+
 ---
 
 ## Phase 8: Write Learnings Back
@@ -504,6 +534,19 @@ Zod types must be precise: use `.int()` for integer fields, `.min()`/`.max()` fo
 - `.js` extension on all imports (ESM)
 - No `.transform()`/`.pipe()`/`.preprocess()` in Zod schemas (breaks JSON Schema serialization)
 - `.refine()` callbacks must never throw — Zod 4 runs them even on invalid base values
+
+### Code Cleanliness
+
+Plugin code serves as a learning reference for other agents and developers. Every file must be clean, tidy, and self-evident:
+
+- **No dead exports** — if a schema, type, or function is not imported anywhere, delete it
+- **No duplication** — use `.extend()` for Zod schema inheritance, spread for mapper composition (`...mapTag(t)`)
+- **API wrapper exports only what tools need** — do not extract auth fields (fkey, CSRF tokens, account IDs) unless a tool actually uses them
+- **SEResponse type is minimal** — only include fields the tools actually read (items, has_more, quota_remaining), not the full API spec
+- **Mappers reuse each other** — if `tagInfoSchema` extends `tagSchema`, then `mapTagInfo` should spread `mapTag(t)` and add extra fields, not repeat all fields manually
+- **No inline fallback objects** — if a mapper already provides safe defaults for all fields, call the mapper with an empty object (`mapUser(data ?? {})`) instead of writing a 15-line manual default
+- **Consistent structure across tools** — every list tool returns `{ items, has_more, quota_remaining }`, every get tool returns `{ item }`, every search tool returns `{ results, has_more, quota_remaining }`. Structural consistency makes the plugin predictable.
+- **Import only what you use** — no `import type { SEResponse }` if the tool never references that type directly
 
 ---
 
