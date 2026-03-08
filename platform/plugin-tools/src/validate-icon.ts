@@ -725,6 +725,30 @@ const generateDarkIcon = (svgContent: string): string => {
   return result;
 };
 
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const namespaceSvgIds = (svgContent: string, prefix: string): string => {
+  const idPattern = /\bid\s*=\s*"([^"]+)"/g;
+  const ids: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = idPattern.exec(svgContent)) !== null) {
+    ids.push(match[1]!);
+  }
+
+  if (ids.length === 0) return svgContent;
+
+  let result = svgContent;
+  for (const id of ids) {
+    const escaped = escapeRegExp(id);
+    result = result.replace(new RegExp(`\\bid\\s*=\\s*"${escaped}"`, 'g'), `id="${prefix}-${id}"`);
+    result = result.replace(new RegExp(`url\\(#${escaped}\\)`, 'g'), `url(#${prefix}-${id})`);
+    result = result.replace(new RegExp(`href="#${escaped}"`, 'g'), `href="#${prefix}-${id}"`);
+    result = result.replace(new RegExp(`xlink:href="#${escaped}"`, 'g'), `xlink:href="#${prefix}-${id}"`);
+  }
+
+  return result;
+};
+
 export {
   DARK_BG_LUMINANCE,
   generateDarkIcon,
@@ -732,6 +756,7 @@ export {
   MAX_ICON_SIZE,
   MIN_ICON_CONTRAST,
   MIN_INACTIVE_GRAY,
+  namespaceSvgIds,
   validateIconSvg,
   validateInactiveIconColors,
 };
