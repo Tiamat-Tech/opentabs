@@ -66,9 +66,7 @@ const WithSeparator: Story = {
         <Menu.Item>Edit</Menu.Item>
         <Menu.Item>Duplicate</Menu.Item>
         <Menu.Separator />
-        <Menu.Item className="text-destructive hover:text-destructive data-[highlighted]:text-destructive">
-          Delete
-        </Menu.Item>
+        <Menu.Item variant="destructive">Delete</Menu.Item>
       </Menu.Content>
     </Menu>
   ),
