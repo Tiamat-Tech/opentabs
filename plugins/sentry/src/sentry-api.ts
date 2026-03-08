@@ -1,4 +1,13 @@
-import { ToolError, parseRetryAfterMs } from '@opentabs-dev/plugin-sdk';
+import {
+  ToolError,
+  clearAuthCache,
+  getAuthCache,
+  getCookie,
+  getPageGlobal,
+  parseRetryAfterMs,
+  setAuthCache,
+  waitUntil,
+} from '@opentabs-dev/plugin-sdk';
 
 // --- Auth ---
 
@@ -15,8 +24,8 @@ interface SentryAuth {
  * Write operations require an `X-CSRFToken` header with the `sentry-sc` cookie value.
  */
 const getAuth = (): SentryAuth | null => {
-  const persisted = getPersistedAuth();
-  if (persisted) return persisted;
+  const cached = getAuthCache<SentryAuth>('sentry');
+  if (cached) return cached;
 
   const orgSlug = extractOrgSlug();
   if (!orgSlug) return null;
@@ -25,7 +34,7 @@ const getAuth = (): SentryAuth | null => {
   if (!isAuthed) return null;
 
   const auth: SentryAuth = { orgSlug };
-  setPersistedAuth(auth);
+  setAuthCache('sentry', auth);
   return auth;
 };
 
@@ -41,13 +50,10 @@ const extractOrgSlug = (): string | null => {
 
 const detectAuthentication = (): boolean => {
   // Primary: check window.__initialData.isAuthenticated (set by Sentry's server-rendered bootstrap)
-  const initialData = (window as unknown as Record<string, unknown>).__initialData as
-    | Record<string, unknown>
-    | undefined;
-  if (initialData?.isAuthenticated === true) return true;
+  if (getPageGlobal('__initialData.isAuthenticated') === true) return true;
 
   // Secondary: check for the sentry-sc CSRF cookie (non-HttpOnly, present when session is active)
-  if (document.cookie.includes('sentry-sc=')) return true;
+  if (getCookie('sentry-sc') !== null) return true;
 
   // Fallback: if we're on an org subdomain and not on a login page
   const isLoginPage = window.location.pathname.includes('/auth/login');
@@ -57,68 +63,20 @@ const detectAuthentication = (): boolean => {
 };
 
 /** Extract the CSRF token from the `sentry-sc` cookie for write operations */
-const getCsrfToken = (): string | null => {
-  const match = document.cookie.split('; ').find(c => c.startsWith('sentry-sc='));
-  return match?.split('=')[1] ?? null;
-};
-
-// --- Token persistence on globalThis ---
-
-const getPersistedAuth = (): SentryAuth | null => {
-  try {
-    const ns = (globalThis as Record<string, unknown>).__openTabs as Record<string, unknown> | undefined;
-    const cache = ns?.tokenCache as Record<string, SentryAuth | undefined> | undefined;
-    return cache?.sentry ?? null;
-  } catch {
-    return null;
-  }
-};
-
-const setPersistedAuth = (auth: SentryAuth): void => {
-  try {
-    const g = globalThis as Record<string, unknown>;
-    if (!g.__openTabs) g.__openTabs = {};
-    const ns = g.__openTabs as Record<string, unknown>;
-    if (!ns.tokenCache) ns.tokenCache = {};
-    const cache = ns.tokenCache as Record<string, SentryAuth | undefined>;
-    cache.sentry = auth;
-  } catch {
-    // Silently ignore
-  }
-};
-
-const clearPersistedAuth = (): void => {
-  try {
-    const ns = (globalThis as Record<string, unknown>).__openTabs as Record<string, unknown> | undefined;
-    const cache = ns?.tokenCache as Record<string, SentryAuth | undefined> | undefined;
-    if (cache) cache.sentry = undefined;
-  } catch {
-    // Silently ignore
-  }
-};
+const getCsrfToken = (): string | null => getCookie('sentry-sc');
 
 // --- Public auth helpers ---
 
 export const isSentryAuthenticated = (): boolean => getAuth() !== null;
 
-export const waitForSentryAuth = (): Promise<boolean> =>
-  new Promise(resolve => {
-    let elapsed = 0;
-    const interval = 500;
-    const maxWait = 5000;
-    const timer = setInterval(() => {
-      elapsed += interval;
-      if (isSentryAuthenticated()) {
-        clearInterval(timer);
-        resolve(true);
-        return;
-      }
-      if (elapsed >= maxWait) {
-        clearInterval(timer);
-        resolve(false);
-      }
-    }, interval);
-  });
+export const waitForSentryAuth = async (): Promise<boolean> => {
+  try {
+    await waitUntil(() => isSentryAuthenticated(), { interval: 500, timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 export const getOrgSlug = (): string => {
   const auth = getAuth();
@@ -206,7 +164,7 @@ export const sentryApi = async <T>(
       throw ToolError.rateLimited(`Rate limited: ${endpoint} — ${errorBody}`, retryMs);
     }
     if (response.status === 401 || response.status === 403) {
-      clearPersistedAuth();
+      clearAuthCache('sentry');
       throw ToolError.auth(`Auth error (${response.status}): ${errorBody}`);
     }
     if (response.status === 404) {
