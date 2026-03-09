@@ -1,10 +1,9 @@
 import {
   ToolError,
-  buildQueryString,
   clearAuthCache,
-  fetchFromPage,
   getAuthCache,
   getLocalStorage,
+  parseRetryAfterMs,
   setAuthCache,
   waitUntil,
 } from '@opentabs-dev/plugin-sdk';
@@ -26,10 +25,12 @@ interface BlueskyStorageData {
   };
 }
 
+type QueryValue = string | number | boolean | undefined | string[];
+
 interface XrpcOptions {
   method?: string;
   body?: Record<string, unknown>;
-  query?: Record<string, string | number | boolean | undefined>;
+  query?: Record<string, QueryValue>;
   extraHeaders?: Record<string, string>;
 }
 
@@ -78,17 +79,77 @@ export const getDid = (): string => {
   return session.did;
 };
 
+// --- Error handling ---
+// Uses raw fetch (not fetchFromPage) because the PDS is cross-origin from
+// bsky.app and we need custom error classification — the AT Protocol returns
+// auth errors as 400 with {"error":"ExpiredToken"}, which httpStatusToToolError
+// would misclassify as a validation error.
+
+const AUTH_ERRORS = new Set(['ExpiredToken', 'InvalidToken', 'AuthMissing']);
+
+const handleFetchError = (err: unknown, nsid: string): never => {
+  if (err instanceof ToolError) throw err;
+  if (err instanceof DOMException && err.name === 'TimeoutError')
+    throw ToolError.timeout(`API request timed out: ${nsid}`);
+  if (err instanceof DOMException && err.name === 'AbortError') throw new ToolError('Request was aborted', 'aborted');
+  throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
+    category: 'internal',
+    retryable: true,
+  });
+};
+
+const handleResponseError = async (response: Response, nsid: string): Promise<never> => {
+  const errorBody = (await response.text().catch(() => '')).substring(0, 512);
+
+  // AT Protocol returns auth errors (expired/invalid tokens) as 400
+  // with {"error":"ExpiredToken"} — detect these before generic status handling
+  if (response.status === 400) {
+    try {
+      const parsed = JSON.parse(errorBody) as { error?: string };
+      if (parsed.error && AUTH_ERRORS.has(parsed.error)) {
+        clearAuthCache(AUTH_CACHE_KEY);
+        throw ToolError.auth(`Token expired — please refresh the Bluesky page: ${errorBody}`);
+      }
+    } catch (e) {
+      if (e instanceof ToolError) throw e;
+    }
+  }
+
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('Retry-After');
+    const retryMs = retryAfter !== null ? parseRetryAfterMs(retryAfter) : undefined;
+    throw ToolError.rateLimited(`Rate limited: ${nsid} — ${errorBody}`, retryMs);
+  }
+  if (response.status === 401 || response.status === 403) {
+    clearAuthCache(AUTH_CACHE_KEY);
+    throw ToolError.auth(`Auth error (${response.status}): ${errorBody}`);
+  }
+  if (response.status === 404) throw ToolError.notFound(`Not found: ${nsid} — ${errorBody}`);
+  if (response.status === 400 || response.status === 422)
+    throw ToolError.validation(`Validation error: ${nsid} — ${errorBody}`);
+  throw ToolError.internal(`API error (${response.status}): ${nsid} — ${errorBody}`);
+};
+
 // --- Shared XRPC caller ---
-// The PDS URL is cross-origin from bsky.app, so we use credentials:'omit'
-// with a Bearer token instead of credentials:'include' (session cookies).
-// fetchFromPage handles timeout, network errors, and httpStatusToToolError.
 
 const xrpc = async <T>(nsid: string, options: XrpcOptions = {}): Promise<T> => {
   const session = getSession();
   if (!session) throw ToolError.auth('Not authenticated — please log in to Bluesky.');
 
   const base = session.pdsUrl.endsWith('/') ? session.pdsUrl : `${session.pdsUrl}/`;
-  const qs = options.query ? buildQueryString(options.query) : '';
+  let qs = '';
+  if (options.query) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(options.query)) {
+      if (value === undefined) continue;
+      if (Array.isArray(value)) {
+        for (const item of value) params.append(key, item);
+      } else {
+        params.append(key, String(value));
+      }
+    }
+    qs = params.toString();
+  }
   const url = qs ? `${base}xrpc/${nsid}?${qs}` : `${base}xrpc/${nsid}`;
 
   const headers: Record<string, string> = {
@@ -97,27 +158,25 @@ const xrpc = async <T>(nsid: string, options: XrpcOptions = {}): Promise<T> => {
     ...options.extraHeaders,
   };
 
-  let body: string | undefined;
+  let fetchBody: string | undefined;
   if (options.body) {
     headers['Content-Type'] = 'application/json';
-    body = JSON.stringify(options.body);
+    fetchBody = JSON.stringify(options.body);
   }
 
   let response: Response;
   try {
-    response = await fetchFromPage(url, {
+    response = await fetch(url, {
       method: options.method ?? 'GET',
       headers,
-      body,
-      credentials: 'omit',
+      body: fetchBody,
+      signal: AbortSignal.timeout(30_000),
     });
   } catch (err: unknown) {
-    // Clear auth cache on auth errors so token is re-read from localStorage
-    if (err instanceof ToolError && err.category === 'auth') {
-      clearAuthCache(AUTH_CACHE_KEY);
-    }
-    throw err;
+    return handleFetchError(err, nsid);
   }
+
+  if (!response.ok) return handleResponseError(response, nsid);
 
   if (response.status === 204) return {} as T;
   const text = await response.text();
@@ -127,22 +186,15 @@ const xrpc = async <T>(nsid: string, options: XrpcOptions = {}): Promise<T> => {
 
 // --- Public API callers ---
 
+interface ApiOptions {
+  method?: string;
+  body?: Record<string, unknown>;
+  query?: Record<string, QueryValue>;
+}
+
 /** Calls an AT Protocol XRPC endpoint on the user's PDS. */
-export const api = <T>(
-  nsid: string,
-  options: {
-    method?: string;
-    body?: Record<string, unknown>;
-    query?: Record<string, string | number | boolean | undefined>;
-  } = {},
-): Promise<T> => xrpc<T>(nsid, options);
+export const api = <T>(nsid: string, options: ApiOptions = {}): Promise<T> => xrpc<T>(nsid, options);
 
 /** Calls a chat XRPC endpoint with the `atproto-proxy` header for chat operations. */
-export const chatApi = <T>(
-  nsid: string,
-  options: {
-    method?: string;
-    body?: Record<string, unknown>;
-    query?: Record<string, string | number | boolean | undefined>;
-  } = {},
-): Promise<T> => xrpc<T>(nsid, { ...options, extraHeaders: { 'atproto-proxy': 'did:web:api.bsky.chat#bsky_chat' } });
+export const chatApi = <T>(nsid: string, options: ApiOptions = {}): Promise<T> =>
+  xrpc<T>(nsid, { ...options, extraHeaders: { 'atproto-proxy': 'did:web:api.bsky.chat#bsky_chat' } });
