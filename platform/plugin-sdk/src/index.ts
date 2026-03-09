@@ -202,6 +202,7 @@ export {
   fetchJSONImpl,
   fetchText,
   httpStatusToToolError,
+  parseRateLimitHeader,
   parseRetryAfterMs,
   patchJSON,
   postForm,

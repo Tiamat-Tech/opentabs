@@ -58,6 +58,42 @@ export const parseRetryAfterMs = (value: string): number | undefined => {
   return undefined;
 };
 
+/**
+ * Checks multiple common rate limit header names and normalizes them to milliseconds.
+ * Checks in order: Retry-After, x-rate-limit-reset, x-ratelimit-reset, RateLimit-Reset.
+ */
+export const parseRateLimitHeader = (headers: Headers): number | undefined => {
+  // Standard Retry-After header (delta-seconds or HTTP-date)
+  const retryAfter = headers.get('Retry-After');
+  if (retryAfter !== null) return parseRetryAfterMs(retryAfter);
+
+  // X/Twitter: x-rate-limit-reset (Unix epoch in seconds)
+  const epochReset = headers.get('x-rate-limit-reset');
+  if (epochReset !== null) {
+    const epochMs = Number(epochReset) * 1000;
+    if (!Number.isNaN(epochMs)) {
+      const ms = epochMs - Date.now();
+      return ms > 0 ? ms : undefined;
+    }
+  }
+
+  // Reddit: x-ratelimit-reset (seconds until reset)
+  const deltaReset = headers.get('x-ratelimit-reset');
+  if (deltaReset !== null) {
+    const seconds = Number(deltaReset);
+    if (!Number.isNaN(seconds) && seconds > 0) return seconds * 1000;
+  }
+
+  // Generic RateLimit-Reset (seconds, per IETF draft)
+  const genericReset = headers.get('RateLimit-Reset');
+  if (genericReset !== null) {
+    const seconds = Number(genericReset);
+    if (!Number.isNaN(seconds) && seconds > 0) return seconds * 1000;
+  }
+
+  return undefined;
+};
+
 /** Filters out keys with undefined values from an object. Keeps null, 0, false, and empty string. */
 export const stripUndefined = <T extends Record<string, unknown>>(obj: T): Partial<T> =>
   Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;

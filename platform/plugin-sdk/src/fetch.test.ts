@@ -8,6 +8,7 @@ import {
   deleteJSON,
   fetchFromPage,
   fetchJSON,
+  parseRateLimitHeader,
   parseRetryAfterMs,
   patchJSON,
   postForm,
@@ -924,6 +925,74 @@ describe('parseRetryAfterMs', () => {
   test('returns undefined for past HTTP-date', () => {
     const pastDate = new Date(Date.now() - 60_000).toUTCString();
     expect(parseRetryAfterMs(pastDate)).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseRateLimitHeader
+// ---------------------------------------------------------------------------
+
+describe('parseRateLimitHeader', () => {
+  test('parses standard Retry-After header (seconds)', () => {
+    const headers = new Headers({ 'Retry-After': '30' });
+    expect(parseRateLimitHeader(headers)).toBe(30_000);
+  });
+
+  test('parses standard Retry-After header (HTTP-date)', () => {
+    const futureDate = new Date(Date.now() + 60_000).toUTCString();
+    const headers = new Headers({ 'Retry-After': futureDate });
+    const result = parseRateLimitHeader(headers);
+    expect(result).toBeDefined();
+    expect(result).toBeGreaterThan(0);
+    expect(result).toBeLessThanOrEqual(60_000);
+  });
+
+  test('parses x-rate-limit-reset (epoch seconds, X/Twitter style)', () => {
+    const futureEpoch = String(Math.floor((Date.now() + 60_000) / 1000));
+    const headers = new Headers({ 'x-rate-limit-reset': futureEpoch });
+    const result = parseRateLimitHeader(headers);
+    expect(result).toBeDefined();
+    expect(result).toBeGreaterThan(0);
+    expect(result).toBeLessThanOrEqual(60_000);
+  });
+
+  test('returns undefined for x-rate-limit-reset in the past', () => {
+    const pastEpoch = String(Math.floor((Date.now() - 60_000) / 1000));
+    const headers = new Headers({ 'x-rate-limit-reset': pastEpoch });
+    expect(parseRateLimitHeader(headers)).toBeUndefined();
+  });
+
+  test('parses x-ratelimit-reset (seconds until reset, Reddit style)', () => {
+    const headers = new Headers({ 'x-ratelimit-reset': '45' });
+    expect(parseRateLimitHeader(headers)).toBe(45_000);
+  });
+
+  test('parses RateLimit-Reset (seconds, IETF draft)', () => {
+    const headers = new Headers({ 'RateLimit-Reset': '120' });
+    expect(parseRateLimitHeader(headers)).toBe(120_000);
+  });
+
+  test('returns undefined when no rate limit headers are present', () => {
+    const headers = new Headers({ 'Content-Type': 'application/json' });
+    expect(parseRateLimitHeader(headers)).toBeUndefined();
+  });
+
+  test('prefers Retry-After over other headers', () => {
+    const headers = new Headers({
+      'Retry-After': '10',
+      'x-ratelimit-reset': '60',
+    });
+    expect(parseRateLimitHeader(headers)).toBe(10_000);
+  });
+
+  test('returns undefined for x-rate-limit-reset with invalid value', () => {
+    const headers = new Headers({ 'x-rate-limit-reset': 'invalid' });
+    expect(parseRateLimitHeader(headers)).toBeUndefined();
+  });
+
+  test('returns undefined for x-ratelimit-reset with zero value', () => {
+    const headers = new Headers({ 'x-ratelimit-reset': '0' });
+    expect(parseRateLimitHeader(headers)).toBeUndefined();
   });
 });
 
