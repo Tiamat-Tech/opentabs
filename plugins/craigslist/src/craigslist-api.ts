@@ -1,11 +1,4 @@
-import {
-  ToolError,
-  buildQueryString,
-  getCookie,
-  fetchJSON,
-  parseRetryAfterMs,
-  waitUntil,
-} from '@opentabs-dev/plugin-sdk';
+import { ToolError, buildQueryString, getCookie, fetchFromPage, fetchJSON, waitUntil } from '@opentabs-dev/plugin-sdk';
 
 // --- Auth detection ---
 // Craigslist uses HttpOnly session cookies (`cl_session`) for API auth.
@@ -80,49 +73,11 @@ const callApi = async <T>(
   const headers: Record<string, string> = {};
   const method = options.method ?? 'GET';
 
-  const init: RequestInit = { method, headers };
-
-  if (options.body) {
-    if (typeof options.body === 'string') {
-      headers['Content-Type'] = options.contentType ?? 'application/json';
-      init.body = options.body;
-    } else {
-      // FormData — let the browser set Content-Type with boundary
-      init.body = options.body;
-    }
+  if (options.body && typeof options.body === 'string') {
+    headers['Content-Type'] = options.contentType ?? 'application/json';
   }
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      ...init,
-      credentials: 'include',
-      signal: AbortSignal.timeout(30_000),
-    });
-  } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'TimeoutError')
-      throw ToolError.timeout(`API request timed out: ${endpoint}`);
-    throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
-      category: 'internal',
-      retryable: true,
-    });
-  }
-
-  if (!response.ok) {
-    const errorBody = (await response.text().catch(() => '')).substring(0, 512);
-
-    if (response.status === 429) {
-      const retryAfter = response.headers.get('Retry-After');
-      const retryMs = retryAfter !== null ? parseRetryAfterMs(retryAfter) : undefined;
-      throw ToolError.rateLimited(`Rate limited: ${endpoint} — ${errorBody}`, retryMs);
-    }
-    if (response.status === 401 || response.status === 403)
-      throw ToolError.auth(`Auth error (${response.status}): ${errorBody}`);
-    if (response.status === 404) throw ToolError.notFound(`Not found: ${endpoint} — ${errorBody}`);
-    if (response.status === 400) throw ToolError.validation(`Bad request: ${endpoint} — ${errorBody}`);
-    throw ToolError.internal(`API error (${response.status}): ${endpoint} — ${errorBody}`);
-  }
-
+  const response = await fetchFromPage(url, { method, headers, body: options.body });
   if (response.status === 204) return {} as T;
   return (await response.json()) as T;
 };

@@ -1,4 +1,4 @@
-import { ToolError, parseRetryAfterMs, waitUntil } from '@opentabs-dev/plugin-sdk';
+import { ToolError, findLocalStorageEntry, parseRetryAfterMs, waitUntil } from '@opentabs-dev/plugin-sdk';
 
 // ---------------------------------------------------------------------------
 // MSAL token discovery
@@ -25,21 +25,17 @@ interface MsalAccessToken {
  * scope suffix in the key.
  */
 const findMsalToken = (scopeSuffix: string): MsalAccessToken | null => {
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key) continue;
-    if (key.includes(MSAL_CLIENT_ID) && key.endsWith(scopeSuffix)) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw) continue;
-        const parsed = JSON.parse(raw) as Record<string, unknown>;
-        if (typeof parsed.secret === 'string' && parsed.secret.length > 0) {
-          return parsed as unknown as MsalAccessToken;
-        }
-      } catch {
-        // Malformed entry — skip
-      }
+  const entry = findLocalStorageEntry(
+    (key) => key.includes(MSAL_CLIENT_ID) && key.endsWith(scopeSuffix),
+  );
+  if (!entry) return null;
+  try {
+    const parsed = JSON.parse(entry.value) as Record<string, unknown>;
+    if (typeof parsed.secret === 'string' && parsed.secret.length > 0) {
+      return parsed as unknown as MsalAccessToken;
     }
+  } catch {
+    // Malformed entry
   }
   return null;
 };
