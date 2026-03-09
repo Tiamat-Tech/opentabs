@@ -718,6 +718,43 @@ Plugin code serves as a learning reference for other agents and developers. Ever
 - **Consistent structure across tools** — every list tool returns `{ items, has_more, quota_remaining }`, every get tool returns `{ item }`, every search tool returns `{ results, has_more, quota_remaining }`. Structural consistency makes the plugin predictable.
 - **Import only what you use** — no `import type { SEResponse }` if the tool never references that type directly
 
+### Schema and Mapper Pattern
+
+Every plugin must co-locate three things in `src/tools/schemas.ts` for each API entity:
+
+1. **Zod output schema** — the clean shape returned to the AI agent
+2. **Raw interface** — all fields optional, matching the actual API response shape
+3. **Defensive mapper** — converts raw to clean with `?? defaultValue` for every field
+
+```typescript
+// src/tools/schemas.ts
+import { z } from 'zod';
+
+export const userSchema = z.object({
+  id: z.string().describe('User ID'),
+  name: z.string().describe('Display name'),
+  email: z.string().describe('Email address'),
+});
+
+export interface RawUser {
+  id?: string;
+  name?: string;
+  email?: string;
+}
+
+export const mapUser = (u: RawUser) => ({
+  id: u.id ?? '',
+  name: u.name ?? '',
+  email: u.email ?? '',
+});
+```
+
+**Rules:**
+- Raw interfaces have ALL fields optional — APIs change, and defensive mapping prevents crashes
+- Mappers use `??` not `||` — `??` preserves `0`, `false`, and `''` which are valid values
+- Shared schemas go in `schemas.ts` — never duplicate a schema across tool files
+- For request bodies with optional fields, use `stripUndefined(params)` from the SDK instead of manual `if (x !== undefined) body.x = x` chains
+
 ---
 
 ## Auth Patterns
