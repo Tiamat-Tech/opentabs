@@ -2,6 +2,7 @@ import {
   ToolError,
   findLocalStorageEntry,
   getLocalStorage,
+  getPageGlobal,
   parseRetryAfterMs,
   waitUntil,
 } from '@opentabs-dev/plugin-sdk';
@@ -116,13 +117,11 @@ const authFromBootData = (bd: SlackBootData | null | undefined): SlackAuth | nul
  */
 const getAuthFromBootData = (): SlackAuth | null => {
   try {
-    const g = globalThis as Record<string, unknown>;
-
     // 1. window.boot_data (SSR-injected by app.slack.com)
-    const directBoot = authFromBootData(g.boot_data as SlackBootData | undefined);
+    const directBoot = authFromBootData(getPageGlobal('boot_data') as SlackBootData | undefined);
     if (directBoot) return directBoot;
 
-    const ts = g.TS as SlackTSGlobal | undefined;
+    const ts = getPageGlobal('TS') as SlackTSGlobal | undefined;
     if (!ts) return null;
 
     // 2. window.TS.boot_data (classic client)
