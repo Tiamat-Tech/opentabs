@@ -885,6 +885,7 @@ For food ordering, e-commerce, or any transactional service, the standard flow i
 | localStorage scan | `findLocalStorageEntry(key => key.includes('auth'))` | Teams (MSAL), ClickHouse (Auth0) |
 | Webpack chunks | Custom extraction from `webpackChunk_*` | X (GraphQL operation hashes) |
 | XHR interception | Monkey-patch XMLHttpRequest | ClickUp (WebSocket JWT) |
+| Computed hash (SAPISIDHASH) | `getCookie('SAPISID')` + `crypto.subtle.digest` | YouTube (Google services) |
 
 **SDK utilities for auth detection (use these, never reimplement):**
 - `getCookie(name)` — read non-HttpOnly cookies (CSRF tokens, login indicators)
@@ -900,6 +901,9 @@ Apps using HttpOnly session cookies: SDK's `fetchJSON`/`postJSON` automatically 
 
 ### Bearer Tokens
 Extract from `getLocalStorage('auth_token')`, `getPageGlobal('__APP_STATE__.auth.token')`, or `getCookie('auth_token')`. **Always persist with `setAuthCache(pluginName, authObj)` to survive adapter re-injection** (module-level variables reset on extension reload). Clear with `clearAuthCache(pluginName)` on 401 to handle rotation.
+
+### Computed Hash Auth (SAPISIDHASH)
+Google services (YouTube, etc.) use SAPISIDHASH — a computed authorization header for write operations. The formula is `SAPISIDHASH <timestamp>_<SHA1(timestamp + " " + SAPISID + " " + origin)>` where SAPISID is a non-HttpOnly cookie. Read operations work with cookies alone; writes require this header. Extract the SAPISID cookie with `getCookie('SAPISID')`, compute the hash using `crypto.subtle.digest('SHA-1', ...)`, and send as `Authorization: SAPISIDHASH ...`. The API config (API key, context object, session index) is typically on a page global (e.g., `window.ytcfg.data_`).
 
 ### XHR/Fetch Interception
 For apps with internal RPC or obfuscated APIs: monkey-patch `XMLHttpRequest.prototype.open/setRequestHeader/send` at adapter load time to capture auth headers. Store on `globalThis`. Re-patch on each adapter load (avoid stale `if (installed) return` guards).
