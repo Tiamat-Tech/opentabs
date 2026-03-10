@@ -4,17 +4,17 @@ description: Report incremental progress during long-running tool operations so 
 lastUpdated: 2026-03-01
 ---
 
-Long-running tools — bulk exports, multi-page scrapes, slow API calls — risk timing out before they finish. Progress reporting solves this: your tool tells the platform "I'm still working" at each step, the dispatch timeout resets, and the AI agent sees live progress updates.
+Long-running tools — bulk exports, multi-page scrapes, slow API calls — will time out before they finish unless they tell the platform they're still alive. I spent a while getting the timeout design right, and progress reporting is what I landed on: your tool says "I'm still working" at each step, the dispatch timeout resets, and the AI agent sees live progress updates. It's simple, but the engineering tradeoffs behind it are worth understanding.
 
 ## The Timeout Problem
 
-Every tool dispatch has a **30-second timeout**. If your tool doesn't respond within 30 seconds, the platform kills the dispatch and returns a timeout error. For tools that process multiple items or call slow APIs, 30 seconds isn't enough.
+Every tool dispatch has a **30-second timeout**. I set it there because most tool calls should be fast — a single API call, a DOM read, maybe a quick calculation. If your tool doesn't respond within 30 seconds, the platform kills it and returns a timeout error. That's the right default for most tools. But for tools that process multiple items or call slow APIs, 30 seconds isn't enough.
 
-Progress reporting extends this: each time your tool reports progress, the 30-second timer resets. A tool that reports progress at least once every 30 seconds can run for up to **5 minutes** (the absolute maximum).
+Progress reporting extends this: each time your tool reports progress, the 30-second timer resets. A tool that reports progress at least once every 30 seconds can run for up to **5 minutes**. I picked 5 minutes as the absolute ceiling because anything longer than that is usually a sign your tool should be broken into smaller steps — or that something has gone wrong and the tool is stuck. Five minutes is generous enough for real bulk operations without letting a broken tool run forever.
 
 ## Reporting Progress
 
-The `handle` function receives an optional second argument — a `ToolHandlerContext` with a `reportProgress` method:
+The `handle` function receives an optional second argument — a `ToolHandlerContext` with a `reportProgress` method. Here's what it looks like in practice:
 
 ```typescript
 import { defineTool, fetchJSON, ToolError } from '@opentabs-dev/plugin-sdk';
@@ -118,7 +118,7 @@ interface ProgressOptions {
 
 <ProgressFlow />
 
-When your tool calls `context.reportProgress()`, the notification travels through the platform:
+There are a lot of hops between your tool handler and the AI agent, I know. But each one exists for a reason — the browser's security model forces a specific path through content script boundaries and extension messaging. Here's the full chain:
 
 1. **Tool handler** calls `reportProgress()` in the page context
 2. **Adapter IIFE** fires a `CustomEvent` on `document` (MAIN world → ISOLATED world)
@@ -127,7 +127,7 @@ When your tool calls `context.reportProgress()`, the notification travels throug
 5. **MCP server** resets the dispatch timeout and emits `notifications/progress` to the MCP client
 6. **AI agent** (e.g., Claude) sees the progress update in real time
 
-Progress notifications are **fire-and-forget** — if any step in the chain fails, the tool result is unaffected. Your tool keeps running normally.
+The good news: you don't need to think about any of this. Progress notifications are **fire-and-forget** — if any step in the chain fails, your tool keeps running normally and the result is unaffected. The worst case is a missed progress update, which just means the timeout doesn't reset for that tick.
 
 ## Timeout Behavior
 
@@ -158,9 +158,11 @@ Progress notifications are **fire-and-forget** — if any step in the chain fail
   </Table.Body>
 </Table>
 
-Each `reportProgress` call resets a 30-second timer. As long as you report progress at least once every 30 seconds, the tool keeps running — up to the 5-minute absolute ceiling.
+The mental model is simple: each `reportProgress` call resets a 30-second timer. Keep reporting at least once every 30 seconds and your tool keeps running — up to the 5-minute ceiling. If you go silent for more than 30 seconds, the platform assumes you're stuck and kills the dispatch.
 
 ## When to Use Progress
+
+In practice, most tools don't need progress reporting. If your tool makes one API call and returns, the 30-second timeout is plenty. Here's when it matters:
 
 **Use progress when:**
 
@@ -175,7 +177,7 @@ Each `reportProgress` call resets a 30-second timer. As long as you report progr
 
 ## The `context` Parameter is Optional
 
-The `context` argument is injected by the adapter runtime — it's always present when your tool runs inside a browser tab. The parameter is typed as optional (`context?`) so tool handlers work in unit tests without mocking the adapter:
+I made the `context` parameter optional on purpose. It's always present when your tool runs inside a browser tab — the adapter runtime injects it. But I typed it as optional (`context?`) so your tool handlers work in unit tests without mocking the adapter. You just call your handler directly and `context` is `undefined`:
 
 ```typescript
 handle: async (params, context) => {
@@ -195,12 +197,14 @@ Always use `context?.reportProgress()` (optional chaining), never `context.repor
 
 ## MCP Client Integration
 
-Progress notifications are only forwarded to the MCP client if the client includes a `progressToken` in the tool call request's `_meta` field. If no `progressToken` is provided, the server still resets the timeout on progress — the tool runs longer — but no notifications are sent to the client.
+You generally don't need to think about this part. Progress notifications are only forwarded to the MCP client if the client includes a `progressToken` in the tool call request's `_meta` field. If no `progressToken` is provided, the server still resets the timeout on progress — your tool runs longer — but no notifications are sent to the client.
 
-Most MCP clients (including Claude) send `progressToken` automatically when calling tools.
+Most MCP clients (including Claude) send `progressToken` automatically, so this just works.
 
 ## Next Steps
 
-- [Plugin Development](/docs/guides/plugin-development) — full walkthrough of building a plugin
-- [Error Handling](/docs/guides/error-handling) — structured errors for intelligent retry
-- [SDK Reference: Tools](/docs/sdk/tools) — complete `defineTool` API reference
+If you're building a plugin that does bulk work, you'll probably want to pair progress reporting with structured errors — so the AI agent knows both how far you got and what went wrong if something fails mid-way:
+
+- [Plugin Development](/docs/guides/plugin-development) — the full walkthrough if you're starting from scratch
+- [Error Handling](/docs/guides/error-handling) — structured errors that tell the AI agent exactly what happened
+- [SDK Reference: Tools](/docs/sdk/tools) — complete `defineTool` API reference including all handler options
