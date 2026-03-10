@@ -32,7 +32,13 @@ import {
   updatePlugin,
 } from './plugin-management.js';
 import type { RegisteredPlugin, ServerState, TabMapping } from './state.js';
-import { DISPATCH_TIMEOUT_MS, getConfiguredToolPermission, MAX_DISPATCH_TIMEOUT_MS } from './state.js';
+import {
+  DISPATCH_TIMEOUT_MS,
+  getAnyConnection,
+  getConfiguredToolPermission,
+  getMergedTabMapping,
+  MAX_DISPATCH_TIMEOUT_MS,
+} from './state.js';
 import { version } from './version.js';
 
 /** Absolute path to the MCP server's package directory (parent of dist/) */
@@ -52,22 +58,25 @@ interface McpCallbacks {
 }
 
 /**
- * Send a JSON-serialized message to the extension WebSocket if connected.
- * Centralizes the null check on state.extensionWs so callers don't repeat it.
- * Returns true if the message was sent, false if the extension is not connected.
+ * Broadcast a JSON-serialized message to all connected extension WebSockets.
+ * Returns true if the message was sent to at least one connection.
  */
 const sendToExtension = (
   state: ServerState,
   msg: JsonRpcNotification | JsonRpcResult | JsonRpcRequest | JsonRpcError,
 ): boolean => {
-  if (!state.extensionWs) return false;
-  try {
-    state.extensionWs.send(JSON.stringify(msg));
-    return true;
-  } catch (err) {
-    log.warn('Failed to send to extension:', err);
-    return false;
+  if (state.extensionConnections.size === 0) return false;
+  let anySent = false;
+  const data = JSON.stringify(msg);
+  for (const conn of state.extensionConnections.values()) {
+    try {
+      conn.ws.send(data);
+      anySent = true;
+    } catch (err) {
+      log.warn(`Failed to send to connection ${conn.connectionId}:`, err);
+    }
   }
+  return anySent;
 };
 
 /**
@@ -216,25 +225,30 @@ const handleTabSyncAll = (state: ServerState, params: Record<string, unknown> | 
   const tabs = tabSyncParams.tabs;
   if (!tabs) return;
 
-  state.tabMapping.clear();
+  // Use the first connection's tabMapping as the target.
+  // US-004 will scope this per-connection using the sender WebSocket.
+  const conn = getAnyConnection(state);
+  if (!conn) return;
+
+  conn.tabMapping.clear();
   for (const [pluginName, mapping] of Object.entries(tabs)) {
-    state.tabMapping.set(pluginName, parseTabMapping(mapping as WireTabMapping));
+    conn.tabMapping.set(pluginName, parseTabMapping(mapping as WireTabMapping));
   }
 
   // Remove activeNetworkCaptures entries for tabs that are no longer present after the sync
   const syncedTabIds = new Set<number>();
-  for (const mapping of state.tabMapping.values()) {
+  for (const mapping of conn.tabMapping.values()) {
     for (const tab of mapping.tabs) {
       syncedTabIds.add(tab.tabId);
     }
   }
-  for (const tabId of state.activeNetworkCaptures) {
+  for (const tabId of conn.activeNetworkCaptures) {
     if (!syncedTabIds.has(tabId)) {
-      state.activeNetworkCaptures.delete(tabId);
+      conn.activeNetworkCaptures.delete(tabId);
     }
   }
 
-  log.info(`tab.syncAll received — ${state.tabMapping.size} plugin(s) mapped`);
+  log.info(`tab.syncAll received — ${conn.tabMapping.size} plugin(s) mapped`);
 };
 
 const handleTabStateChanged = (
@@ -281,16 +295,21 @@ const handleTabStateChanged = (
     tabs: Array.isArray(params.tabs) ? (params.tabs as WirePluginTabInfo[]) : [],
   };
 
-  const oldMapping = state.tabMapping.get(plugin);
-  const oldTabIds = new Set(oldMapping?.tabs.map(t => t.tabId) ?? []);
+  // Use the first connection's tabMapping as the target.
+  // US-004 will scope this per-connection using the sender WebSocket.
+  const conn = getAnyConnection(state);
+  if (!conn) return;
+
+  const oldMapping = conn.tabMapping.get(plugin);
+  const oldTabIds = new Set(oldMapping?.tabs.map((t: { tabId: number }) => t.tabId) ?? []);
   const newMapping = parseTabMapping(wire);
-  state.tabMapping.set(plugin, newMapping);
+  conn.tabMapping.set(plugin, newMapping);
   const newTabIdSet = new Set(newMapping.tabs.map(t => t.tabId));
 
   // Remove activeNetworkCaptures entries for tabs removed from this plugin's mapping
   for (const tabId of oldTabIds) {
     if (!newTabIdSet.has(tabId)) {
-      state.activeNetworkCaptures.delete(tabId);
+      conn.activeNetworkCaptures.delete(tabId);
     }
   }
 
@@ -308,10 +327,11 @@ const buildConfigStatePayload = (state: ServerState): ConfigStateResult => {
     state.outdatedPlugins.map(o => [o.name, { latestVersion: o.latestVersion, updateCommand: o.updateCommand }]),
   );
 
+  const mergedTabs = getMergedTabMapping(state);
   const plugins = Array.from(state.registry.plugins.values())
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(p => {
-      const tabInfo = state.tabMapping.get(p.name);
+      const tabInfo = mergedTabs.get(p.name);
       const update = p.npmPackageName ? outdatedByPkg.get(p.npmPackageName) : undefined;
       return {
         ...serializePluginForExtension(state, p),

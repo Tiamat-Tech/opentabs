@@ -380,7 +380,7 @@ const handlePluginToolCall = async (
 
   try {
     state.activeDispatches.set(pluginName, currentDispatches + 1);
-    if (!state.extensionWs) {
+    if (state.extensionConnections.size === 0) {
       success = false;
       return {
         content: [

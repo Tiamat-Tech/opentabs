@@ -407,7 +407,7 @@ describe('tools/call handler — concurrency and extension connection', () => {
     const state = createState();
     state.registry = buildRegistry([createPlugin('slack', ['send_message'])], []);
     state.pluginPermissions = { slack: { tools: { send_message: 'auto' } } };
-    // extensionWs is null by default in createState()
+    // extensionConnections is empty by default in createState()
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);
@@ -426,10 +426,15 @@ describe('tools/call handler — concurrency and extension connection', () => {
     const state = createState();
     state.registry = buildRegistry([createPlugin('slack', ['send_message'])], []);
     state.pluginPermissions = { slack: { tools: { send_message: 'auto' } } };
-    state.extensionWs = createAutoRejectWs(state, {
-      code: -32603,
-      message: 'internal error',
-    }) as unknown as typeof state.extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: createAutoRejectWs(state, {
+        code: -32603,
+        message: 'internal error',
+      }) as WsHandle,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);
@@ -444,9 +449,14 @@ describe('tools/call handler — concurrency and extension connection', () => {
     const state = createState();
     state.registry = buildRegistry([createPlugin('slack', ['send_message'])], []);
     state.pluginPermissions = { slack: { tools: { send_message: 'auto' } } };
-    state.extensionWs = createAutoResolveWs(state, {
-      output: { ok: true },
-    }) as unknown as typeof state.extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: createAutoResolveWs(state, {
+        output: { ok: true },
+      }) as WsHandle,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);
@@ -467,9 +477,14 @@ describe('tools/call handler — dispatch success and error codes', () => {
   });
 
   test('dispatch success returns sanitized output', async () => {
-    state.extensionWs = createAutoResolveWs(state, {
-      output: { messageId: 'msg123', text: 'hello' },
-    }) as unknown as typeof state.extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: createAutoResolveWs(state, {
+        output: { messageId: 'msg123', text: 'hello' },
+      }) as WsHandle,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);
@@ -486,10 +501,15 @@ describe('tools/call handler — dispatch success and error codes', () => {
   });
 
   test('DispatchError with code -32001 prefixes "Tab closed:"', async () => {
-    state.extensionWs = createAutoRejectWs(state, {
-      code: -32001,
-      message: 'the tab was closed',
-    }) as unknown as typeof state.extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: createAutoRejectWs(state, {
+        code: -32001,
+        message: 'the tab was closed',
+      }) as WsHandle,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);
@@ -505,10 +525,15 @@ describe('tools/call handler — dispatch success and error codes', () => {
   });
 
   test('DispatchError with code -32002 prefixes "Tab unavailable:"', async () => {
-    state.extensionWs = createAutoRejectWs(state, {
-      code: -32002,
-      message: 'slack not loaded',
-    }) as unknown as typeof state.extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: createAutoRejectWs(state, {
+        code: -32002,
+        message: 'slack not loaded',
+      }) as WsHandle,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);
@@ -524,11 +549,16 @@ describe('tools/call handler — dispatch success and error codes', () => {
   });
 
   test('DispatchError with data.code (ToolError) prefixes "[CODE]"', async () => {
-    state.extensionWs = createAutoRejectWs(state, {
-      code: -32000,
-      message: 'rate limited',
-      data: { code: 'RATE_LIMITED' },
-    }) as unknown as typeof state.extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: createAutoRejectWs(state, {
+        code: -32000,
+        message: 'rate limited',
+        data: { code: 'RATE_LIMITED' },
+      }) as WsHandle,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);
@@ -544,11 +574,16 @@ describe('tools/call handler — dispatch success and error codes', () => {
   });
 
   test('DispatchError with structured fields produces human-readable prefix and JSON block', async () => {
-    state.extensionWs = createAutoRejectWs(state, {
-      code: -32603,
-      message: 'Too many requests',
-      data: { code: 'RATE_LIMITED', retryable: true, retryAfterMs: 5000, category: 'rate_limit' },
-    }) as unknown as typeof state.extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: createAutoRejectWs(state, {
+        code: -32603,
+        message: 'Too many requests',
+        data: { code: 'RATE_LIMITED', retryable: true, retryAfterMs: 5000, category: 'rate_limit' },
+      }) as WsHandle,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);
@@ -580,11 +615,16 @@ describe('tools/call handler — dispatch success and error codes', () => {
   });
 
   test('DispatchError with partial structured fields omits undefined fields from output', async () => {
-    state.extensionWs = createAutoRejectWs(state, {
-      code: -32603,
-      message: 'Not authenticated',
-      data: { code: 'AUTH_ERROR', category: 'auth' },
-    }) as unknown as typeof state.extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: createAutoRejectWs(state, {
+        code: -32603,
+        message: 'Not authenticated',
+        data: { code: 'AUTH_ERROR', category: 'auth' },
+      }) as WsHandle,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);
@@ -612,11 +652,16 @@ describe('tools/call handler — dispatch success and error codes', () => {
   });
 
   test('DispatchError with retryable only (no category) produces structured output', async () => {
-    state.extensionWs = createAutoRejectWs(state, {
-      code: -32603,
-      message: 'Service overloaded',
-      data: { code: 'OVERLOADED', retryable: true },
-    }) as unknown as typeof state.extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: createAutoRejectWs(state, {
+        code: -32603,
+        message: 'Service overloaded',
+        data: { code: 'OVERLOADED', retryable: true },
+      }) as WsHandle,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);
@@ -641,11 +686,16 @@ describe('tools/call handler — dispatch success and error codes', () => {
   });
 
   test('DispatchError with only code (no structured fields) uses legacy [CODE] format', async () => {
-    state.extensionWs = createAutoRejectWs(state, {
-      code: -32603,
-      message: 'Something went wrong',
-      data: { code: 'SOME_ERROR' },
-    }) as unknown as typeof state.extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: createAutoRejectWs(state, {
+        code: -32603,
+        message: 'Something went wrong',
+        data: { code: 'SOME_ERROR' },
+      }) as WsHandle,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);
@@ -666,13 +716,17 @@ describe('tools/call handler — dispatch success and error codes', () => {
 
   test('generic dispatch error returns "Tool dispatch error:" with message', async () => {
     // Use a WS whose send() throws — dispatchToExtension wraps this as a generic Error
-    state.extensionWs = {
-      sent: [] as string[],
-      send() {
-        throw new Error('unexpected network error');
-      },
-      close() {},
-    } as unknown as typeof state.extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: {
+        send() {
+          throw new Error('unexpected network error');
+        },
+        close() {},
+      } as WsHandle,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);

@@ -35,8 +35,8 @@ import { createMcpServer, notifyToolListChanged } from './mcp-setup.js';
 import { performConfigReload } from './reload.js';
 import { sanitizeErrorMessage } from './sanitize-error.js';
 import { sdkVersion } from './sdk-version.js';
-import type { AuditEntry, ServerState } from './state.js';
-import { prefixedToolName, STATE_SCHEMA_VERSION } from './state.js';
+import type { AuditEntry, ExtensionConnection, ServerState } from './state.js';
+import { getMergedTabMapping, isExtensionConnected, prefixedToolName, STATE_SCHEMA_VERSION } from './state.js';
 import { version } from './version.js';
 
 /** Opaque HotState accessor — index.ts injects the getter */
@@ -271,7 +271,7 @@ const handleHealth = async (
   // Query the extension for live tab state when connected. Falls back to the
   // server's stale tabMapping cache on timeout (1s) or error.
   let liveTabStates: Record<string, { state: string; tabs: unknown[] }> | null = null;
-  if (state.extensionWs) {
+  if (isExtensionConnected(state)) {
     try {
       const result = (await queryExtension(state, 'extension.getTabState', {}, 1000)) as {
         tabStates?: Record<string, { state: string; tabs: unknown[] }>;
@@ -284,9 +284,10 @@ const handleHealth = async (
     }
   }
 
+  const mergedTabs = getMergedTabMapping(state);
   const pluginDetails = [...state.registry.plugins.values()].map(p => {
     const liveInfo = liveTabStates?.[p.name];
-    const tabInfo = liveInfo ?? state.tabMapping.get(p.name);
+    const tabInfo = liveInfo ?? mergedTabs.get(p.name);
     return {
       name: p.name,
       displayName: p.displayName,
@@ -324,7 +325,7 @@ const handleHealth = async (
       version,
       sdkVersion,
       mode: isDev() ? 'dev' : 'production',
-      extensionConnected: state.extensionWs !== null,
+      extensionConnected: isExtensionConnected(state),
       mcpClients: transports.size,
       plugins: state.registry.plugins.size,
       pluginDetails,
@@ -407,7 +408,7 @@ const handleExtensionReload = (req: Request, state: ServerState): Response => {
   if (!checkEndpointRateLimit(state, '/extension/reload', 10)) {
     return new Response('Too Many Requests', { status: 429, headers: { 'Retry-After': '60' } });
   }
-  if (!state.extensionWs) {
+  if (!isExtensionConnected(state)) {
     return Response.json({ ok: false, error: 'Extension not connected' }, { status: 503 });
   }
   sendExtensionReload(state);
@@ -634,31 +635,49 @@ const createHandleFetch =
 const createHandleWsOpen =
   (state: ServerState) =>
   (ws: WsHandle): void => {
-    const previousWs = state.extensionWs;
+    // Generate a connection ID. US-006 will parse it from the WebSocket subprotocol header.
+    const connectionId = crypto.randomUUID();
 
-    // Assign the new WS BEFORE closing the previous one. The close handler
-    // may fire synchronously during ws.close(), so if extensionWs
-    // still pointed at the old WS the close handler would see
-    // `state.extensionWs === ws` (true) and reject all pending dispatches
-    // with "Extension disconnected" — even though a new connection is
-    // already taking over.
-    log.info('Extension WebSocket connected');
-    state.extensionWs = ws;
-
-    if (previousWs && previousWs !== ws) {
-      log.info('Closing previous extension WebSocket (replaced by new connection)');
+    // If a connection with the same ID already exists, close the old one
+    const existing = state.extensionConnections.get(connectionId);
+    if (existing && existing.ws !== ws) {
+      log.info('Closing previous extension WebSocket (replaced by same-profile reconnect)');
       try {
-        previousWs.close(1000, 'Replaced by new connection');
+        existing.ws.close(1000, 'Replaced by same-profile reconnect');
       } catch {
         // Already closed
       }
     }
 
+    // For backwards compat: if there's only one connection and a new one arrives
+    // without a parsed connectionId, close the previous one (single-connection behavior)
+    if (state.extensionConnections.size === 1) {
+      const [existingId, existingConn] = state.extensionConnections.entries().next().value as [
+        string,
+        ExtensionConnection,
+      ];
+      if (existingConn.ws !== ws) {
+        log.info('Closing previous extension WebSocket (replaced by new connection)');
+        try {
+          existingConn.ws.close(1000, 'Replaced by new connection');
+        } catch {
+          // Already closed
+        }
+        state.extensionConnections.delete(existingId);
+      }
+    }
+
+    const conn: ExtensionConnection = {
+      ws,
+      connectionId,
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    };
+    state.extensionConnections.set(connectionId, conn);
+    log.info(`Extension WebSocket connected (connectionId: ${connectionId})`);
+
     void sendSyncFull(state)
       .then(() => {
-        // After sync.full completes, check if there's a pending extension reload
-        // (extension files were updated while extension was disconnected).
-        // The delay ensures sync.full is processed before the extension reloads.
         if (state.pendingExtensionReload) {
           state.pendingExtensionReload = false;
           log.info('Sending deferred extension reload (version was updated while extension was disconnected)');
@@ -686,23 +705,26 @@ const createHandleWsMessage =
 const createHandleWsClose =
   (state: ServerState) =>
   (ws: WsHandle): void => {
-    log.info('Extension WebSocket disconnected');
-    if (state.extensionWs === ws) {
-      state.extensionWs = null;
+    // Find which connection this ws belongs to
+    let closedConn: ExtensionConnection | undefined;
+    for (const [id, conn] of state.extensionConnections) {
+      if (conn.ws === ws) {
+        closedConn = conn;
+        state.extensionConnections.delete(id);
+        break;
+      }
+    }
 
-      // Clear network capture and tab mapping state — those sessions are gone
-      // when the extension disconnects and stale entries would cause dispatches
-      // to tabs that no longer exist.
-      state.activeNetworkCaptures.clear();
-      state.tabMapping.clear();
+    if (closedConn) {
+      log.info(`Extension WebSocket disconnected (connectionId: ${closedConn.connectionId})`);
 
-      // Reject all pending confirmations immediately so tool dispatch promises
-      // resolve with an error instead of hanging until confirmation timeout.
-      rejectAllPendingConfirmations(state);
+      // Reject all pending confirmations only if no connections remain
+      if (state.extensionConnections.size === 0) {
+        rejectAllPendingConfirmations(state);
+      }
 
-      // Reject all pending dispatches immediately so MCP clients get a fast
-      // error instead of hanging until the 30-second dispatch timeout fires.
-      if (state.pendingDispatches.size > 0) {
+      // Reject all pending dispatches — US-003 will scope this per-connection
+      if (state.pendingDispatches.size > 0 && state.extensionConnections.size === 0) {
         log.info(`Rejecting ${state.pendingDispatches.size} pending dispatch(es) due to extension disconnect`);
         for (const [id, pending] of state.pendingDispatches) {
           state.pendingDispatches.delete(id);
@@ -710,6 +732,8 @@ const createHandleWsClose =
           pending.reject(new Error('Extension disconnected'));
         }
       }
+    } else {
+      log.info('Extension WebSocket disconnected (unknown connection)');
     }
   };
 

@@ -10,7 +10,19 @@ vi.mock('../extension-protocol.js', () => ({
 }));
 
 const { exportHar } = await import('./export-har.js');
-const { createState } = await import('../state.js');
+const { createState, getAnyConnection } = await import('../state.js');
+
+/** Create a state with a mock connection pre-configured */
+const createConnectedState = () => {
+  const state = createState();
+  state.extensionConnections.set('test-conn', {
+    ws: { send() {}, close() {} },
+    connectionId: 'test-conn',
+    tabMapping: new Map(),
+    activeNetworkCaptures: new Set(),
+  });
+  return state;
+};
 
 describe('exportHar clear-after-fetch ordering', () => {
   beforeEach(() => {
@@ -18,8 +30,8 @@ describe('exportHar clear-after-fetch ordering', () => {
   });
 
   test('HTTP request buffer is not cleared when WebSocket frame fetch fails', async () => {
-    const state = createState();
-    state.activeNetworkCaptures.add(10);
+    const state = createConnectedState();
+    getAnyConnection(state)!.activeNetworkCaptures.add(10);
 
     const request = { url: 'https://example.com', method: 'GET', timestamp: 1000 };
     // First call: getNetworkRequests fetch (no clear) — succeeds
@@ -41,8 +53,8 @@ describe('exportHar clear-after-fetch ordering', () => {
   });
 
   test('both buffers are cleared after all fetches succeed when clear: true with WebSocket frames', async () => {
-    const state = createState();
-    state.activeNetworkCaptures.add(11);
+    const state = createConnectedState();
+    getAnyConnection(state)!.activeNetworkCaptures.add(11);
 
     const request = { url: 'https://example.com', method: 'GET', timestamp: 1000 };
     mockDispatchToExtension.mockResolvedValueOnce([request]); // getNetworkRequests fetch
@@ -70,8 +82,8 @@ describe('exportHar clear-after-fetch ordering', () => {
   });
 
   test('entries are not wiped when WebSocket clear fetch fails after HTTP clear succeeds', async () => {
-    const state = createState();
-    state.activeNetworkCaptures.add(13);
+    const state = createConnectedState();
+    getAnyConnection(state)!.activeNetworkCaptures.add(13);
 
     const request = { url: 'https://example.com', method: 'GET', timestamp: 1000 };
     const wsFrame = { url: 'wss://example.com', direction: 'received', data: 'hello', opcode: 1, timestamp: 2000 };
@@ -90,8 +102,8 @@ describe('exportHar clear-after-fetch ordering', () => {
   });
 
   test('HTTP buffer is cleared after fetch succeeds when clear: true without WebSocket frames', async () => {
-    const state = createState();
-    state.activeNetworkCaptures.add(12);
+    const state = createConnectedState();
+    getAnyConnection(state)!.activeNetworkCaptures.add(12);
 
     const request = { url: 'https://example.com', method: 'GET', timestamp: 1000 };
     mockDispatchToExtension.mockResolvedValueOnce([request]); // fetch without clear
@@ -116,8 +128,8 @@ describe('exportHar HAR body size fields', () => {
   });
 
   test('non-ASCII request and response bodies use byte length, not string length', async () => {
-    const state = createState();
-    state.activeNetworkCaptures.add(1);
+    const state = createConnectedState();
+    getAnyConnection(state)!.activeNetworkCaptures.add(1);
 
     // '😀' is 2 JS chars (surrogate pair) but 4 bytes in UTF-8
     const emoji = '😀';
@@ -150,8 +162,8 @@ describe('exportHar HAR body size fields', () => {
   });
 
   test('ASCII request and response bodies produce the same size as string.length', async () => {
-    const state = createState();
-    state.activeNetworkCaptures.add(2);
+    const state = createConnectedState();
+    getAnyConnection(state)!.activeNetworkCaptures.add(2);
 
     const ascii = 'hello world';
     expect(ascii.length).toBe(11);
@@ -183,8 +195,8 @@ describe('exportHar HAR body size fields', () => {
   });
 
   test('absent request body uses 0 and absent response body uses -1', async () => {
-    const state = createState();
-    state.activeNetworkCaptures.add(3);
+    const state = createConnectedState();
+    getAnyConnection(state)!.activeNetworkCaptures.add(3);
 
     const request = {
       url: 'https://example.com/api',

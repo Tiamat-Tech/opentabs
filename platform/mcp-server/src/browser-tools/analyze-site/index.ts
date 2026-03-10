@@ -9,6 +9,7 @@
 
 import { deleteExecFile, dispatchToExtension, writeExecFile } from '../../extension-protocol.js';
 import type { ServerState } from '../../state.js';
+import { getAnyConnection } from '../../state.js';
 import { validateDispatchResult } from '../dispatch-utils.js';
 import type { ApiAnalysis, ApiEndpoint, WsFrame } from './detect-apis.js';
 import { detectApis } from './detect-apis.js';
@@ -827,7 +828,7 @@ const analyzeSite = async (
       tabId,
       maxRequests: 200,
     });
-    state.activeNetworkCaptures.add(tabId);
+    getAnyConnection(state)?.activeNetworkCaptures.add(tabId);
 
     // Step 3: Navigate to the target URL — network capture is already active
     await dispatchToExtension(state, 'browser.navigateTab', { tabId, url });
@@ -1030,7 +1031,7 @@ const analyzeSite = async (
       } catch {
         // Best-effort cleanup — ignore errors
       }
-      state.activeNetworkCaptures.delete(tabId);
+      getAnyConnection(state)?.activeNetworkCaptures.delete(tabId);
       try {
         await dispatchToExtension(state, 'browser.closeTab', { tabId });
       } catch {

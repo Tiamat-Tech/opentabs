@@ -128,6 +128,16 @@ export interface TabMapping {
   tabs: PluginTabInfo[];
 }
 
+/** A single Chrome extension WebSocket connection (one per browser profile) */
+export interface ExtensionConnection {
+  ws: WsHandle;
+  connectionId: string;
+  /** Tab-to-plugin mapping for this connection */
+  tabMapping: Map<string, TabMapping>;
+  /** Tab IDs with active network capture for this connection */
+  activeNetworkCaptures: Set<number>;
+}
+
 /** Pending dispatch awaiting extension response (tool.dispatch or browser.*) */
 export interface PendingDispatch {
   resolve: (value: unknown) => void;
@@ -263,14 +273,12 @@ export interface ServerState {
   _schemaVersion: number;
   /** Immutable plugin registry — replaced atomically on each reload */
   registry: PluginRegistry;
-  /** Tab-to-plugin mapping from extension */
-  tabMapping: Map<string, TabMapping>;
+  /** Active extension WebSocket connections keyed by connection ID (one per browser profile) */
+  extensionConnections: Map<string, ExtensionConnection>;
   /** Local plugin paths from config */
   pluginPaths: string[];
   /** Pending tool dispatches keyed by JSON-RPC id */
   pendingDispatches: Map<string | number, PendingDispatch>;
-  /** Extension WebSocket connection (single connection) */
-  extensionWs: WsHandle | null;
   /** Outdated npm plugins detected on startup */
   outdatedPlugins: OutdatedPlugin[];
   /** Browser tools — updated on each hot reload so existing session handlers see fresh definitions */
@@ -308,14 +316,12 @@ export interface ServerState {
   endpointCallTimestamps: Map<string, number[]>;
   /** Whether the extension adapters/ directory has been created (cached to avoid repeated mkdir calls) */
   adaptersDirReady: boolean;
-  /** Set of tab IDs that currently have active network capture (browser_enable_network_capture called, not yet disabled) */
-  activeNetworkCaptures: Set<number>;
   /** In-memory review tokens: token string → ReviewToken. Lost on restart (intentional). */
   reviewTokens: Map<string, ReviewToken>;
 }
 
 /** Increment when changing the type of an existing ServerState field */
-export const STATE_SCHEMA_VERSION = 5;
+export const STATE_SCHEMA_VERSION = 6;
 
 /** Frozen empty registry for initializing ServerState */
 export const EMPTY_REGISTRY: PluginRegistry = Object.freeze({
@@ -327,15 +333,14 @@ export const EMPTY_REGISTRY: PluginRegistry = Object.freeze({
 /**
  * Creates a fresh ServerState with all fields initialized to their defaults.
  *
- * @returns A new ServerState instance with empty collections and no WebSocket connection.
+ * @returns A new ServerState instance with empty collections and no extension connections.
  */
 export const createState = (): ServerState => ({
   _schemaVersion: STATE_SCHEMA_VERSION,
   registry: EMPTY_REGISTRY,
-  tabMapping: new Map(),
+  extensionConnections: new Map(),
   pluginPaths: [],
   pendingDispatches: new Map(),
-  extensionWs: null,
   outdatedPlugins: [],
   browserTools: [],
   fileWatching: {
@@ -365,7 +370,6 @@ export const createState = (): ServerState => ({
   pendingExtensionReload: false,
   endpointCallTimestamps: new Map(),
   adaptersDirReady: false,
-  activeNetworkCaptures: new Set(),
   reviewTokens: new Map(),
 });
 
@@ -434,4 +438,52 @@ export const consumeReviewToken = (state: ServerState, token: string): void => {
   if (entry) {
     entry.used = true;
   }
+};
+
+/** Returns any active extension connection, or undefined if none exist */
+export const getAnyConnection = (state: ServerState): ExtensionConnection | undefined => {
+  if (state.extensionConnections.size === 0) return undefined;
+  return state.extensionConnections.values().next().value as ExtensionConnection;
+};
+
+/** Finds which connection owns a given tabId by scanning all connections' tabMappings */
+export const getConnectionForTab = (state: ServerState, tabId: number): ExtensionConnection | undefined => {
+  for (const conn of state.extensionConnections.values()) {
+    for (const mapping of conn.tabMapping.values()) {
+      if (mapping.tabs.some(t => t.tabId === tabId)) {
+        return conn;
+      }
+    }
+  }
+  return undefined;
+};
+
+/** Merges all connections' tabMappings into a single unified view.
+ *  When multiple connections have tabs for the same plugin, their tab arrays are merged. */
+export const getMergedTabMapping = (state: ServerState): Map<string, TabMapping> => {
+  const merged = new Map<string, TabMapping>();
+  for (const conn of state.extensionConnections.values()) {
+    for (const [pluginName, mapping] of conn.tabMapping) {
+      const existing = merged.get(pluginName);
+      if (existing) {
+        // Merge tabs from multiple connections for the same plugin
+        const mergedTabs = [...existing.tabs, ...mapping.tabs];
+        // Use the "most ready" state: ready > unavailable > closed
+        const bestState = pickBestTabState(existing.state, mapping.state);
+        merged.set(pluginName, { state: bestState, tabs: mergedTabs });
+      } else {
+        merged.set(pluginName, { state: mapping.state, tabs: [...mapping.tabs] });
+      }
+    }
+  }
+  return merged;
+};
+
+/** Returns true when at least one extension connection is active */
+export const isExtensionConnected = (state: ServerState): boolean => state.extensionConnections.size > 0;
+
+/** Picks the "most ready" tab state: ready > unavailable > closed */
+const pickBestTabState = (a: TabState, b: TabState): TabState => {
+  const rank: Record<TabState, number> = { ready: 2, unavailable: 1, closed: 0 };
+  return rank[a] >= rank[b] ? a : b;
 };

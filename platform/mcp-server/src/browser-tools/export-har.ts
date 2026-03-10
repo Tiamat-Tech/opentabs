@@ -8,6 +8,7 @@
 
 import { z } from 'zod';
 import { dispatchToExtension } from '../extension-protocol.js';
+import { getAnyConnection } from '../state.js';
 import { version } from '../version.js';
 import { defineBrowserTool } from './definition.js';
 import { validateDispatchResult } from './dispatch-utils.js';
@@ -196,7 +197,7 @@ const exportHar = defineBrowserTool({
       .describe('Include captured WebSocket frames as synthetic HAR entries — defaults to false'),
   }),
   handler: async (args, state) => {
-    if (!state.activeNetworkCaptures.has(args.tabId)) {
+    if (!getAnyConnection(state)?.activeNetworkCaptures.has(args.tabId)) {
       throw new Error(`Network capture is not active on tab ${args.tabId}. Call browser_enable_network_capture first.`);
     }
 

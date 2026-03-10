@@ -5,6 +5,7 @@ import {
   EMPTY_REGISTRY,
   generateReviewToken,
   getConfiguredToolPermission,
+  getMergedTabMapping,
   getNextRequestId,
   getToolPermission,
   prefixedToolName,
@@ -20,12 +21,13 @@ describe('createState', () => {
     expect(state._schemaVersion).toBe(STATE_SCHEMA_VERSION);
     expect(state.registry.plugins).toBeInstanceOf(Map);
     expect(state.registry.plugins.size).toBe(0);
-    expect(state.tabMapping).toBeInstanceOf(Map);
-    expect(state.tabMapping.size).toBe(0);
+    expect(getMergedTabMapping(state)).toBeInstanceOf(Map);
+    expect(getMergedTabMapping(state).size).toBe(0);
     expect(state.pluginPaths).toEqual([]);
     expect(state.pendingDispatches).toBeInstanceOf(Map);
     expect(state.pendingDispatches.size).toBe(0);
-    expect(state.extensionWs).toBeNull();
+    expect(state.extensionConnections).toBeInstanceOf(Map);
+    expect(state.extensionConnections.size).toBe(0);
     expect(state.outdatedPlugins).toEqual([]);
     expect(state.browserTools).toEqual([]);
     expect(state.fileWatching.entries).toEqual([]);
@@ -48,7 +50,7 @@ describe('createState', () => {
     const b = createState();
 
     expect(a).not.toBe(b);
-    expect(a.tabMapping).not.toBe(b.tabMapping);
+    expect(a.extensionConnections).not.toBe(b.extensionConnections);
     expect(a.pendingDispatches).not.toBe(b.pendingDispatches);
   });
 });

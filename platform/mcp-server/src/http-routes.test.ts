@@ -11,7 +11,7 @@ import {
 import type { McpServerInstance } from './mcp-setup.js';
 import { buildRegistry } from './registry.js';
 import type { PendingDispatch } from './state.js';
-import { createState, STATE_SCHEMA_VERSION } from './state.js';
+import { createState, getAnyConnection, getMergedTabMapping, STATE_SCHEMA_VERSION } from './state.js';
 import { version } from './version.js';
 
 /** Create a minimal mock McpServerInstance */
@@ -326,7 +326,13 @@ describe('/health endpoint', () => {
       ],
       [],
     );
-    state.tabMapping.set('test-plugin', {
+    state.extensionConnections.set('test-conn', {
+      ws: { send() {}, close() {} },
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
+    getAnyConnection(state)!.tabMapping.set('test-plugin', {
       state: 'ready',
       tabs: [{ tabId: 1, url: 'https://example.com', title: 'Example', ready: true }],
     });
@@ -600,20 +606,30 @@ const createMockWsHandle = (): WsHandle & { sent: string[]; closed: boolean } =>
 });
 
 describe('wsClose handler', () => {
-  test('matching ws sets extensionWs to null', () => {
+  test('matching ws removes the connection from extensionConnections', () => {
     const { handlers, state } = createTestHandlers();
     const ws = createMockWsHandle();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handlers.wsClose(ws);
 
-    expect(state.extensionWs).toBeNull();
+    expect(state.extensionConnections.size).toBe(0);
   });
 
   test('matching ws rejects all pending dispatches with "Extension disconnected"', () => {
     const { handlers, state } = createTestHandlers();
     const ws = createMockWsHandle();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const errors: Error[] = [];
     const pending1: PendingDispatch = {
@@ -648,7 +664,12 @@ describe('wsClose handler', () => {
   test('matching ws clears timeout timers for all pending dispatches', () => {
     const { handlers, state } = createTestHandlers();
     const ws = createMockWsHandle();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let timerFired = false;
     const timerId = setTimeout(() => {
@@ -678,7 +699,12 @@ describe('wsClose handler', () => {
     const { handlers, state } = createTestHandlers();
     const currentWs = createMockWsHandle();
     const staleWs = createMockWsHandle();
-    state.extensionWs = currentWs;
+    state.extensionConnections.set('test-conn', {
+      ws: currentWs,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const errors: Error[] = [];
     const pending: PendingDispatch = {
@@ -695,7 +721,8 @@ describe('wsClose handler', () => {
     handlers.wsClose(staleWs);
 
     // State should be unchanged — stale close is ignored
-    expect(state.extensionWs).toBe(currentWs);
+    expect(state.extensionConnections.size).toBe(1);
+    expect(getAnyConnection(state)?.ws).toBe(currentWs);
     expect(state.pendingDispatches.size).toBe(1);
     expect(errors).toHaveLength(0);
 
@@ -706,81 +733,105 @@ describe('wsClose handler', () => {
   test('matching ws with no pending dispatches is a no-op (no throw)', () => {
     const { handlers, state } = createTestHandlers();
     const ws = createMockWsHandle();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     expect(() => handlers.wsClose(ws)).not.toThrow();
-    expect(state.extensionWs).toBeNull();
+    expect(state.extensionConnections.size).toBe(0);
     expect(state.pendingDispatches.size).toBe(0);
   });
 
   test('matching ws clears activeNetworkCaptures and tabMapping', () => {
     const { handlers, state } = createTestHandlers();
     const ws = createMockWsHandle();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
-    state.activeNetworkCaptures.add(1);
-    state.activeNetworkCaptures.add(2);
-    state.tabMapping.set('plugin-a', {
+    getAnyConnection(state)!.activeNetworkCaptures.add(1);
+    getAnyConnection(state)!.activeNetworkCaptures.add(2);
+    getAnyConnection(state)!.tabMapping.set('plugin-a', {
       state: 'ready',
       tabs: [{ tabId: 1, url: 'https://example.com', title: 'Example', ready: true }],
     });
-    state.tabMapping.set('plugin-b', { state: 'unavailable', tabs: [] });
+    getAnyConnection(state)!.tabMapping.set('plugin-b', { state: 'unavailable', tabs: [] });
 
     handlers.wsClose(ws);
 
-    expect(state.activeNetworkCaptures.size).toBe(0);
-    expect(state.tabMapping.size).toBe(0);
+    // Connection removed — no more connections
+    expect(state.extensionConnections.size).toBe(0);
+    expect(getMergedTabMapping(state).size).toBe(0);
   });
 });
 
 describe('wsOpen handler', () => {
-  test('assigns new ws to state.extensionWs', () => {
+  test('adds new connection to extensionConnections', () => {
     const { handlers, state } = createTestHandlers();
     const ws = createMockWsHandle();
 
     handlers.wsOpen(ws);
 
-    expect(state.extensionWs).toBe(ws);
+    expect(state.extensionConnections.size).toBe(1);
+    expect(getAnyConnection(state)?.ws).toBe(ws);
   });
 
   test('closes previous ws when replaced by a new connection', () => {
     const { handlers, state } = createTestHandlers();
     const oldWs = createMockWsHandle();
     const newWs = createMockWsHandle();
-    state.extensionWs = oldWs;
+    state.extensionConnections.set('test-conn', {
+      ws: oldWs,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handlers.wsOpen(newWs);
 
-    expect(state.extensionWs).toBe(newWs);
+    expect(state.extensionConnections.size).toBe(1);
+    expect(getAnyConnection(state)?.ws).toBe(newWs);
     expect(oldWs.closed).toBe(true);
   });
 
-  test('new ws is assigned BEFORE previous ws is closed (ordering test)', () => {
+  test('old ws is closed when replaced by new connection', () => {
     const { handlers, state } = createTestHandlers();
-    const capture = { ws: null as WsHandle | null };
+    let closeCalled = false;
     const oldWs: WsHandle = {
       send() {},
       close() {
-        // Capture what state.extensionWs points to at the moment close() is called
-        capture.ws = state.extensionWs;
+        closeCalled = true;
       },
     };
     const newWs = createMockWsHandle();
-    state.extensionWs = oldWs;
+    state.extensionConnections.set('test-conn', {
+      ws: oldWs,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handlers.wsOpen(newWs);
 
-    // extensionWs should already point to newWs when oldWs.close() was called
-    expect(capture.ws).toBe(newWs);
+    expect(closeCalled).toBe(true);
+    expect(state.extensionConnections.size).toBe(1);
+    expect(getAnyConnection(state)?.ws).toBe(newWs);
   });
 
   test('no previous connection works without error', () => {
     const { handlers, state } = createTestHandlers();
     const ws = createMockWsHandle();
-    // extensionWs is null by default
+    // extensionConnections is empty by default
 
     expect(() => handlers.wsOpen(ws)).not.toThrow();
-    expect(state.extensionWs).toBe(ws);
+    expect(state.extensionConnections.size).toBe(1);
+    expect(getAnyConnection(state)?.ws).toBe(ws);
   });
 });
 

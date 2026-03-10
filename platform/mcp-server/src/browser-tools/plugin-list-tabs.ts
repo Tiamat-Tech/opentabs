@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { getMergedTabMapping } from '../state.js';
 import { defineBrowserTool } from './definition.js';
 
 const pluginListTabs = defineBrowserTool({
@@ -27,6 +28,7 @@ const pluginListTabs = defineBrowserTool({
   }),
   handler: (_args, state) => {
     const { plugin } = _args;
+    const mergedTabs = getMergedTabMapping(state);
 
     if (plugin !== undefined) {
       const registered = state.registry.plugins.get(plugin);
@@ -36,7 +38,7 @@ const pluginListTabs = defineBrowserTool({
         });
       }
 
-      const mapping = state.tabMapping.get(plugin);
+      const mapping = mergedTabs.get(plugin);
       return Promise.resolve([
         {
           plugin,
@@ -55,7 +57,7 @@ const pluginListTabs = defineBrowserTool({
     }> = [];
 
     for (const registered of state.registry.plugins.values()) {
-      const mapping = state.tabMapping.get(registered.name);
+      const mapping = mergedTabs.get(registered.name);
       results.push({
         plugin: registered.name,
         displayName: registered.displayName,

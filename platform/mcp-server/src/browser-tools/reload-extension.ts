@@ -20,12 +20,20 @@ const reloadExtension = defineBrowserTool({
   group: 'Extension',
   input: z.object({}),
   handler: (_args, state) => {
-    if (!state.extensionWs) {
+    if (state.extensionConnections.size === 0) {
       return Promise.resolve({ ok: false, error: 'Extension not connected' });
     }
-    try {
-      state.extensionWs.send(JSON.stringify({ jsonrpc: '2.0', method: 'extension.reload' }));
-    } catch {
+    const data = JSON.stringify({ jsonrpc: '2.0', method: 'extension.reload' });
+    let anySent = false;
+    for (const conn of state.extensionConnections.values()) {
+      try {
+        conn.ws.send(data);
+        anySent = true;
+      } catch {
+        // Connection may be disconnecting
+      }
+    }
+    if (!anySent) {
       return Promise.resolve({
         ok: false,
         error: 'Failed to send reload signal — extension may be disconnecting',

@@ -14,7 +14,7 @@ import {
 } from './extension-handlers.js';
 import { clearAllLogs, getLogs } from './log-buffer.js';
 import type { PendingConfirmation, PendingDispatch, RegisteredPlugin } from './state.js';
-import { createState, DISPATCH_TIMEOUT_MS, MAX_DISPATCH_TIMEOUT_MS } from './state.js';
+import { createState, DISPATCH_TIMEOUT_MS, getAnyConnection, MAX_DISPATCH_TIMEOUT_MS } from './state.js';
 
 vi.mock('./plugin-management.js', () => ({
   searchNpmPlugins: vi.fn().mockResolvedValue([]),
@@ -542,7 +542,12 @@ describe('handleConfigGetState', () => {
   test('includes browserTools in the result', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.cachedBrowserTools = [
       { name: 'browser_list_tabs', description: 'List all open browser tabs', inputSchema: {}, tool: null as never },
       { name: 'browser_screenshot', description: 'Capture a screenshot', inputSchema: {}, tool: null as never },
@@ -570,7 +575,12 @@ describe('handleConfigGetState', () => {
   test('browser tools are sorted alphabetically by name', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.cachedBrowserTools = [
       { name: 'browser_screenshot', description: 'Screenshot', inputSchema: {}, tool: null as never },
       { name: 'browser_click', description: 'Click', inputSchema: {}, tool: null as never },
@@ -592,7 +602,12 @@ describe('handleConfigGetState', () => {
   test('browser tool disabled in browserToolPolicy has permission: off', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.cachedBrowserTools = [
       { name: 'browser_list_tabs', description: 'List tabs', inputSchema: {}, tool: null as never },
       { name: 'browser_screenshot', description: 'Screenshot', inputSchema: {}, tool: null as never },
@@ -613,7 +628,12 @@ describe('handleConfigGetState', () => {
   test('empty cachedBrowserTools returns empty browserTools array', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleConfigGetState(state, 'req-4');
 
@@ -626,7 +646,12 @@ describe('handleConfigGetState', () => {
   test('includes serverVersion in the result', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleConfigGetState(state, 'req-5');
 
@@ -666,7 +691,12 @@ describe('handleConfigSetToolPermission', () => {
   test('sets plugin tool permission and returns { ok: true }', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin', ['do_thing']);
     state.registry = {
       ...state.registry,
@@ -704,7 +734,12 @@ describe('handleConfigSetToolPermission', () => {
   test('sets browser tool permission with plugin=browser', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.cachedBrowserTools = [
       { name: 'browser_list_tabs', description: 'List tabs', inputSchema: {}, tool: null as never },
     ];
@@ -725,7 +760,12 @@ describe('handleConfigSetToolPermission', () => {
   test('calls onToolConfigChanged and onPluginPermissionsPersist', () => {
     const state = createState();
     const { ws } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin', ['do_thing']);
     state.registry = {
       ...state.registry,
@@ -757,7 +797,12 @@ describe('handleConfigSetToolPermission', () => {
   test('unknown plugin returns error', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleConfigSetToolPermission(
       state,
@@ -775,7 +820,12 @@ describe('handleConfigSetToolPermission', () => {
   test('unknown tool returns error', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin', ['do_thing']);
     state.registry = {
       ...state.registry,
@@ -798,7 +848,12 @@ describe('handleConfigSetToolPermission', () => {
   test('unknown browser tool returns error', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.cachedBrowserTools = [
       { name: 'browser_list_tabs', description: 'List tabs', inputSchema: {}, tool: null as never },
     ];
@@ -819,7 +874,12 @@ describe('handleConfigSetToolPermission', () => {
   test('invalid permission value returns error', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin', ['do_thing']);
     state.registry = {
       ...state.registry,
@@ -842,7 +902,12 @@ describe('handleConfigSetToolPermission', () => {
   test('missing params returns error', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleConfigSetToolPermission(state, undefined, 'req-8', noopCallbacks);
 
@@ -855,7 +920,12 @@ describe('handleConfigSetToolPermission', () => {
   test('invalid param types return error', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleConfigSetToolPermission(state, { plugin: 123, tool: 'do_thing', permission: 'yes' }, 'req-9', noopCallbacks);
 
@@ -868,7 +938,12 @@ describe('handleConfigSetToolPermission', () => {
   test('removes per-tool override when permission matches plugin default', () => {
     const state = createState();
     const { ws } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin', ['do_thing']);
     state.registry = {
       ...state.registry,
@@ -892,7 +967,12 @@ describe('handleConfigSetToolPermission', () => {
   test('creates per-tool override when permission differs from plugin default', () => {
     const state = createState();
     const { ws } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin', ['do_thing']);
     state.registry = {
       ...state.registry,
@@ -914,7 +994,12 @@ describe('handleConfigSetToolPermission', () => {
   test('removes tools map entirely when last override is cleaned up', () => {
     const state = createState();
     const { ws } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin', ['do_thing']);
     state.registry = {
       ...state.registry,
@@ -937,7 +1022,12 @@ describe('handleConfigSetToolPermission', () => {
   test('removes browser tool override when permission matches browser plugin default', () => {
     const state = createState();
     const { ws } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.cachedBrowserTools = [
       { name: 'browser_list_tabs', description: 'List tabs', inputSchema: {}, tool: null as never },
     ];
@@ -983,7 +1073,12 @@ describe('handleConfigSetPluginPermission', () => {
   test('sets plugin-level permission and sends plugins.changed', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin', ['tool_a', 'tool_b']);
     state.registry = {
       ...state.registry,
@@ -1008,7 +1103,12 @@ describe('handleConfigSetPluginPermission', () => {
   test('sets browser plugin-level permission with plugin=browser', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleConfigSetPluginPermission(state, { plugin: 'browser', permission: 'off' }, 'req-2', noopCallbacks);
 
@@ -1021,7 +1121,12 @@ describe('handleConfigSetPluginPermission', () => {
   test('clears per-tool overrides when plugin-level permission changes', () => {
     const state = createState();
     const { ws } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin', ['tool_a', 'tool_b']);
     state.registry = {
       ...state.registry,
@@ -1042,7 +1147,12 @@ describe('handleConfigSetPluginPermission', () => {
   test('clears browser per-tool overrides when browser plugin-level permission changes', () => {
     const state = createState();
     const { ws } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.pluginPermissions = {
       browser: { permission: 'ask', tools: { browser_screenshot_tab: 'off' } },
     };
@@ -1061,7 +1171,12 @@ describe('handleConfigSetPluginPermission', () => {
   test('preserves reviewedVersion when clearing per-tool overrides', () => {
     const state = createState();
     const { ws } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin', ['tool_a']);
     state.registry = {
       ...state.registry,
@@ -1081,7 +1196,12 @@ describe('handleConfigSetPluginPermission', () => {
   test('calls onToolConfigChanged and onPluginPermissionsPersist', () => {
     const state = createState();
     const { ws } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin', ['tool_a']);
     state.registry = {
       ...state.registry,
@@ -1108,7 +1228,12 @@ describe('handleConfigSetPluginPermission', () => {
   test('unknown plugin returns error', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleConfigSetPluginPermission(state, { plugin: 'nonexistent', permission: 'off' }, 'req-4', noopCallbacks);
 
@@ -1121,7 +1246,12 @@ describe('handleConfigSetPluginPermission', () => {
   test('invalid permission value returns error', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const plugin = makePlugin('test-plugin');
     state.registry = {
       ...state.registry,
@@ -1139,7 +1269,12 @@ describe('handleConfigSetPluginPermission', () => {
   test('missing params returns error', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleConfigSetPluginPermission(state, undefined, 'req-6', noopCallbacks);
 
@@ -1152,7 +1287,12 @@ describe('handleConfigSetPluginPermission', () => {
   test('invalid param types return error', () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleConfigSetPluginPermission(state, { plugin: 123, permission: 'yes' }, 'req-7', noopCallbacks);
 
@@ -1166,10 +1306,16 @@ describe('handleConfigSetPluginPermission', () => {
 describe('handleTabSyncAll — activeNetworkCaptures cleanup', () => {
   test('removes stale activeNetworkCaptures entries for tabs absent from sync', () => {
     const state = createState();
+    state.extensionConnections.set('test-conn', {
+      ws: { send() {}, close() {} },
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     // Tab 1 and 2 had active captures before the sync
-    state.activeNetworkCaptures.add(1);
-    state.activeNetworkCaptures.add(2);
-    state.activeNetworkCaptures.add(3);
+    getAnyConnection(state)!.activeNetworkCaptures.add(1);
+    getAnyConnection(state)!.activeNetworkCaptures.add(2);
+    getAnyConnection(state)!.activeNetworkCaptures.add(3);
 
     // Sync arrives: only tab 2 is still present
     handleTabSyncAll(state, {
@@ -1178,24 +1324,36 @@ describe('handleTabSyncAll — activeNetworkCaptures cleanup', () => {
       },
     });
 
-    expect(state.activeNetworkCaptures.has(1)).toBe(false);
-    expect(state.activeNetworkCaptures.has(2)).toBe(true);
-    expect(state.activeNetworkCaptures.has(3)).toBe(false);
+    expect(getAnyConnection(state)!.activeNetworkCaptures.has(1)).toBe(false);
+    expect(getAnyConnection(state)!.activeNetworkCaptures.has(2)).toBe(true);
+    expect(getAnyConnection(state)!.activeNetworkCaptures.has(3)).toBe(false);
   });
 
   test('clears all activeNetworkCaptures when sync has no tabs', () => {
     const state = createState();
-    state.activeNetworkCaptures.add(10);
-    state.activeNetworkCaptures.add(20);
+    state.extensionConnections.set('test-conn', {
+      ws: { send() {}, close() {} },
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
+    getAnyConnection(state)!.activeNetworkCaptures.add(10);
+    getAnyConnection(state)!.activeNetworkCaptures.add(20);
 
     handleTabSyncAll(state, { tabs: {} });
 
-    expect(state.activeNetworkCaptures.size).toBe(0);
+    expect(getAnyConnection(state)!.activeNetworkCaptures.size).toBe(0);
   });
 
   test('retains activeNetworkCaptures entries for tabs still present after sync', () => {
     const state = createState();
-    state.activeNetworkCaptures.add(5);
+    state.extensionConnections.set('test-conn', {
+      ws: { send() {}, close() {} },
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
+    getAnyConnection(state)!.activeNetworkCaptures.add(5);
 
     handleTabSyncAll(state, {
       tabs: {
@@ -1203,32 +1361,40 @@ describe('handleTabSyncAll — activeNetworkCaptures cleanup', () => {
       },
     });
 
-    expect(state.activeNetworkCaptures.has(5)).toBe(true);
+    expect(getAnyConnection(state)!.activeNetworkCaptures.has(5)).toBe(true);
   });
 });
 
 describe('handleTabStateChanged — activeNetworkCaptures cleanup', () => {
-  /** Set up a minimal registry with a given plugin name */
+  /** Set up a minimal registry with a given plugin name, and ensure a connection exists */
   const withPlugin = (state: ReturnType<typeof createState>, pluginName: string) => {
     state.registry = {
       ...state.registry,
       plugins: new Map([[pluginName, {} as RegisteredPlugin]]) as ReadonlyMap<string, RegisteredPlugin>,
     };
+    if (state.extensionConnections.size === 0) {
+      state.extensionConnections.set('test-conn', {
+        ws: { send() {}, close() {} },
+        connectionId: 'test-conn',
+        tabMapping: new Map(),
+        activeNetworkCaptures: new Set(),
+      });
+    }
   };
 
   test('removes activeNetworkCaptures entry when a tab is removed from the plugin mapping', () => {
     const state = createState();
     withPlugin(state, 'slack');
     // Plugin currently has tabs 10 and 11, both with active captures
-    state.tabMapping.set('slack', {
+    getAnyConnection(state)!.tabMapping.set('slack', {
       state: 'ready',
       tabs: [
         { tabId: 10, url: 'https://app.slack.com', title: 'Slack', ready: true },
         { tabId: 11, url: 'https://app.slack.com', title: 'Slack', ready: true },
       ],
     });
-    state.activeNetworkCaptures.add(10);
-    state.activeNetworkCaptures.add(11);
+    getAnyConnection(state)!.activeNetworkCaptures.add(10);
+    getAnyConnection(state)!.activeNetworkCaptures.add(11);
 
     // State change arrives: only tab 10 remains
     handleTabStateChanged(state, {
@@ -1237,32 +1403,32 @@ describe('handleTabStateChanged — activeNetworkCaptures cleanup', () => {
       tabs: [{ tabId: 10, url: 'https://app.slack.com', title: 'Slack', ready: true }],
     });
 
-    expect(state.activeNetworkCaptures.has(10)).toBe(true);
-    expect(state.activeNetworkCaptures.has(11)).toBe(false);
+    expect(getAnyConnection(state)!.activeNetworkCaptures.has(10)).toBe(true);
+    expect(getAnyConnection(state)!.activeNetworkCaptures.has(11)).toBe(false);
   });
 
   test('removes all plugin tab activeNetworkCaptures entries when state changes to closed', () => {
     const state = createState();
     withPlugin(state, 'slack');
-    state.tabMapping.set('slack', {
+    getAnyConnection(state)!.tabMapping.set('slack', {
       state: 'ready',
       tabs: [{ tabId: 42, url: 'https://app.slack.com', title: 'Slack', ready: true }],
     });
-    state.activeNetworkCaptures.add(42);
+    getAnyConnection(state)!.activeNetworkCaptures.add(42);
 
     handleTabStateChanged(state, { plugin: 'slack', state: 'closed', tabs: [] });
 
-    expect(state.activeNetworkCaptures.has(42)).toBe(false);
+    expect(getAnyConnection(state)!.activeNetworkCaptures.has(42)).toBe(false);
   });
 
   test('does not touch activeNetworkCaptures for tabs that remain in the mapping', () => {
     const state = createState();
     withPlugin(state, 'slack');
-    state.tabMapping.set('slack', {
+    getAnyConnection(state)!.tabMapping.set('slack', {
       state: 'ready',
       tabs: [{ tabId: 7, url: 'https://app.slack.com', title: 'Slack', ready: true }],
     });
-    state.activeNetworkCaptures.add(7);
+    getAnyConnection(state)!.activeNetworkCaptures.add(7);
 
     // Same tab 7 still present
     handleTabStateChanged(state, {
@@ -1271,7 +1437,7 @@ describe('handleTabStateChanged — activeNetworkCaptures cleanup', () => {
       tabs: [{ tabId: 7, url: 'https://app.slack.com', title: 'Slack', ready: true }],
     });
 
-    expect(state.activeNetworkCaptures.has(7)).toBe(true);
+    expect(getAnyConnection(state)!.activeNetworkCaptures.has(7)).toBe(true);
   });
 });
 
@@ -1285,7 +1451,12 @@ describe('handlePluginRemove', () => {
   test('sends plugin.uninstall as a request via queryExtension, not as a notification', async () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const mockQueryExtension = vi.fn().mockResolvedValue({ success: true });
     const callbacks: McpCallbacks = {
       ...noopCallbacks,
@@ -1307,7 +1478,12 @@ describe('handlePluginRemove', () => {
   test('proceeds with plugins.changed and response even if queryExtension times out', async () => {
     const state = createState();
     const { ws, messages } = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     const mockQueryExtension = vi.fn().mockRejectedValue(new Error('Timeout'));
     const callbacks: McpCallbacks = {
       ...noopCallbacks,

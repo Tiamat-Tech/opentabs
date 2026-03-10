@@ -43,7 +43,7 @@ import {
 } from './extension-handlers.js';
 import { log } from './logger.js';
 import type { ConfirmationDecision, PendingDispatch, ServerState } from './state.js';
-import { DISPATCH_TIMEOUT_MS, getNextRequestId } from './state.js';
+import { DISPATCH_TIMEOUT_MS, getAnyConnection, getNextRequestId } from './state.js';
 
 /** Maximum incoming WebSocket message size (10MB) */
 const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
@@ -151,10 +151,11 @@ const dispatchToExtension = (
   // Backward-compatible: options can be a string (label) for existing callers
   const opts: DispatchOptions = typeof options === 'string' ? { label: options } : (options ?? {});
 
-  const ws = state.extensionWs;
-  if (!ws) {
+  const conn = getAnyConnection(state);
+  if (!conn) {
     return Promise.reject(new Error('Extension not connected'));
   }
+  const ws = conn.ws;
 
   const id = getNextRequestId();
 
@@ -336,7 +337,7 @@ const handleExtensionMessage = (
   // before it's closed, the pong must go back on that connection (not the
   // new one stored in state.extensionWs).
   if (method === 'ping') {
-    const replyWs = senderWs ?? state.extensionWs;
+    const replyWs = senderWs ?? getAnyConnection(state)?.ws;
     replyWs?.send(JSON.stringify({ jsonrpc: '2.0', method: 'pong' } satisfies JsonRpcNotification));
     return;
   }

@@ -16,7 +16,13 @@ import {
 } from './extension-protocol.js';
 import { buildRegistry } from './registry.js';
 import type { ConfirmationDecision, PendingDispatch, RegisteredPlugin } from './state.js';
-import { createState, DISPATCH_TIMEOUT_MS, MAX_DISPATCH_TIMEOUT_MS } from './state.js';
+import {
+  createState,
+  DISPATCH_TIMEOUT_MS,
+  getAnyConnection,
+  getMergedTabMapping,
+  MAX_DISPATCH_TIMEOUT_MS,
+} from './state.js';
 
 /** Create a mock WsHandle that records sent messages */
 const createMockWs = (): WsHandle & { sent: string[] } => ({
@@ -47,7 +53,12 @@ describe('handleExtensionMessage — ping', () => {
     const state = createState();
     const extensionWs = createMockWs();
     const senderWs = createMockWs();
-    state.extensionWs = extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: extensionWs,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(state, JSON.stringify({ jsonrpc: '2.0', method: 'ping' }), noopCallbacks, senderWs);
 
@@ -61,7 +72,12 @@ describe('handleExtensionMessage — ping', () => {
   test('ping falls back to state.extensionWs when no senderWs provided', () => {
     const state = createState();
     const extensionWs = createMockWs();
-    state.extensionWs = extensionWs;
+    state.extensionConnections.set('test-conn', {
+      ws: extensionWs,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(state, JSON.stringify({ jsonrpc: '2.0', method: 'ping' }), noopCallbacks);
 
@@ -75,7 +91,12 @@ describe('handleExtensionMessage — ping', () => {
 describe('handleExtensionMessage — response settlement', () => {
   test('result message resolves the correct pending dispatch', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let resolved: unknown;
     const pending: PendingDispatch = {
@@ -97,7 +118,12 @@ describe('handleExtensionMessage — response settlement', () => {
 
   test('error response rejects the pending dispatch with DispatchError', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let rejected: unknown;
     const pending: PendingDispatch = {
@@ -127,7 +153,12 @@ describe('handleExtensionMessage — response settlement', () => {
 
   test('error response with data.code propagates the ToolError code', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let rejected: unknown;
     const pending: PendingDispatch = {
@@ -161,7 +192,12 @@ describe('handleExtensionMessage — response settlement', () => {
 
   test('error response with structured ToolError fields propagates all fields in data', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let rejected: unknown;
     const pending: PendingDispatch = {
@@ -199,7 +235,12 @@ describe('handleExtensionMessage — response settlement', () => {
 
   test('error response with partial structured fields propagates only present fields', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let rejected: unknown;
     const pending: PendingDispatch = {
@@ -235,7 +276,12 @@ describe('handleExtensionMessage — response settlement', () => {
 
   test('error response without data field has undefined data', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let rejected: unknown;
     const pending: PendingDispatch = {
@@ -263,7 +309,12 @@ describe('handleExtensionMessage — response settlement', () => {
 
   test('response for unknown id is silently ignored', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(state, JSON.stringify({ jsonrpc: '2.0', id: 123, result: {} }), noopCallbacks);
 
@@ -299,9 +350,14 @@ describe('isDispatchError', () => {
 });
 
 describe('handleExtensionMessage — tab.syncAll', () => {
-  test('updates state.tabMapping with all entries', () => {
+  test('updates getMergedTabMapping(state) with all entries', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(
       state,
@@ -324,12 +380,12 @@ describe('handleExtensionMessage — tab.syncAll', () => {
       noopCallbacks,
     );
 
-    expect(state.tabMapping.size).toBe(2);
-    expect(state.tabMapping.get('slack')).toEqual({
+    expect(getMergedTabMapping(state).size).toBe(2);
+    expect(getMergedTabMapping(state).get('slack')).toEqual({
       state: 'ready',
       tabs: [{ tabId: 10, url: 'https://app.slack.com', title: 'Slack', ready: true }],
     });
-    expect(state.tabMapping.get('github')).toEqual({
+    expect(getMergedTabMapping(state).get('github')).toEqual({
       state: 'unavailable',
       tabs: [{ tabId: 20, url: 'https://github.com', title: 'GitHub', ready: false }],
     });
@@ -337,8 +393,13 @@ describe('handleExtensionMessage — tab.syncAll', () => {
 
   test('clears previous tabMapping entries on sync', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
-    state.tabMapping.set('old-plugin', {
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
+    getAnyConnection(state)!.tabMapping.set('old-plugin', {
       state: 'ready',
       tabs: [{ tabId: 1, url: 'https://old.com', title: 'Old', ready: true }],
     });
@@ -355,9 +416,9 @@ describe('handleExtensionMessage — tab.syncAll', () => {
       noopCallbacks,
     );
 
-    expect(state.tabMapping.size).toBe(1);
-    expect(state.tabMapping.has('old-plugin')).toBe(false);
-    expect(state.tabMapping.get('slack')).toEqual({ state: 'closed', tabs: [] });
+    expect(getMergedTabMapping(state).size).toBe(1);
+    expect(getMergedTabMapping(state).has('old-plugin')).toBe(false);
+    expect(getMergedTabMapping(state).get('slack')).toEqual({ state: 'closed', tabs: [] });
   });
 });
 
@@ -373,9 +434,14 @@ describe('handleExtensionMessage — tab.stateChanged', () => {
     tools: [],
   });
 
-  test('updates a single entry in state.tabMapping', () => {
+  test('updates a single entry in getMergedTabMapping(state)', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.registry = buildRegistry([makePlugin('slack')], []);
 
     handleExtensionMessage(
@@ -392,8 +458,8 @@ describe('handleExtensionMessage — tab.stateChanged', () => {
       noopCallbacks,
     );
 
-    expect(state.tabMapping.size).toBe(1);
-    expect(state.tabMapping.get('slack')).toEqual({
+    expect(getMergedTabMapping(state).size).toBe(1);
+    expect(getMergedTabMapping(state).get('slack')).toEqual({
       state: 'ready',
       tabs: [{ tabId: 5, url: 'https://app.slack.com', title: 'Slack', ready: true }],
     });
@@ -401,9 +467,14 @@ describe('handleExtensionMessage — tab.stateChanged', () => {
 
   test('does not affect other entries in tabMapping', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.registry = buildRegistry([makePlugin('slack'), makePlugin('github')], []);
-    state.tabMapping.set('github', {
+    getAnyConnection(state)!.tabMapping.set('github', {
       state: 'ready',
       tabs: [{ tabId: 10, url: 'https://github.com', title: 'GitHub', ready: true }],
     });
@@ -418,18 +489,23 @@ describe('handleExtensionMessage — tab.stateChanged', () => {
       noopCallbacks,
     );
 
-    expect(state.tabMapping.size).toBe(2);
-    expect(state.tabMapping.get('github')).toEqual({
+    expect(getMergedTabMapping(state).size).toBe(2);
+    expect(getMergedTabMapping(state).get('github')).toEqual({
       state: 'ready',
       tabs: [{ tabId: 10, url: 'https://github.com', title: 'GitHub', ready: true }],
     });
-    expect(state.tabMapping.get('slack')).toEqual({ state: 'closed', tabs: [] });
+    expect(getMergedTabMapping(state).get('slack')).toEqual({ state: 'closed', tabs: [] });
   });
 
   test('rejects unknown plugin name', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(
       state,
@@ -442,7 +518,7 @@ describe('handleExtensionMessage — tab.stateChanged', () => {
       noopCallbacks,
     );
 
-    expect(state.tabMapping.size).toBe(0);
+    expect(getMergedTabMapping(state).size).toBe(0);
     expect(ws.sent).toHaveLength(1);
     const response = parseJson(ws.sent[0] as string);
     expect(response.error?.code).toBe(-32602);
@@ -452,7 +528,12 @@ describe('handleExtensionMessage — tab.stateChanged', () => {
   test('rejects invalid tab state value', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.registry = buildRegistry([makePlugin('slack')], []);
 
     handleExtensionMessage(
@@ -466,7 +547,7 @@ describe('handleExtensionMessage — tab.stateChanged', () => {
       noopCallbacks,
     );
 
-    expect(state.tabMapping.has('slack')).toBe(false);
+    expect(getMergedTabMapping(state).has('slack')).toBe(false);
     expect(ws.sent).toHaveLength(1);
     const response = parseJson(ws.sent[0] as string);
     expect(response.error?.code).toBe(-32602);
@@ -475,7 +556,12 @@ describe('handleExtensionMessage — tab.stateChanged', () => {
 
   test('logs warning for unknown plugin when no id present', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(
       state,
@@ -487,7 +573,7 @@ describe('handleExtensionMessage — tab.stateChanged', () => {
       noopCallbacks,
     );
 
-    expect(state.tabMapping.size).toBe(0);
+    expect(getMergedTabMapping(state).size).toBe(0);
   });
 });
 
@@ -495,7 +581,12 @@ describe('handleExtensionMessage — unrecognized method', () => {
   test('unrecognized method with id sends -32601 error response', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(state, JSON.stringify({ jsonrpc: '2.0', method: 'unknown.method', id: 7 }), noopCallbacks);
 
@@ -514,7 +605,12 @@ describe('handleExtensionMessage — message size limit', () => {
   test('message at exactly MAX_MESSAGE_SIZE (10MB) is processed normally', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     // Build a valid JSON-RPC ping message, then pad it to exactly 10MB
     const base = JSON.stringify({ jsonrpc: '2.0', method: 'ping' });
@@ -534,7 +630,12 @@ describe('handleExtensionMessage — message size limit', () => {
   test('message exceeding MAX_MESSAGE_SIZE (10MB) is dropped without processing', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     // Create a message one byte over the 10MB limit
     const oversized = 'x'.repeat(10 * 1024 * 1024 + 1);
@@ -543,7 +644,7 @@ describe('handleExtensionMessage — message size limit', () => {
 
     // No messages sent (not parsed, not dispatched)
     expect(ws.sent).toHaveLength(0);
-    expect(state.tabMapping.size).toBe(0);
+    expect(getMergedTabMapping(state).size).toBe(0);
     expect(state.pendingDispatches.size).toBe(0);
   });
 });
@@ -551,11 +652,16 @@ describe('handleExtensionMessage — message size limit', () => {
 describe('handleExtensionMessage — malformed JSON', () => {
   test('malformed JSON is dropped gracefully', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(state, 'not valid json{{{', noopCallbacks);
 
-    expect(state.tabMapping.size).toBe(0);
+    expect(getMergedTabMapping(state).size).toBe(0);
     expect(state.pendingDispatches.size).toBe(0);
   });
 });
@@ -596,7 +702,12 @@ describe('sendSyncFull', () => {
     setupTmpConfigDir();
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -706,7 +817,12 @@ describe('sendSyncFull', () => {
   test('writes adapter IIFE files to the adapters directory with hashed filename', async () => {
     setupTmpConfigDir();
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -739,10 +855,9 @@ describe('sendSyncFull', () => {
     expect(content).toBe('(function(){/* adapter */})()');
   });
 
-  test('sends sync.full even when extensionWs is null (message is silently dropped)', async () => {
+  test('sends sync.full even when no extension is connected (message is silently dropped)', async () => {
     setupTmpConfigDir();
     const state = createState();
-    state.extensionWs = null;
 
     state.registry = buildRegistry([makePlugin({ name: 'alpha', iife: '// alpha' })], []);
 
@@ -763,7 +878,12 @@ describe('sendSyncFull', () => {
     setupTmpConfigDir();
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     await sendSyncFull(state);
 
@@ -783,7 +903,12 @@ describe('sendSyncFull', () => {
     setupTmpConfigDir();
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.pluginPermissions = { browser: { permission: 'ask' } };
 
     await sendSyncFull(state);
@@ -799,7 +924,12 @@ describe('sendSyncFull', () => {
     setupTmpConfigDir();
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     await sendSyncFull(state);
 
@@ -814,7 +944,12 @@ describe('sendSyncFull', () => {
     setupTmpConfigDir();
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -870,7 +1005,12 @@ describe('sendSyncFull', () => {
     setupTmpConfigDir();
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -912,7 +1052,12 @@ describe('sendSyncFull', () => {
     setupTmpConfigDir();
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -976,7 +1121,12 @@ describe('dispatchToExtension', () => {
   test('sends JSON-RPC request and creates a pending dispatch entry', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     // Start dispatch but don't await — we just want to verify the side effects
     const promise = dispatchToExtension(state, 'tool.dispatch', { plugin: 'slack', tool: 'echo' }, 'slack/echo');
@@ -1004,7 +1154,12 @@ describe('dispatchToExtension', () => {
   test('injects __opentabs_dispatchId (not dispatchId) into sent params', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise = dispatchToExtension(state, 'tool.dispatch', { plugin: 'slack', tool: 'echo' }, 'slack/echo');
 
@@ -1032,7 +1187,12 @@ describe('dispatchToExtension', () => {
   test('dispatch can be settled by handleExtensionMessage response', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise = dispatchToExtension(state, 'tool.dispatch', { tool: 'test' });
 
@@ -1065,7 +1225,12 @@ describe('handleExtensionMessage — config.getState', () => {
   test('returns plugins with displayName, version, tabState, urlPatterns, and tools', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1096,7 +1261,7 @@ describe('handleExtensionMessage — config.getState', () => {
       ],
       [],
     );
-    state.tabMapping.set('test-plugin', {
+    getAnyConnection(state)!.tabMapping.set('test-plugin', {
       state: 'ready',
       tabs: [{ tabId: 10, url: 'http://test.com', title: 'Test', ready: true }],
     });
@@ -1160,7 +1325,12 @@ describe('handleExtensionMessage — config.getState', () => {
   test('tools respect permission state from pluginPermissions', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1228,7 +1398,12 @@ describe('handleExtensionMessage — config.getState', () => {
   test('attaches update info on matching plugin from state.outdatedPlugins', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1272,7 +1447,12 @@ describe('handleExtensionMessage — config.getState', () => {
   test('tabState defaults to closed when no tabMapping entry exists', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1310,7 +1490,12 @@ describe('handleExtensionMessage — config.getState', () => {
   test('displayName falls back to name when not set', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry([makePlugin({ name: 'no-display' })], []);
 
@@ -1330,7 +1515,12 @@ describe('handleExtensionMessage — config.getState', () => {
   test('returns empty plugins array when no plugins are registered', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(state, JSON.stringify({ jsonrpc: '2.0', method: 'config.getState', id: 6 }), noopCallbacks);
 
@@ -1346,7 +1536,12 @@ describe('handleExtensionMessage — config.getState', () => {
   test('includes iconSvg and iconInactiveSvg in config.getState response when present', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1400,7 +1595,12 @@ describe('handleExtensionMessage — config.getState', () => {
   test('omits iconSvg and iconInactiveSvg from config.getState response when absent', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1451,7 +1651,12 @@ describe('handleExtensionMessage — config.setToolPermission', () => {
   test('valid params updates pluginPermissions and sends { ok: true }', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1514,7 +1719,12 @@ describe('handleExtensionMessage — config.setToolPermission', () => {
   test('enabling a tool sets pluginPermissions to auto', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.pluginPermissions = { 'my-plugin': { tools: { send: 'off' } } };
 
     state.registry = buildRegistry(
@@ -1559,7 +1769,12 @@ describe('handleExtensionMessage — config.setToolPermission', () => {
   test('missing params sends -32602 error', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(
       state,
@@ -1584,7 +1799,12 @@ describe('handleExtensionMessage — config.setToolPermission', () => {
   test('invalid param types sends -32602 error', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(
       state,
@@ -1608,7 +1828,12 @@ describe('handleExtensionMessage — config.setToolPermission', () => {
   test('missing permission field sends -32602 error', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(
       state,
@@ -1632,7 +1857,12 @@ describe('handleExtensionMessage — config.setToolPermission', () => {
   test('callbacks are not invoked on invalid params', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let configChangedCalled = false;
     let configPersistCalled = false;
@@ -1666,7 +1896,12 @@ describe('handleExtensionMessage — config.setToolPermission', () => {
   test('nonexistent plugin sends -32602 error', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(
       state,
@@ -1697,7 +1932,12 @@ describe('handleExtensionMessage — config.setToolPermission', () => {
   test('nonexistent tool in existing plugin sends -32602 error', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1747,7 +1987,12 @@ describe('handleExtensionMessage — config.setToolPermission', () => {
   test('nonexistent plugin does not invoke callbacks', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let configChangedCalled = false;
     let configPersistCalled = false;
@@ -1781,7 +2026,12 @@ describe('handleExtensionMessage — config.setToolPermission', () => {
   test('nonexistent tool does not mutate pluginPermissions', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1832,7 +2082,12 @@ describe('handleExtensionMessage — config.setPluginPermission', () => {
   test('enabling all tools sets plugin-level permission to auto', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1895,7 +2150,12 @@ describe('handleExtensionMessage — config.setPluginPermission', () => {
   test('disabling all tools sets plugin-level permission to off', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1942,7 +2202,12 @@ describe('handleExtensionMessage — config.setPluginPermission', () => {
   test('both callbacks are invoked on valid request with existing plugin', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     state.registry = buildRegistry(
       [
@@ -1995,7 +2260,12 @@ describe('handleExtensionMessage — config.setPluginPermission', () => {
   test('nonexistent plugin sends -32602 error without invoking callbacks', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let configChangedCalled = false;
     let configPersistCalled = false;
@@ -2043,7 +2313,12 @@ describe('handleExtensionMessage — config.setPluginPermission', () => {
   test('missing params sends -32602 error', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(
       state,
@@ -2068,7 +2343,12 @@ describe('handleExtensionMessage — config.setPluginPermission', () => {
   test('invalid param types sends -32602 error', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(
       state,
@@ -2094,7 +2374,12 @@ describe('handleExtensionMessage — config.setSkipPermissions', () => {
   test('setting skipPermissions to false updates state and sends plugins.changed + ok result', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.skipPermissions = true;
 
     let configChangedCalled = false;
@@ -2138,7 +2423,12 @@ describe('handleExtensionMessage — config.setSkipPermissions', () => {
   test('setting skipPermissions to true updates state', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
     state.skipPermissions = false;
 
     handleExtensionMessage(
@@ -2158,7 +2448,12 @@ describe('handleExtensionMessage — config.setSkipPermissions', () => {
   test('non-boolean skipPermissions sends -32602 error', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(
       state,
@@ -2180,7 +2475,12 @@ describe('handleExtensionMessage — config.setSkipPermissions', () => {
   test('missing params sends -32602 error', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     handleExtensionMessage(
       state,
@@ -2197,7 +2497,12 @@ describe('handleExtensionMessage — config.setSkipPermissions', () => {
   test('missing id is treated as unrecognized request (no crash)', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     // Without an id, the method falls through to the "unrecognized method with id" check,
     // but since id is undefined, it falls through to the final "unrecognized notification" branch.
@@ -2229,7 +2534,12 @@ describe('dispatchToExtension — timeout', () => {
   test('rejects with timeout error after DISPATCH_TIMEOUT_MS and removes pending entry', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise = dispatchToExtension(state, 'tool.dispatch', { plugin: 'slack', tool: 'echo' }, 'slack/echo');
 
@@ -2258,7 +2568,12 @@ describe('dispatchToExtension — timeout', () => {
   test('timeout error includes method name when no label provided', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise = dispatchToExtension(state, 'browser.openTab', { url: 'https://example.com' });
 
@@ -2283,7 +2598,12 @@ describe('handleToolProgress — timeout reset', () => {
   test('dispatch without progress times out at DISPATCH_TIMEOUT_MS', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise = dispatchToExtension(
       state,
@@ -2303,7 +2623,12 @@ describe('handleToolProgress — timeout reset', () => {
   test('progress resets the timeout — dispatch survives past DISPATCH_TIMEOUT_MS', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let progressCalls = 0;
     const promise = dispatchToExtension(
@@ -2370,7 +2695,12 @@ describe('handleToolProgress — timeout reset', () => {
   test('progress updates lastProgressTs on PendingDispatch', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     void dispatchToExtension(state, 'tool.dispatch', { plugin: 'test', tool: 'slow' }, { label: 'test/slow' });
 
@@ -2405,7 +2735,12 @@ describe('handleToolProgress — timeout reset', () => {
   test('absolute max timeout fires even with continuous progress', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise = dispatchToExtension(
       state,
@@ -2451,7 +2786,12 @@ describe('handleToolProgress — timeout reset', () => {
   test('progress after absolute max elapsed rejects immediately', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise = dispatchToExtension(
       state,
@@ -2599,7 +2939,12 @@ describe('queryExtension', () => {
   test('sends a request and resolves with the response result', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const resultPromise = queryExtension(state, 'extension.getTabState', {}, 5000);
 
@@ -2622,7 +2967,6 @@ describe('queryExtension', () => {
 
   test('rejects when extension is not connected', async () => {
     const state = createState();
-    state.extensionWs = null;
 
     await expect(queryExtension(state, 'extension.getTabState')).rejects.toThrow();
   });
@@ -2632,7 +2976,12 @@ describe('sendConfirmationRequest', () => {
   test('sends confirmation.request with new payload shape and stores pending confirmation', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise = sendConfirmationRequest(state, 'send_message', 'slack', { channel: '#general', text: 'hi' });
 
@@ -2673,7 +3022,12 @@ describe('sendConfirmationRequest', () => {
   test('resolves with ConfirmationDecision when user responds via confirmation.response', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise = sendConfirmationRequest(state, 'browser_click', 'browser', { selector: '#btn' });
 
@@ -2701,7 +3055,12 @@ describe('sendConfirmationRequest', () => {
   test('resolves with deny when user denies', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise = sendConfirmationRequest(state, 'delete_message', 'slack', {});
 
@@ -2725,7 +3084,6 @@ describe('sendConfirmationRequest', () => {
 
   test('rejects when extension is not connected', async () => {
     const state = createState();
-    state.extensionWs = null;
 
     await expect(sendConfirmationRequest(state, 'test_tool', 'test', {})).rejects.toThrow('Extension not connected');
     expect(state.pendingConfirmations.size).toBe(0);
@@ -2734,7 +3092,12 @@ describe('sendConfirmationRequest', () => {
   test('hangs indefinitely until resolved (no timeout)', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise = sendConfirmationRequest(state, 'slow_tool', 'plugin', {});
 
@@ -2756,7 +3119,12 @@ describe('rejectAllPendingConfirmations', () => {
   test('rejects all pending confirmations and clears the map', async () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const promise1 = sendConfirmationRequest(state, 'tool_a', 'plugin_a', {});
     const promise2 = sendConfirmationRequest(state, 'tool_b', 'plugin_b', {});
@@ -2784,7 +3152,12 @@ describe('handleExtensionMessage — confirmation.response routing', () => {
   test('routes confirmation.response to handleConfirmationResponse', () => {
     const state = createState();
     const ws = createMockWs();
-    state.extensionWs = ws;
+    state.extensionConnections.set('test-conn', {
+      ws: ws,
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let resolved: ConfirmationDecision | undefined;
     state.pendingConfirmations.set('test-id', {
@@ -2813,7 +3186,12 @@ describe('handleExtensionMessage — confirmation.response routing', () => {
 
   test('ignores confirmation.response with unknown id', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let resolved = false;
     state.pendingConfirmations.set('known-id', {
@@ -2842,7 +3220,12 @@ describe('handleExtensionMessage — confirmation.response routing', () => {
 
   test('ignores confirmation.response with invalid decision', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let resolved = false;
     state.pendingConfirmations.set('conf-id', {
@@ -2871,7 +3254,12 @@ describe('handleExtensionMessage — confirmation.response routing', () => {
 
   test('defaults alwaysAllow to false when not provided', () => {
     const state = createState();
-    state.extensionWs = createMockWs();
+    state.extensionConnections.set('test-conn', {
+      ws: createMockWs(),
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     let resolved: ConfirmationDecision | undefined;
     state.pendingConfirmations.set('conf-no-always', {

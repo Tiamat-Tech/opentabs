@@ -968,12 +968,17 @@ describe('registerMcpHandlers — generic dispatch error sanitization', () => {
     state.pluginPermissions = { test: { permission: 'auto' } };
 
     // Fake WebSocket whose send() throws with a message containing a file path
-    state.extensionWs = {
-      send: () => {
-        throw new Error('ENOENT: /home/user/.opentabs/plugins/test/dist/adapter.iife.js');
+    state.extensionConnections.set('test-conn', {
+      ws: {
+        send: () => {
+          throw new Error('ENOENT: /home/user/.opentabs/plugins/test/dist/adapter.iife.js');
+        },
+        close: () => {},
       },
-      close: () => {},
-    };
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
 
     const { server, handlers } = createMockServer();
     registerMcpHandlers(server, state);

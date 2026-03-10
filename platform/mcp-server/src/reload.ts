@@ -26,6 +26,7 @@ import type { McpServerInstance } from './mcp-setup.js';
 import { notifyToolListChanged, rebuildCachedBrowserTools, registerMcpHandlers } from './mcp-setup.js';
 import { buildRegistry } from './registry.js';
 import type { CachedBrowserTool, ServerState } from './state.js';
+import { isExtensionConnected } from './state.js';
 import { checkForUpdates } from './version-check.js';
 
 /** Metadata from a completed reload, stored on HotState for the /health endpoint */
@@ -61,9 +62,12 @@ const setReloadChain = (promise: Promise<void>): void => {
  * in the current registry.
  */
 const pruneStaleState = (state: ServerState): void => {
-  for (const pluginName of state.tabMapping.keys()) {
-    if (!state.registry.plugins.has(pluginName)) {
-      state.tabMapping.delete(pluginName);
+  // Prune stale tab mappings from each connection
+  for (const conn of state.extensionConnections.values()) {
+    for (const pluginName of conn.tabMapping.keys()) {
+      if (!state.registry.plugins.has(pluginName)) {
+        conn.tabMapping.delete(pluginName);
+      }
     }
   }
 
@@ -120,16 +124,18 @@ const pruneStaleState = (state: ServerState): void => {
   );
   state.outdatedPlugins = state.outdatedPlugins.filter(o => npmPkgNames.has(o.name));
 
-  // Prune activeNetworkCaptures for tab IDs no longer present in tabMapping
-  const allTabIds = new Set<number>();
-  for (const mapping of state.tabMapping.values()) {
-    for (const tab of mapping.tabs) {
-      allTabIds.add(tab.tabId);
+  // Prune activeNetworkCaptures for tab IDs no longer present in tabMappings
+  for (const conn of state.extensionConnections.values()) {
+    const allTabIds = new Set<number>();
+    for (const mapping of conn.tabMapping.values()) {
+      for (const tab of mapping.tabs) {
+        allTabIds.add(tab.tabId);
+      }
     }
-  }
-  for (const tabId of state.activeNetworkCaptures) {
-    if (!allTabIds.has(tabId)) {
-      state.activeNetworkCaptures.delete(tabId);
+    for (const tabId of conn.activeNetworkCaptures) {
+      if (!allTabIds.has(tabId)) {
+        conn.activeNetworkCaptures.delete(tabId);
+      }
     }
   }
 };
@@ -181,7 +187,7 @@ const createFileWatcherCallbacks = (
       log.info(`Plugin "${pluginName}" discovered by file watcher — rebuilding tools and syncing extension`);
       state.registry = buildRegistry(Array.from(state.registry.plugins.values()), [...state.registry.failures]);
       notifyAllClients();
-      if (state.extensionWs) {
+      if (isExtensionConnected(state)) {
         void sendSyncFull(state).catch((err: unknown) => {
           log.error('Failed to sync extension after plugin discovery:', err);
         });
@@ -330,7 +336,7 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
     }
   }
 
-  if (state.extensionWs) {
+  if (isExtensionConnected(state)) {
     await sendSyncFull(state);
 
     // If the auth secret changed (e.g., via `opentabs config rotate-secret`),
@@ -412,7 +418,7 @@ const performReload = async (
     try {
       const installResult = await ensureExtensionInstalled();
       if (installResult.versionChanged) {
-        if (state.extensionWs) {
+        if (isExtensionConnected(state)) {
           // Extension is connected — send reload after a short delay to let
           // sync.full flush first (the extension handles extension.reload by
           // calling chrome.runtime.reload() after its own flush delay).

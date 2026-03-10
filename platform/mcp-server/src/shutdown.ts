@@ -61,14 +61,14 @@ const installShutdownHandlers = (getState: () => ServerState): void => {
     // 4. Stop file watchers (release OS handles)
     stopFileWatching(state);
 
-    // 5. Close extension WebSocket cleanly
-    if (state.extensionWs) {
+    // 5. Close all extension WebSocket connections cleanly
+    for (const [id, conn] of state.extensionConnections) {
       try {
-        state.extensionWs.close(1001, 'Server shutting down');
+        conn.ws.close(1001, 'Server shutting down');
       } catch {
         // Already closed
       }
-      state.extensionWs = null;
+      state.extensionConnections.delete(id);
     }
 
     log.info('Shutdown complete');

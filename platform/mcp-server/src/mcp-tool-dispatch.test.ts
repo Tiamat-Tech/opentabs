@@ -245,7 +245,17 @@ vi.mock('./logger.js', () => ({
 /** Create a minimal mock ServerState for handler tests */
 const createMockState = (overrides: Partial<ServerState> = {}): ServerState =>
   ({
-    extensionWs: { send: vi.fn(), close: vi.fn() },
+    extensionConnections: new Map([
+      [
+        'test-conn',
+        {
+          ws: { send: vi.fn(), close: vi.fn() },
+          connectionId: 'test-conn',
+          tabMapping: new Map(),
+          activeNetworkCaptures: new Set(),
+        },
+      ],
+    ]),
     activeDispatches: new Map<string, number>(),
     auditLog: [],
     skipPermissions: false,
@@ -889,7 +899,7 @@ describe('handlePluginToolCall', () => {
 
   test('extension not connected returns error', async () => {
     vi.mocked(getToolPermission).mockReturnValue('auto');
-    const state = createMockState({ extensionWs: null });
+    const state = createMockState({ extensionConnections: new Map() });
     const lookup = createMockLookup();
     const extra = createMockExtra();
     const callbacks = createMockCallbacks();
@@ -1347,7 +1357,7 @@ describe('handlePluginToolCall', () => {
 
   test('extension not connected sets success=false in audit and invocationEnd', async () => {
     vi.mocked(getToolPermission).mockReturnValue('auto');
-    const state = createMockState({ extensionWs: null });
+    const state = createMockState({ extensionConnections: new Map() });
     const lookup = createMockLookup();
     const extra = createMockExtra();
     const callbacks = createMockCallbacks();

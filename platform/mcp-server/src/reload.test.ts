@@ -7,7 +7,7 @@ import { stopFileWatching } from './file-watcher.js';
 import { performConfigReload, performReload } from './reload.js';
 import { resetGlobalPathsCache } from './resolver.js';
 import type { ServerState } from './state.js';
-import { createState } from './state.js';
+import { createState, getAnyConnection, getMergedTabMapping } from './state.js';
 
 /**
  * Integration tests for the reload module.
@@ -132,11 +132,17 @@ describe('performReload', () => {
   });
 
   test('prunes stale tabMapping entries for removed plugins', async () => {
-    state.tabMapping.set('old-plugin', {
+    state.extensionConnections.set('test-conn', {
+      ws: { send() {}, close() {} },
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
+    getAnyConnection(state)!.tabMapping.set('old-plugin', {
       state: 'ready',
       tabs: [{ tabId: 1, url: 'http://example.com', title: 'Example', ready: true }],
     });
-    state.tabMapping.set('my-plugin', {
+    getAnyConnection(state)!.tabMapping.set('my-plugin', {
       state: 'ready',
       tabs: [{ tabId: 2, url: 'http://alpha.com', title: 'Alpha', ready: true }],
     });
@@ -146,8 +152,8 @@ describe('performReload', () => {
 
     await performReload(state, [], emptyTransports(), false);
 
-    expect(state.tabMapping.has('old-plugin')).toBe(false);
-    expect(state.tabMapping.has('my-plugin')).toBe(true);
+    expect(getMergedTabMapping(state).has('old-plugin')).toBe(false);
+    expect(getMergedTabMapping(state).has('my-plugin')).toBe(true);
   });
 
   test('prunes stale activeDispatches entries for removed plugins', async () => {
@@ -274,9 +280,9 @@ describe('performReload', () => {
   });
 
   test('does NOT throw when extension is disconnected (sync skipped)', async () => {
-    state.extensionWs = null;
+    state.extensionConnections.clear();
 
-    // sendSyncFull is guarded by `if (state.extensionWs)` — test verifies
+    // sendSyncFull is guarded by `isExtensionConnected(state)` — test verifies
     // the reload completes without error when no extension is connected
     await performReload(state, [], emptyTransports(), false);
   });
@@ -493,14 +499,20 @@ describe('performConfigReload', () => {
   });
 
   test('prunes stale tabMapping entries', async () => {
-    state.tabMapping.set('removed-plugin', {
+    state.extensionConnections.set('test-conn', {
+      ws: { send() {}, close() {} },
+      connectionId: 'test-conn',
+      tabMapping: new Map(),
+      activeNetworkCaptures: new Set(),
+    });
+    getAnyConnection(state)!.tabMapping.set('removed-plugin', {
       state: 'ready',
       tabs: [{ tabId: 1, url: 'http://example.com', title: 'Example', ready: true }],
     });
 
     await performConfigReload(state, [], emptyTransports());
 
-    expect(state.tabMapping.has('removed-plugin')).toBe(false);
+    expect(getMergedTabMapping(state).has('removed-plugin')).toBe(false);
   });
 
   test('does not start file watchers in production mode', async () => {

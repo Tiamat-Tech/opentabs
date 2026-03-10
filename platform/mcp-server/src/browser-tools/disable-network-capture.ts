@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 import { dispatchToExtension } from '../extension-protocol.js';
+import { getAnyConnection } from '../state.js';
 import { defineBrowserTool } from './definition.js';
 
 const disableNetworkCapture = defineBrowserTool({
@@ -20,7 +21,7 @@ const disableNetworkCapture = defineBrowserTool({
     try {
       return await dispatchToExtension(state, 'browser.disableNetworkCapture', { tabId: args.tabId });
     } finally {
-      state.activeNetworkCaptures.delete(args.tabId);
+      getAnyConnection(state)?.activeNetworkCaptures.delete(args.tabId);
     }
   },
 });
