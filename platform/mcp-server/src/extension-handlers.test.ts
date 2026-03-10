@@ -1318,11 +1318,14 @@ describe('handleTabSyncAll — activeNetworkCaptures cleanup', () => {
     getAnyConnection(state)!.activeNetworkCaptures.add(3);
 
     // Sync arrives: only tab 2 is still present
-    handleTabSyncAll(state, {
-      tabs: {
-        slack: { state: 'ready', tabs: [{ tabId: 2, url: 'https://app.slack.com', ready: true }] },
+    handleTabSyncAll(
+      {
+        tabs: {
+          slack: { state: 'ready', tabs: [{ tabId: 2, url: 'https://app.slack.com', ready: true }] },
+        },
       },
-    });
+      getAnyConnection(state),
+    );
 
     expect(getAnyConnection(state)!.activeNetworkCaptures.has(1)).toBe(false);
     expect(getAnyConnection(state)!.activeNetworkCaptures.has(2)).toBe(true);
@@ -1340,7 +1343,7 @@ describe('handleTabSyncAll — activeNetworkCaptures cleanup', () => {
     getAnyConnection(state)!.activeNetworkCaptures.add(10);
     getAnyConnection(state)!.activeNetworkCaptures.add(20);
 
-    handleTabSyncAll(state, { tabs: {} });
+    handleTabSyncAll({ tabs: {} }, getAnyConnection(state));
 
     expect(getAnyConnection(state)!.activeNetworkCaptures.size).toBe(0);
   });
@@ -1355,11 +1358,14 @@ describe('handleTabSyncAll — activeNetworkCaptures cleanup', () => {
     });
     getAnyConnection(state)!.activeNetworkCaptures.add(5);
 
-    handleTabSyncAll(state, {
-      tabs: {
-        slack: { state: 'ready', tabs: [{ tabId: 5, url: 'https://app.slack.com', ready: true }] },
+    handleTabSyncAll(
+      {
+        tabs: {
+          slack: { state: 'ready', tabs: [{ tabId: 5, url: 'https://app.slack.com', ready: true }] },
+        },
       },
-    });
+      getAnyConnection(state),
+    );
 
     expect(getAnyConnection(state)!.activeNetworkCaptures.has(5)).toBe(true);
   });
@@ -1397,11 +1403,16 @@ describe('handleTabStateChanged — activeNetworkCaptures cleanup', () => {
     getAnyConnection(state)!.activeNetworkCaptures.add(11);
 
     // State change arrives: only tab 10 remains
-    handleTabStateChanged(state, {
-      plugin: 'slack',
-      state: 'ready',
-      tabs: [{ tabId: 10, url: 'https://app.slack.com', title: 'Slack', ready: true }],
-    });
+    handleTabStateChanged(
+      state,
+      {
+        plugin: 'slack',
+        state: 'ready',
+        tabs: [{ tabId: 10, url: 'https://app.slack.com', title: 'Slack', ready: true }],
+      },
+      undefined,
+      getAnyConnection(state),
+    );
 
     expect(getAnyConnection(state)!.activeNetworkCaptures.has(10)).toBe(true);
     expect(getAnyConnection(state)!.activeNetworkCaptures.has(11)).toBe(false);
@@ -1416,7 +1427,7 @@ describe('handleTabStateChanged — activeNetworkCaptures cleanup', () => {
     });
     getAnyConnection(state)!.activeNetworkCaptures.add(42);
 
-    handleTabStateChanged(state, { plugin: 'slack', state: 'closed', tabs: [] });
+    handleTabStateChanged(state, { plugin: 'slack', state: 'closed', tabs: [] }, undefined, getAnyConnection(state));
 
     expect(getAnyConnection(state)!.activeNetworkCaptures.has(42)).toBe(false);
   });
@@ -1431,11 +1442,16 @@ describe('handleTabStateChanged — activeNetworkCaptures cleanup', () => {
     getAnyConnection(state)!.activeNetworkCaptures.add(7);
 
     // Same tab 7 still present
-    handleTabStateChanged(state, {
-      plugin: 'slack',
-      state: 'ready',
-      tabs: [{ tabId: 7, url: 'https://app.slack.com', title: 'Slack', ready: true }],
-    });
+    handleTabStateChanged(
+      state,
+      {
+        plugin: 'slack',
+        state: 'ready',
+        tabs: [{ tabId: 7, url: 'https://app.slack.com', title: 'Slack', ready: true }],
+      },
+      undefined,
+      getAnyConnection(state),
+    );
 
     expect(getAnyConnection(state)!.activeNetworkCaptures.has(7)).toBe(true);
   });

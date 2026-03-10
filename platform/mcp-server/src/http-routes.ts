@@ -214,32 +214,46 @@ const handleWsUpgrade = (req: Request, server: ServerAdapter, state: ServerState
   // Authenticate WebSocket connections using a shared secret sent via
   // the Sec-WebSocket-Protocol header (not URL query params, which leak
   // into server logs, browser history, and proxy logs).
-  // The client sends protocols: ['opentabs', '<secret>'] and the server
+  // The client sends protocols: ['opentabs', '<secret>', '<connectionId>?'] and the server
   // echoes 'opentabs' as the accepted subprotocol.
   // Uses constant-time comparison to prevent timing side-channel attacks.
+  const protocols = req.headers.get('sec-websocket-protocol');
+  const parts = protocols?.split(',').map(p => p.trim()) ?? [];
+
+  // Parse connectionId: the third protocol part (after 'opentabs' and the secret).
+  // Parts that are 'opentabs' or match the secret are excluded; the remaining part is the connectionId.
+  let parsedConnectionId: string | undefined;
   if (state.wsSecret) {
-    const protocols = req.headers.get('sec-websocket-protocol');
-    const parts = protocols?.split(',').map(p => p.trim()) ?? [];
     let secretMatched = false;
     for (const part of parts) {
       if (constantTimeEqual(part, state.wsSecret)) {
         secretMatched = true;
+      } else if (part !== 'opentabs' && !parsedConnectionId) {
+        parsedConnectionId = part;
       }
     }
     if (!secretMatched) {
       return new Response('Unauthorized', { status: 401 });
     }
-    const upgraded = server.upgrade(req, {
-      data: undefined,
-      headers: { 'sec-websocket-protocol': 'opentabs' },
-    });
-    if (!upgraded) {
-      return new Response('WebSocket upgrade failed', { status: 400 });
+  } else {
+    for (const part of parts) {
+      if (part !== 'opentabs' && !parsedConnectionId) {
+        parsedConnectionId = part;
+      }
     }
-    return undefined;
   }
-  const upgraded = server.upgrade(req, { data: undefined });
+
+  // Store the parsed connectionId (or generate a fallback UUID) so createHandleWsOpen can retrieve it.
+  // The connectionId is stored temporarily in state.wsConnectionIds, keyed by WsHandle in the open handler.
+  const connectionId = parsedConnectionId ?? crypto.randomUUID();
+  state._pendingConnectionId = connectionId;
+
+  const upgraded = server.upgrade(req, {
+    data: undefined,
+    headers: state.wsSecret ? { 'sec-websocket-protocol': 'opentabs' } : undefined,
+  });
   if (!upgraded) {
+    state._pendingConnectionId = undefined;
     return new Response('WebSocket upgrade failed', { status: 400 });
   }
   return undefined;
@@ -635,13 +649,18 @@ const createHandleFetch =
 const createHandleWsOpen =
   (state: ServerState) =>
   (ws: WsHandle): void => {
-    // Generate a connection ID. US-006 will parse it from the WebSocket subprotocol header.
-    const connectionId = crypto.randomUUID();
+    // Consume the connectionId set during upgrade, falling back to a random UUID.
+    // Track whether the connectionId was explicitly provided by the client (via subprotocol).
+    const hasExplicitId = state._pendingConnectionId !== undefined;
+    const connectionId = state._pendingConnectionId ?? crypto.randomUUID();
+    state._pendingConnectionId = undefined;
 
-    // If a connection with the same ID already exists, close the old one
+    // If a connection with the same connectionId already exists, close the old one (same-profile reconnect)
     const existing = state.extensionConnections.get(connectionId);
     if (existing && existing.ws !== ws) {
-      log.info('Closing previous extension WebSocket (replaced by same-profile reconnect)');
+      log.info(
+        `Closing previous extension WebSocket (replaced by same-profile reconnect, connectionId: ${connectionId})`,
+      );
       try {
         existing.ws.close(1000, 'Replaced by same-profile reconnect');
       } catch {
@@ -649,15 +668,15 @@ const createHandleWsOpen =
       }
     }
 
-    // For backwards compat: if there's only one connection and a new one arrives
-    // without a parsed connectionId, close the previous one (single-connection behavior)
-    if (state.extensionConnections.size === 1) {
+    // When the connectionId is auto-generated (client did not send one), assume single-connection
+    // mode for backwards compatibility: close the existing connection if there is exactly one.
+    if (!hasExplicitId && state.extensionConnections.size === 1) {
       const [existingId, existingConn] = state.extensionConnections.entries().next().value as [
         string,
         ExtensionConnection,
       ];
       if (existingConn.ws !== ws) {
-        log.info('Closing previous extension WebSocket (replaced by new connection)');
+        log.info('Closing previous extension WebSocket (replaced by new connection without connectionId)');
         try {
           existingConn.ws.close(1000, 'Replaced by new connection');
         } catch {
@@ -718,19 +737,30 @@ const createHandleWsClose =
     if (closedConn) {
       log.info(`Extension WebSocket disconnected (connectionId: ${closedConn.connectionId})`);
 
+      // Reject pending dispatches sent over this connection.
+      // Dispatches with matching connectionId are always rejected.
+      // Dispatches without a connectionId (legacy) are rejected only when no connections remain.
+      if (state.pendingDispatches.size > 0) {
+        const noConnectionsLeft = state.extensionConnections.size === 0;
+        let rejectedCount = 0;
+        for (const [id, pending] of state.pendingDispatches) {
+          const isOwnedByClosedConn = pending.connectionId === closedConn.connectionId;
+          const isLegacyDispatch = pending.connectionId === undefined;
+          if (isOwnedByClosedConn || (isLegacyDispatch && noConnectionsLeft)) {
+            state.pendingDispatches.delete(id);
+            clearTimeout(pending.timerId);
+            pending.reject(new Error('Extension disconnected'));
+            rejectedCount++;
+          }
+        }
+        if (rejectedCount > 0) {
+          log.info(`Rejected ${rejectedCount} pending dispatch(es) for connection ${closedConn.connectionId}`);
+        }
+      }
+
       // Reject all pending confirmations only if no connections remain
       if (state.extensionConnections.size === 0) {
         rejectAllPendingConfirmations(state);
-      }
-
-      // Reject all pending dispatches — US-003 will scope this per-connection
-      if (state.pendingDispatches.size > 0 && state.extensionConnections.size === 0) {
-        log.info(`Rejecting ${state.pendingDispatches.size} pending dispatch(es) due to extension disconnect`);
-        for (const [id, pending] of state.pendingDispatches) {
-          state.pendingDispatches.delete(id);
-          clearTimeout(pending.timerId);
-          pending.reject(new Error('Extension disconnected'));
-        }
       }
     } else {
       log.info('Extension WebSocket disconnected (unknown connection)');

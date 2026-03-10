@@ -31,10 +31,9 @@ import {
   searchNpmPlugins,
   updatePlugin,
 } from './plugin-management.js';
-import type { RegisteredPlugin, ServerState, TabMapping } from './state.js';
+import type { ExtensionConnection, RegisteredPlugin, ServerState, TabMapping } from './state.js';
 import {
   DISPATCH_TIMEOUT_MS,
-  getAnyConnection,
   getConfiguredToolPermission,
   getMergedTabMapping,
   MAX_DISPATCH_TIMEOUT_MS,
@@ -240,42 +239,40 @@ const parseTabMapping = (wire: WireTabMapping): TabMapping => {
   return { state, tabs };
 };
 
-const handleTabSyncAll = (state: ServerState, params: Record<string, unknown> | undefined): void => {
-  if (!params) return;
+const handleTabSyncAll = (params: Record<string, unknown> | undefined, senderConn?: ExtensionConnection): void => {
+  if (!params || !senderConn) return;
   const tabSyncParams = params as Partial<TabSyncAllParams>;
   const tabs = tabSyncParams.tabs;
   if (!tabs) return;
 
-  // Use the first connection's tabMapping as the target.
-  // US-004 will scope this per-connection using the sender WebSocket.
-  const conn = getAnyConnection(state);
-  if (!conn) return;
-
-  conn.tabMapping.clear();
+  senderConn.tabMapping.clear();
   for (const [pluginName, mapping] of Object.entries(tabs)) {
-    conn.tabMapping.set(pluginName, parseTabMapping(mapping as WireTabMapping));
+    senderConn.tabMapping.set(pluginName, parseTabMapping(mapping as WireTabMapping));
   }
 
   // Remove activeNetworkCaptures entries for tabs that are no longer present after the sync
   const syncedTabIds = new Set<number>();
-  for (const mapping of conn.tabMapping.values()) {
+  for (const mapping of senderConn.tabMapping.values()) {
     for (const tab of mapping.tabs) {
       syncedTabIds.add(tab.tabId);
     }
   }
-  for (const tabId of conn.activeNetworkCaptures) {
+  for (const tabId of senderConn.activeNetworkCaptures) {
     if (!syncedTabIds.has(tabId)) {
-      conn.activeNetworkCaptures.delete(tabId);
+      senderConn.activeNetworkCaptures.delete(tabId);
     }
   }
 
-  log.info(`tab.syncAll received — ${conn.tabMapping.size} plugin(s) mapped`);
+  log.info(
+    `tab.syncAll received — ${senderConn.tabMapping.size} plugin(s) mapped (connection: ${senderConn.connectionId})`,
+  );
 };
 
 const handleTabStateChanged = (
   state: ServerState,
   params: Record<string, unknown> | undefined,
   id?: string | number,
+  senderConn?: ExtensionConnection,
 ): void => {
   const sendError = (message: string): void => {
     if (id !== undefined) {
@@ -289,6 +286,8 @@ const handleTabStateChanged = (
     sendError('Missing params');
     return;
   }
+
+  if (!senderConn) return;
 
   const plugin = params.plugin;
   if (typeof plugin !== 'string' || plugin.length === 0) {
@@ -316,21 +315,16 @@ const handleTabStateChanged = (
     tabs: Array.isArray(params.tabs) ? (params.tabs as WirePluginTabInfo[]) : [],
   };
 
-  // Use the first connection's tabMapping as the target.
-  // US-004 will scope this per-connection using the sender WebSocket.
-  const conn = getAnyConnection(state);
-  if (!conn) return;
-
-  const oldMapping = conn.tabMapping.get(plugin);
+  const oldMapping = senderConn.tabMapping.get(plugin);
   const oldTabIds = new Set(oldMapping?.tabs.map((t: { tabId: number }) => t.tabId) ?? []);
   const newMapping = parseTabMapping(wire);
-  conn.tabMapping.set(plugin, newMapping);
+  senderConn.tabMapping.set(plugin, newMapping);
   const newTabIdSet = new Set(newMapping.tabs.map(t => t.tabId));
 
   // Remove activeNetworkCaptures entries for tabs removed from this plugin's mapping
   for (const tabId of oldTabIds) {
     if (!newTabIdSet.has(tabId)) {
-      conn.activeNetworkCaptures.delete(tabId);
+      senderConn.activeNetworkCaptures.delete(tabId);
     }
   }
 

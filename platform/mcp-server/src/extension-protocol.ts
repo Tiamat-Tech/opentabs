@@ -43,7 +43,13 @@ import {
 } from './extension-handlers.js';
 import { log } from './logger.js';
 import type { ConfirmationDecision, ExtensionConnection, PendingDispatch, ServerState } from './state.js';
-import { DISPATCH_TIMEOUT_MS, getAnyConnection, getConnectionForTab, getNextRequestId } from './state.js';
+import {
+  DISPATCH_TIMEOUT_MS,
+  findConnectionByWs,
+  getAnyConnection,
+  getConnectionForTab,
+  getNextRequestId,
+} from './state.js';
 
 /** Maximum incoming WebSocket message size (10MB) */
 const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
@@ -405,14 +411,17 @@ const handleExtensionMessage = (
   }
   const params = rawParams as Record<string, unknown> | undefined;
 
+  // Resolve which connection sent this message (needed for per-connection tab scoping)
+  const senderConn = senderWs ? findConnectionByWs(state, senderWs) : getAnyConnection(state);
+
   // Route to individual handlers in extension-handlers.ts
   if (method === 'tab.syncAll') {
-    handleTabSyncAll(state, params);
+    handleTabSyncAll(params, senderConn);
     return;
   }
 
   if (method === 'tab.stateChanged') {
-    handleTabStateChanged(state, params, id);
+    handleTabStateChanged(state, params, id, senderConn);
     return;
   }
 

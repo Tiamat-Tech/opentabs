@@ -320,6 +320,8 @@ export interface ServerState {
   adaptersDirReady: boolean;
   /** In-memory review tokens: token string → ReviewToken. Lost on restart (intentional). */
   reviewTokens: Map<string, ReviewToken>;
+  /** Pending connectionId for the next WsHandle open — set during upgrade, consumed in the open handler */
+  _pendingConnectionId?: string;
 }
 
 /** Increment when changing the type of an existing ServerState field */
@@ -483,6 +485,14 @@ export const getMergedTabMapping = (state: ServerState): Map<string, TabMapping>
 
 /** Returns true when at least one extension connection is active */
 export const isExtensionConnected = (state: ServerState): boolean => state.extensionConnections.size > 0;
+
+/** Finds which connection a given WsHandle belongs to by identity comparison */
+export const findConnectionByWs = (state: ServerState, ws: WsHandle): ExtensionConnection | undefined => {
+  for (const conn of state.extensionConnections.values()) {
+    if (conn.ws === ws) return conn;
+  }
+  return undefined;
+};
 
 /** Picks the "most ready" tab state: ready > unavailable > closed */
 const pickBestTabState = (a: TabState, b: TabState): TabState => {
