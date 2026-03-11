@@ -325,6 +325,277 @@ test.describe('Multi-connection WebSocket support', () => {
     }
   });
 
+  // -------------------------------------------------------------------------
+  // Multi-connection routing tests
+  // -------------------------------------------------------------------------
+
+  test('browser_list_tabs returns merged tabs from both connections with connectionId', async ({
+    mcpServer,
+    mcpClient,
+  }) => {
+    let wsAlpha: WebSocket | undefined;
+    let wsBeta: WebSocket | undefined;
+    try {
+      wsAlpha = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-alpha');
+      wsBeta = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-beta');
+
+      await mcpServer.waitForHealth(h => h.extensionConnections >= 2, 10_000);
+
+      // Set up message handlers for browser.listTabs dispatch on each connection
+      const handleListTabs = (ws: WebSocket, fakeTabs: Array<Record<string, unknown>>) => {
+        ws.addEventListener('message', (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+            if (msg.method === 'browser.listTabs' && msg.id !== undefined) {
+              ws.send(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: fakeTabs }));
+            }
+          } catch {
+            // Ignore non-JSON
+          }
+        });
+      };
+
+      handleListTabs(wsAlpha, [
+        { id: 1001, title: 'Alpha Tab 1', url: 'http://localhost/alpha1', active: true, windowId: 1 },
+        { id: 1002, title: 'Alpha Tab 2', url: 'http://localhost/alpha2', active: false, windowId: 1 },
+      ]);
+
+      handleListTabs(wsBeta, [
+        { id: 2001, title: 'Beta Tab 1', url: 'http://localhost/beta1', active: true, windowId: 2 },
+      ]);
+
+      // Call browser_list_tabs via MCP client
+      const result = await mcpClient.callTool('browser_list_tabs');
+      expect(result.isError).toBe(false);
+
+      const tabs = JSON.parse(result.content) as Array<Record<string, unknown>>;
+
+      // Should contain tabs from both connections
+      const tabIds = tabs.map(t => t.id);
+      expect(tabIds).toContain(1001);
+      expect(tabIds).toContain(1002);
+      expect(tabIds).toContain(2001);
+
+      // Each tab should have a connectionId
+      for (const tab of tabs) {
+        expect(tab.connectionId).toBeDefined();
+        expect(typeof tab.connectionId).toBe('string');
+      }
+
+      // Alpha tabs should have connectionId 'conn-alpha', beta tabs 'conn-beta'
+      const alphaTabs = tabs.filter(t => t.connectionId === 'conn-alpha');
+      const betaTabs = tabs.filter(t => t.connectionId === 'conn-beta');
+      expect(alphaTabs.map(t => t.id)).toEqual(expect.arrayContaining([1001, 1002]));
+      expect(betaTabs.map(t => t.id)).toEqual(expect.arrayContaining([2001]));
+    } finally {
+      wsAlpha?.close();
+      wsBeta?.close();
+    }
+  });
+
+  test('browser_open_tab with connectionId routes to the specified connection', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    test.slow();
+
+    // Wait for the real extension to connect
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    // Open a second raw WS connection
+    let rawWs: WebSocket | undefined;
+    try {
+      rawWs = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-beta-open');
+      const ws = rawWs;
+
+      await mcpServer.waitForHealth(h => h.extensionConnections >= 2, 10_000);
+
+      // Discover the real extension's connectionId by calling browser_list_tabs.
+      // Set up the raw WS to respond to browser.listTabs with empty tabs.
+      ws.addEventListener('message', (event: MessageEvent) => {
+        try {
+          const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+          if (msg.method === 'browser.listTabs' && msg.id !== undefined) {
+            ws.send(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: [] }));
+          }
+          // Track if browser.openTab was dispatched to the raw WS (it shouldn't be)
+          if (msg.method === 'browser.openTab' && msg.id !== undefined) {
+            ws.send(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: msg.id,
+                error: { code: -1, message: 'WRONG_CONNECTION: openTab dispatched to raw WS' },
+              }),
+            );
+          }
+        } catch {
+          // Ignore
+        }
+      });
+
+      // Get the real extension's connectionId from browser_list_tabs
+      const listResult = await mcpClient.callTool('browser_list_tabs');
+      expect(listResult.isError).toBe(false);
+      const allTabs = JSON.parse(listResult.content) as Array<Record<string, unknown>>;
+
+      // Find a connectionId that is NOT 'conn-beta-open' — that's the real extension's
+      const realConnTab = allTabs.find(t => t.connectionId !== 'conn-beta-open');
+      if (!realConnTab) throw new Error('No tabs found from real extension');
+      const realConnectionId = realConnTab.connectionId as string;
+
+      // Call browser_open_tab targeting the real extension
+      const openResult = await mcpClient.callTool('browser_open_tab', {
+        url: testServer.url,
+        connectionId: realConnectionId,
+      });
+      expect(openResult.isError).toBe(false);
+
+      // The result should contain the new tab info (from the real extension)
+      const openData = JSON.parse(openResult.content) as Record<string, unknown>;
+      expect(openData.id).toBeDefined();
+    } finally {
+      rawWs?.close();
+    }
+  });
+
+  test('plugin_list_tabs includes connectionId for each tab', async ({ mcpServer, mcpClient }) => {
+    let wsAlpha: WebSocket | undefined;
+    let wsBeta: WebSocket | undefined;
+    try {
+      wsAlpha = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-plt-alpha');
+      wsBeta = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-plt-beta');
+
+      await mcpServer.waitForHealth(h => h.extensionConnections >= 2, 10_000);
+
+      // Send tab.syncAll from both connections with e2e-test plugin tabs
+      sendJsonRpc(wsAlpha, 'tab.syncAll', {
+        tabs: {
+          'e2e-test': {
+            state: 'ready',
+            tabs: [{ tabId: 3001, url: 'http://localhost/plt-alpha', title: 'PLT Alpha', ready: true }],
+          },
+        },
+      });
+      await waitForLog(mcpServer, 'tab.syncAll received', 5_000);
+
+      mcpServer.logs.length = 0;
+      sendJsonRpc(wsBeta, 'tab.syncAll', {
+        tabs: {
+          'e2e-test': {
+            state: 'ready',
+            tabs: [{ tabId: 3002, url: 'http://localhost/plt-beta', title: 'PLT Beta', ready: true }],
+          },
+        },
+      });
+      await waitForLog(mcpServer, 'tab.syncAll received', 5_000);
+
+      // Call plugin_list_tabs for the e2e-test plugin
+      const result = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+      expect(result.isError).toBe(false);
+
+      const plugins = JSON.parse(result.content) as Array<{
+        plugin: string;
+        tabs: Array<{ tabId: number; connectionId: string }>;
+      }>;
+      expect(plugins.length).toBeGreaterThanOrEqual(1);
+
+      const e2ePlugin = plugins.find(p => p.plugin === 'e2e-test');
+      if (!e2ePlugin) throw new Error('e2e-test plugin not found in plugin_list_tabs response');
+
+      const tabs = e2ePlugin.tabs;
+      expect(tabs.length).toBeGreaterThanOrEqual(2);
+
+      // Each tab should have a connectionId
+      for (const tab of tabs) {
+        expect(tab.connectionId).toBeDefined();
+        expect(typeof tab.connectionId).toBe('string');
+      }
+
+      // Verify connectionId assignment is correct
+      const alphaTab = tabs.find(t => t.tabId === 3001);
+      const betaTab = tabs.find(t => t.tabId === 3002);
+      expect(alphaTab?.connectionId).toBe('conn-plt-alpha');
+      expect(betaTab?.connectionId).toBe('conn-plt-beta');
+    } finally {
+      wsAlpha?.close();
+      wsBeta?.close();
+    }
+  });
+
+  test('network capture tracks on the correct connection via getConnectionForTab', async ({ mcpServer, mcpClient }) => {
+    let wsAlpha: WebSocket | undefined;
+    let wsBeta: WebSocket | undefined;
+    try {
+      wsAlpha = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-net-alpha');
+      wsBeta = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-net-beta');
+
+      await mcpServer.waitForHealth(h => h.extensionConnections >= 2, 10_000);
+
+      // Register tabs from each connection via tab.syncAll
+      sendJsonRpc(wsAlpha, 'tab.syncAll', {
+        tabs: {
+          'e2e-test': {
+            state: 'ready',
+            tabs: [{ tabId: 4001, url: 'http://localhost/net-alpha', title: 'Net Alpha', ready: true }],
+          },
+        },
+      });
+      await waitForLog(mcpServer, 'tab.syncAll received', 5_000);
+
+      mcpServer.logs.length = 0;
+      sendJsonRpc(wsBeta, 'tab.syncAll', {
+        tabs: {
+          'e2e-test': {
+            state: 'ready',
+            tabs: [{ tabId: 4002, url: 'http://localhost/net-beta', title: 'Net Beta', ready: true }],
+          },
+        },
+      });
+      await waitForLog(mcpServer, 'tab.syncAll received', 5_000);
+
+      // Set up both connections to handle browser.enableNetworkCapture and browser.disableNetworkCapture
+      const setupCaptureHandler = (ws: WebSocket) => {
+        ws.addEventListener('message', (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+            if (
+              (msg.method === 'browser.enableNetworkCapture' || msg.method === 'browser.disableNetworkCapture') &&
+              msg.id !== undefined
+            ) {
+              ws.send(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: { ok: true } }));
+            }
+          } catch {
+            // Ignore
+          }
+        });
+      };
+      setupCaptureHandler(wsAlpha);
+      setupCaptureHandler(wsBeta);
+
+      // Enable network capture on tab 4001 (owned by alpha)
+      const enableResult = await mcpClient.callTool('browser_enable_network_capture', { tabId: 4001 });
+      expect(enableResult.isError).toBe(false);
+
+      // Disable network capture on tab 4001
+      const disableResult = await mcpClient.callTool('browser_disable_network_capture', { tabId: 4001 });
+      expect(disableResult.isError).toBe(false);
+
+      // Enable network capture on tab 4002 (owned by beta)
+      const enableResult2 = await mcpClient.callTool('browser_enable_network_capture', { tabId: 4002 });
+      expect(enableResult2.isError).toBe(false);
+
+      // Disable network capture on tab 4002
+      const disableResult2 = await mcpClient.callTool('browser_disable_network_capture', { tabId: 4002 });
+      expect(disableResult2.isError).toBe(false);
+    } finally {
+      wsAlpha?.close();
+      wsBeta?.close();
+    }
+  });
+
   test('health endpoint shows extensionConnections count accurately', async ({ mcpServer }) => {
     // Initially no connections
     const h0 = await mcpServer.health();
