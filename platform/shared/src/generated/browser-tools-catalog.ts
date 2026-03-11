@@ -184,7 +184,7 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
     name: 'browser_list_tabs',
     description:
-      'List all open browser tabs. Returns tab ID, title, URL, and active status for each tab. Use the returned tab IDs with browser_close_tab, browser_navigate_tab, and browser_execute_script. Note: Returns ALL open tabs including potentially sensitive ones (banking, email, etc.). Tab URLs and titles may contain private information. Do not share tab information with plugin tools unless the user explicitly requests it.',
+      'List all open browser tabs across all connected browser profiles. Returns tab ID, title, URL, active status, and connectionId for each tab. The connectionId identifies which browser profile owns the tab — use it with browser_open_tab to target a specific profile. Use the returned tab IDs with browser_close_tab, browser_navigate_tab, and browser_execute_script. Note: Returns ALL open tabs including potentially sensitive ones (banking, email, etc.). Tab URLs and titles may contain private information. Do not share tab information with plugin tools unless the user explicitly requests it.',
     summary: 'List all open browser tabs',
     icon: 'layout-list',
     group: 'Tabs',

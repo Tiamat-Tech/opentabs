@@ -163,6 +163,74 @@ const resolveConnection = (state: ServerState, params: Record<string, unknown>):
 };
 
 /**
+ * Dispatch a JSON-RPC request to ALL active extension connections in parallel,
+ * collecting per-connection results. Connections that fail or time out are
+ * silently excluded from the results (partial success model).
+ *
+ * Used by tools that need a merged view across all browser profiles
+ * (e.g., browser_list_tabs).
+ */
+const dispatchToAllConnections = async (
+  state: ServerState,
+  method: string,
+  params: Record<string, unknown>,
+  options?: DispatchOptions,
+): Promise<{ connectionId: string; result: unknown }[]> => {
+  if (state.extensionConnections.size === 0) {
+    throw new Error('Extension not connected');
+  }
+
+  const opts: DispatchOptions = options ?? {};
+  const timeoutMs = opts.timeoutMs ?? DISPATCH_TIMEOUT_MS;
+  const entries = Array.from(state.extensionConnections.values());
+
+  const settled = await Promise.allSettled(
+    entries.map(conn => {
+      const id = getNextRequestId();
+      const msg: JsonRpcRequest = {
+        jsonrpc: '2.0',
+        method,
+        params: { ...params, __opentabs_dispatchId: id },
+        id,
+      };
+
+      return new Promise<unknown>((resolve, reject) => {
+        const timerId = setTimeout(() => {
+          state.pendingDispatches.delete(id);
+          reject(new Error(`Dispatch ${method} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+
+        state.pendingDispatches.set(id, {
+          resolve,
+          reject,
+          label: opts.label ?? method,
+          startTs: Date.now(),
+          timerId,
+          connectionId: conn.connectionId,
+        });
+
+        try {
+          conn.ws.send(JSON.stringify(msg));
+        } catch (err) {
+          clearTimeout(timerId);
+          state.pendingDispatches.delete(id);
+          reject(new Error(`WebSocket send failed: ${toErrorMessage(err)}`));
+        }
+      });
+    }),
+  );
+
+  const results: { connectionId: string; result: unknown }[] = [];
+  for (const [i, s] of settled.entries()) {
+    if (s.status === 'fulfilled') {
+      const conn = entries[i];
+      if (conn) results.push({ connectionId: conn.connectionId, result: s.value });
+    }
+  }
+  return results;
+};
+
+/**
  * Send a JSON-RPC request to the extension and return a promise for the response.
  * Unified dispatch for both browser commands (browser.*, extension.*) and
  * plugin tool dispatches (tool.dispatch).
@@ -574,6 +642,7 @@ const sendExtensionReload = (state: ServerState): boolean =>
 export type { McpCallbacks };
 export {
   sendSyncFull,
+  dispatchToAllConnections,
   dispatchToExtension,
   queryExtension,
   sendInvocationStart,
