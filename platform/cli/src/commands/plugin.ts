@@ -270,7 +270,8 @@ const extractShortName = (name: string): string => (name.split('/').pop() ?? nam
  */
 const buildDirectLookupCandidates = (query?: string): string[] => {
   if (!query) return [];
-  if (query.startsWith('@') || query.startsWith(PLUGIN_PREFIX)) return [query];
+  if (query.startsWith('@')) return [query];
+  if (query.startsWith(PLUGIN_PREFIX)) return [`@opentabs-dev/${query}`, query];
   return [`@opentabs-dev/${PLUGIN_PREFIX}${query}`, `${PLUGIN_PREFIX}${query}`];
 };
 

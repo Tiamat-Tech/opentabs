@@ -63,8 +63,11 @@ describe('buildDirectLookupCandidates', () => {
     expect(buildDirectLookupCandidates('@my-org/opentabs-plugin-jira')).toEqual(['@my-org/opentabs-plugin-jira']);
   });
 
-  test('returns full unscoped name as-is when query starts with opentabs-plugin-', () => {
-    expect(buildDirectLookupCandidates('opentabs-plugin-slack')).toEqual(['opentabs-plugin-slack']);
+  test('returns scoped and unscoped variants when query starts with opentabs-plugin-', () => {
+    expect(buildDirectLookupCandidates('opentabs-plugin-slack')).toEqual([
+      '@opentabs-dev/opentabs-plugin-slack',
+      'opentabs-plugin-slack',
+    ]);
   });
 });
 

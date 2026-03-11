@@ -207,9 +207,10 @@ const fetchAllPlugins = async (signal: AbortSignal): Promise<NpmRegistrySearchPa
  * candidates, or probes the query directly if it already looks like a full package name.
  */
 const probeDirectPackage = async (query: string, signal: AbortSignal): Promise<NpmRegistrySearchPackage | null> => {
-  const candidates =
-    query.startsWith('@') || query.startsWith('opentabs-plugin-')
-      ? [query]
+  const candidates = query.startsWith('@')
+    ? [query]
+    : query.startsWith('opentabs-plugin-')
+      ? [`@opentabs-dev/${query}`, query]
       : [`@opentabs-dev/opentabs-plugin-${query}`, `opentabs-plugin-${query}`];
 
   for (const pkg of candidates) {
