@@ -108,8 +108,8 @@ export default function Home() {
             already logged in
           </Text>
           <p className="mx-auto mb-4 max-w-xl text-lg text-muted-foreground">
-            Most MCP servers ask for your API keys. I thought that was a bit odd. You&apos;re already logged into
-            Slack, GitHub, Jira, and a dozen other apps in Chrome.
+            Most MCP servers ask for your API keys. I thought that was a bit odd. You&apos;re already logged into Slack,
+            GitHub, Jira, and a dozen other apps in Chrome.
           </p>
           <p className="mx-auto mb-10 max-w-xl font-medium text-foreground text-lg">Let your AI use them.</p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -341,9 +341,9 @@ export default function Home() {
               out of the box, and that&apos;s a real advantage. The cost is speed, tokens, and the knowledge stays
               trapped in that one session. If a popup appears or the layout changes, the AI figures it out again from
               scratch. OpenTabs plugins call the web app&apos;s internal APIs directly. A send-message tool isn&apos;t
-              clicking a text box — it&apos;s making the same API call the web app&apos;s frontend makes. Fast, cheap
-              on tokens, and the knowledge is packaged into a reusable plugin. The downside is you need a plugin per
-              site, and internal APIs can change. If a plugin breaks, open a PR — I want to keep everything working.
+              clicking a text box — it&apos;s making the same API call the web app&apos;s frontend makes. Fast, cheap on
+              tokens, and the knowledge is packaged into a reusable plugin. The downside is you need a plugin per site,
+              and internal APIs can change. If a plugin breaks, open a PR — I want to keep everything working.
             </p>
           </div>
           <div>

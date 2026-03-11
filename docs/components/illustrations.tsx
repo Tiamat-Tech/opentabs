@@ -483,7 +483,6 @@ export const ArchitectureIllustration = () => (
   </svg>
 );
 
-
 /**
  * ConfigDirectory — directory structure diagram for the Configuration reference page.
  * Shows the ~/.opentabs/ directory layout as a terminal-window tree.
@@ -1004,7 +1003,15 @@ export const ProgressFlow = () => (
       {/* Shadow */}
       <rect x="124" y="4" width="160" height="52" fill="var(--color-foreground)" />
       {/* Body */}
-      <rect x="120" y="0" width="160" height="52" fill="var(--color-background)" stroke="var(--color-foreground)" strokeWidth="3" />
+      <rect
+        x="120"
+        y="0"
+        width="160"
+        height="52"
+        fill="var(--color-background)"
+        stroke="var(--color-foreground)"
+        strokeWidth="3"
+      />
       {/* Primary tint */}
       <rect x="120" y="0" width="160" height="52" fill="var(--color-primary)" fillOpacity="0.12" />
       <text
@@ -1268,7 +1275,15 @@ export const ProgressFlow = () => (
       {/* Shadow */}
       <rect x="124" y="464" width="160" height="52" fill="var(--color-foreground)" />
       {/* Body */}
-      <rect x="120" y="460" width="160" height="52" fill="var(--color-background)" stroke="var(--color-foreground)" strokeWidth="3" />
+      <rect
+        x="120"
+        y="460"
+        width="160"
+        height="52"
+        fill="var(--color-background)"
+        stroke="var(--color-foreground)"
+        strokeWidth="3"
+      />
       {/* Primary tint */}
       <rect x="120" y="460" width="160" height="52" fill="var(--color-primary)" fillOpacity="0.12" />
       <text
@@ -1391,8 +1406,7 @@ export const LifecycleSequence = () => (
         y="8"
         width="372"
         height="40"
-        fill="var(--color-primary)"
-        opacity="0.12"
+        fill="var(--color-background)"
         stroke="var(--color-foreground)"
         strokeWidth="3"
       />
@@ -1647,8 +1661,7 @@ export const LifecycleSequence = () => (
         y="352"
         width="372"
         height="40"
-        fill="var(--color-primary)"
-        opacity="0.12"
+        fill="var(--color-background)"
         stroke="var(--color-foreground)"
         strokeWidth="3"
       />
@@ -1705,8 +1718,7 @@ export const LifecycleSequence = () => (
         y="438"
         width="372"
         height="40"
-        fill="var(--color-primary)"
-        opacity="0.12"
+        fill="var(--color-background)"
         stroke="var(--color-foreground)"
         strokeWidth="3"
       />
@@ -2266,7 +2278,6 @@ export const HowItWorks = () => (
     </svg>
   </div>
 );
-
 
 /**
  * PluginStructure — project structure diagram for the Plugin Development guide.

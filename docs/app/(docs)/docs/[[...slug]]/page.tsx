@@ -15,9 +15,7 @@ export function generateStaticParams() {
     // The index page: /docs (no slug segments)
     { slug: [] },
     // All other doc pages: /docs/foo, /docs/foo/bar, etc.
-    ...allDocs
-      .filter(doc => doc.url !== '/docs')
-      .map(doc => ({ slug: doc.url.replace(/^\/docs\//, '').split('/') })),
+    ...allDocs.filter(doc => doc.url !== '/docs').map(doc => ({ slug: doc.url.replace(/^\/docs\//, '').split('/') })),
   ];
 }
 
