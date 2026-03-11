@@ -249,3 +249,9 @@ export { getCurrentUrl, getPageGlobal, getPageTitle } from './page-state.js';
 
 export type { LogEntry, LogLevel, LogTransport } from './log.js';
 export { log } from './log.js';
+
+// ---------------------------------------------------------------------------
+// SDK utilities — Readiness
+// ---------------------------------------------------------------------------
+
+export { notifyReadinessChanged } from './readiness.js';
