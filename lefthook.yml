@@ -31,13 +31,11 @@ pre-commit:
       stage_fixed: true
 
 pre-push:
-  parallel: false
+  parallel: true
   commands:
     build:
       run: npm run build
-    build-plugins:
-      run: npm run build:plugins
-    type-check:
-      run: npm run type-check
+    lint:
+      run: npm run lint
     test:
       run: npm run test
