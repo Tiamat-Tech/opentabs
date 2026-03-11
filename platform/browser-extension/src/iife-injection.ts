@@ -141,6 +141,75 @@ const injectLogRelay = async (tabId: number): Promise<void> => {
 };
 
 /**
+ * Inject a readiness-change relay listener into a tab's ISOLATED world.
+ * Listens for 'opentabs:readiness-changed' postMessages from the MAIN world
+ * adapter and forwards them to the background via chrome.runtime.sendMessage.
+ *
+ * Uses a separate nonce from the log relay to prevent cross-channel spoofing.
+ * The nonce is generated here and shared with both worlds:
+ * - ISOLATED world: validates `data.nonce` on every received postMessage
+ * - MAIN world: stored on `globalThis.__openTabs._readinessNonce`, read by
+ *   the adapter IIFE's `_notifyReadinessChanged` closure
+ */
+const injectReadinessRelay = async (tabId: number): Promise<void> => {
+  const nonce = crypto.randomUUID();
+
+  try {
+    // 1. Install the ISOLATED world listener with the nonce for validation
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'ISOLATED',
+      func: (n: string) => {
+        const guard = '__opentabs_readiness_relay';
+        const win = window as unknown as Record<string, unknown>;
+        if (win[guard]) {
+          const nonceSet = win.__opentabs_readiness_nonces as Set<string> | undefined;
+          if (nonceSet) {
+            nonceSet.clear();
+            nonceSet.add(n);
+          }
+          return;
+        }
+        win[guard] = true;
+
+        const nonces = new Set<string>([n]);
+        win.__opentabs_readiness_nonces = nonces;
+
+        window.addEventListener('message', event => {
+          if (event.source !== window) return;
+          const data = event.data as Record<string, unknown> | undefined;
+          if (!data || data.type !== 'opentabs:readiness-changed') return;
+          if (typeof data.nonce !== 'string' || !nonces.has(data.nonce)) return;
+          const plugin = data.plugin;
+          if (typeof plugin !== 'string') return;
+          chrome.runtime.sendMessage({ type: 'plugin:readinessChanged', plugin }).catch(() => {
+            // Background may not be listening — drop silently
+          });
+        });
+      },
+      args: [nonce],
+    });
+
+    // 2. Inject the nonce into MAIN world on globalThis.__openTabs._readinessNonce.
+    //    The adapter IIFE's _notifyReadinessChanged closure reads this value and
+    //    includes it in every postMessage call. On re-injection, the nonce is
+    //    updated so the adapter picks up the new value on the next call.
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: (n: string) => {
+        const ot = ((globalThis as Record<string, unknown>).__openTabs ?? {}) as Record<string, unknown>;
+        (globalThis as Record<string, unknown>).__openTabs = ot;
+        ot._readinessNonce = n;
+      },
+      args: [nonce],
+    });
+  } catch (err) {
+    console.warn(`[opentabs] injectReadinessRelay failed for tab ${String(tabId)}:`, err);
+  }
+};
+
+/**
  * Inject an adapter file into a single tab via chrome.scripting.executeScript.
  *
  * Uses content-hashed filenames so each adapter version gets a unique path,
@@ -154,9 +223,10 @@ const injectAdapterFile = async (
   adapterHash?: string,
   adapterFilePath?: string,
 ): Promise<void> => {
-  // Inject the log relay in ISOLATED world before the adapter IIFE (MAIN world)
-  // so postMessage listeners are in place when the adapter starts logging.
+  // Inject relays in ISOLATED world before the adapter IIFE (MAIN world)
+  // so postMessage listeners are in place when the adapter starts.
   await injectLogRelay(tabId);
+  await injectReadinessRelay(tabId);
 
   const adapterFile = adapterFilePath ?? `adapters/${pluginName}.js`;
   try {

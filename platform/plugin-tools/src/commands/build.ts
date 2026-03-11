@@ -703,6 +703,8 @@ interface OpenTabsRuntime {
   adapters: Record<string, OpenTabsPlugin>;
   _setLogTransport?: (fn: (entry: LogEntry) => void) => () => void;
   _logNonce?: string;
+  _readinessNonce?: string;
+  _notifyReadinessChanged?: () => void;
   _navigationInterceptor?: NavigationInterceptor;
 }
 declare global {
@@ -767,6 +769,23 @@ const logTransport = (entry: LogEntry) => {
 };
 
 const restoreTransport = setLogTransport ? setLogTransport(logTransport) : undefined;
+
+// --- Readiness notification: delegate to the relay via postMessage ---
+// The readiness nonce is injected by the ISOLATED world relay (injectReadinessRelay)
+// into globalThis.__openTabs._readinessNonce. The closure captures the plugin name
+// and reads the nonce at call time so it always uses the current nonce (survives
+// re-injection where the nonce is updated).
+const ot = globalThis.__openTabs!;
+ot._notifyReadinessChanged = () => {
+  try {
+    const nonce = globalThis.__openTabs?._readinessNonce;
+    if (nonce) {
+      window.postMessage({ type: 'opentabs:readiness-changed', plugin: ${name}, nonce }, '*');
+    }
+  } catch {
+    // Extension not available — drop silently
+  }
+};
 
 const existing = adapters[${name}];
 if (existing) {

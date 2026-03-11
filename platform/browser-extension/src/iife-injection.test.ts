@@ -204,7 +204,8 @@ describe('injectLogRelay nonce management', () => {
     const nonce2 = [...nonces][0];
     expect(nonce2).not.toBe(nonce1);
 
-    expect(isolatedCallCount).toBe(2);
+    // 2 injections × 2 ISOLATED calls each (log relay + readiness relay)
+    expect(isolatedCallCount).toBe(4);
   });
 
   test('nonces Set always has exactly one entry regardless of injection count', async () => {
