@@ -216,14 +216,14 @@ test.describe('plugin icon build validation', () => {
     expect(stderr).toContain('viewBox');
   });
 
-  test('oversized icon.svg (>8KB) → fails', () => {
+  test('oversized icon.svg (>16KB) → fails', () => {
     const pluginDir = path.join(tmpDir, 'e2e-test');
     copyPlugin(pluginDir);
 
-    // Generate an SVG with a very long path to exceed 8KB
-    const longPath = `M0,0 ${'L10,10 '.repeat(1500)}`;
+    // Generate an SVG with a very long path to exceed the 16KB limit
+    const longPath = `M0,0 ${'L10,10 '.repeat(3000)}`;
     const oversizedSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="${longPath}" fill="#000"/></svg>`;
-    expect(new TextEncoder().encode(oversizedSvg).byteLength).toBeGreaterThan(8192);
+    expect(new TextEncoder().encode(oversizedSvg).byteLength).toBeGreaterThan(16384);
 
     fs.writeFileSync(path.join(pluginDir, 'icon.svg'), oversizedSvg);
     fs.rmSync(path.join(pluginDir, 'icon-inactive.svg'), { force: true });
