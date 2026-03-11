@@ -42,6 +42,15 @@ export const sendMessage = defineTool({
       params.response_choice_id,
       params.model_id,
     );
-    return { message: mapMessage(result) };
+    const mapped = mapMessage(result);
+    if (mapped.conversation_id) {
+      const urlId = mapped.conversation_id.replace(/^c_/, '');
+      if (window.location.pathname !== `/app/${urlId}`) {
+        setTimeout(() => {
+          window.location.href = `https://gemini.google.com/app/${urlId}`;
+        }, 200);
+      }
+    }
+    return { message: mapped };
   },
 });

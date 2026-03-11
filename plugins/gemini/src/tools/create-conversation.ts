@@ -20,6 +20,13 @@ export const createConversation = defineTool({
   }),
   handle: async params => {
     const result = await apiSendMessage(params.text, undefined, undefined, undefined, params.model_id);
-    return { message: mapMessage(result) };
+    const mapped = mapMessage(result);
+    if (mapped.conversation_id) {
+      const urlId = mapped.conversation_id.replace(/^c_/, '');
+      setTimeout(() => {
+        window.location.href = `https://gemini.google.com/app/${urlId}`;
+      }, 200);
+    }
+    return { message: mapped };
   },
 });
