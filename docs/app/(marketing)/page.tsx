@@ -282,7 +282,7 @@ export default function Home() {
       <section className="container mx-auto max-w-6xl border-foreground border-t-2 px-4 py-20 lg:px-0">
         <div className="mb-12 max-w-xl">
           <Text as="h2" className="mb-4 text-3xl">
-            Security, for real
+            Permissions and defaults
           </Text>
           <p className="text-muted-foreground">
             I know you&apos;re the kind of person who sets{' '}
