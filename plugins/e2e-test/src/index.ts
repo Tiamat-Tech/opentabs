@@ -26,6 +26,7 @@ import { errorCustomCode } from './tools/error-custom-code.js';
 import { sdkRemoveStorage } from './tools/sdk-remove-storage.js';
 import { sdkSetSessionStorage } from './tools/sdk-set-session-storage.js';
 import { sdkHttpMethods } from './tools/sdk-http-methods.js';
+import { sdkNotifyReadinessChanged } from './tools/sdk-notify-readiness-changed.js';
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
 
@@ -63,6 +64,7 @@ class E2eTestPlugin extends OpenTabsPlugin {
     sdkRemoveStorage,
     sdkSetSessionStorage,
     sdkHttpMethods,
+    sdkNotifyReadinessChanged,
   ];
 
   constructor() {
