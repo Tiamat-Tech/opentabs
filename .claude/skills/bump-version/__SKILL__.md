@@ -14,7 +14,7 @@ The workflow is:
 
 1. Determine the target version (see "Versioning Model")
 2. Create and publish a ralph PRD using the template below (see "The Job")
-3. A worker claims it, bumps versions, publishes to npm, rebuilds plugins, and pushes the branch
+3. A worker claims it, bumps versions, publishes platform packages to npm, rebuilds plugins, publishes plugins to npm, and pushes the branch
 4. The consolidator merges the branch into `main`
 
 ---
@@ -35,25 +35,26 @@ The workflow is:
 3. **Write the PRD** — use the template below, replacing `<OLD>` and `<NEW>` with the actual version numbers. Write it to the queue repo with `~draft` suffix.
 4. **Publish** — run `producer.sh` to rename with timestamp, commit, and push to remote.
 
-That's it. Do NOT implement the version bump locally. The ralph worker handles everything: editing files, building, publishing to npm, rebuilding plugins, and committing.
+That's it. Do NOT implement the version bump locally. The ralph worker handles everything: editing files, building, publishing platform packages to npm, rebuilding plugins, publishing plugins to npm, and committing.
 
 ### PRD Template
 
 ```json
 {
   "project": "OpenTabs Platform",
-  "description": "Bump all platform packages and plugins from <OLD> to <NEW>, publish to npm, and rebuild plugins with updated lock files.",
+  "description": "Bump all platform packages and plugins from <OLD> to <NEW>, publish all packages (platform + plugins) to npm, and rebuild plugins with updated lock files.",
   "qualityChecks": "npm run build && npm run type-check && npm run lint && npm run knip && npm run test",
   "userStories": [
     {
       "id": "US-001",
       "title": "Bump version from <OLD> to <NEW> and publish to npm",
-      "description": "Load the bump-version skill and execute every step: bump all version references, build, publish all 7 platform packages to npm in dependency order, rebuild all plugins to update lock files, and commit everything.",
+      "description": "Load the bump-version skill and execute every step: bump all version references, build, publish all 7 platform packages to npm in dependency order, rebuild all plugins, publish all plugins to npm, and commit everything.",
       "acceptanceCriteria": [
         "All 7 platform package.json files have version <NEW>",
         "Chrome extension manifest.json has version <NEW>",
         "All plugin package.json files have version <NEW> with SDK/tools dep ranges ^<NEW>",
         "All 7 platform packages are published to npm at <NEW> (verify with npm view)",
+        "All plugins are published to npm at <NEW> (verify a sample with npm view)",
         "All plugin package-lock.json files reference the published <NEW> versions",
         "No hardcoded <OLD> version strings remain in platform/ TypeScript source"
       ],
@@ -61,7 +62,7 @@ That's it. Do NOT implement the version bump locally. The ralph worker handles e
       "passes": false,
       "e2eCheckpoint": false,
       "model": "opus",
-      "notes": "Use the `skill` tool to load the `bump-version` skill, then follow every step in the 'Reference: What the Worker Does' section exactly.\n\nThe skill is at `.claude/skills/bump-version/__SKILL__.md` — read it first.\n\nKey steps in order:\n1. Update version in all 7 platform package.json files: shared, plugin-sdk, browser-extension, mcp-server, plugin-tools, cli, create-plugin\n2. Update version in platform/browser-extension/manifest.json\n3. Update version AND dependency ranges in all plugin package.json files (plugins/*/package.json)\n4. Run `npm install --package-lock-only` at repo root to update root lock file\n5. Scan for hardcoded '<OLD>' strings in platform/**/*.ts\n6. Run `npm run build` and `npm run type-check`\n7. Commit the version bump (message: 'bump version to <NEW>')\n8. Verify npm auth: `npm whoami` must return 'opentabs-dev-admin'\n9. Publish in this exact order:\n   - cd platform/shared && npm publish\n   - cd platform/browser-extension && npm publish\n   - cd platform/mcp-server && npm publish\n   - cd platform/plugin-sdk && npm publish\n   - cd platform/plugin-tools && npm publish\n   - cd platform/cli && npm publish\n   - cd platform/create-plugin && npm publish\n10. After all 7 are published, verify: `npm view @opentabs-dev/shared@<NEW> version`\n11. Run `npm run build:plugins` to install published versions and rebuild all plugins\n12. Commit plugin lock file updates (message: 'update plugin lock files for <NEW>')\n\nConstraints:\n- Do NOT change any publishConfig.access values — all packages are public\n- Do NOT bump the docs/ version — it is independent\n- Do NOT modify the root package.json — it has no version field\n- Do NOT change any code logic — this is a version-only change\n- Plugin packages use `^<NEW>` semver ranges, NOT exact versions\n- The publish MUST happen before build:plugins, because plugins install from the npm registry\n- If npm publish fails for a package, retry after 10 seconds (registry propagation delay)"
+      "notes": "Use the `skill` tool to load the `bump-version` skill, then follow every step in the 'Reference: What the Worker Does' section exactly.\n\nThe skill is at `.claude/skills/bump-version/__SKILL__.md` — read it first.\n\nKey steps in order:\n1. Update version in all 7 platform package.json files: shared, plugin-sdk, browser-extension, mcp-server, plugin-tools, cli, create-plugin\n2. Update version in platform/browser-extension/manifest.json\n3. Update version AND dependency ranges in all plugin package.json files (plugins/*/package.json)\n4. Run `npm install --package-lock-only` at repo root to update root lock file\n5. Scan for hardcoded '<OLD>' strings in platform/**/*.ts\n6. Run `npm run build` and `npm run type-check`\n7. Commit the version bump (message: 'bump version to <NEW>')\n8. Verify npm auth: `npm whoami` must return 'opentabs-dev-admin'\n9. Publish platform packages in this exact order:\n   - cd platform/shared && npm publish\n   - cd platform/browser-extension && npm publish\n   - cd platform/mcp-server && npm publish\n   - cd platform/plugin-sdk && npm publish\n   - cd platform/plugin-tools && npm publish\n   - cd platform/cli && npm publish\n   - cd platform/create-plugin && npm publish\n10. After all 7 are published, verify: `npm view @opentabs-dev/shared@<NEW> version`\n11. Run `npm run build:plugins` to install published versions and rebuild all plugins\n12. Publish ALL plugins: for each directory in plugins/*, run `cd plugins/<name> && npm publish`\n13. Verify a sample plugin: `npm view @opentabs-dev/opentabs-plugin-slack@<NEW> version`\n14. Commit plugin lock file updates (message: 'update plugin lock files for <NEW>')\n\nConstraints:\n- Do NOT change any publishConfig.access values — all packages are public\n- Do NOT bump the docs/ version — it is independent\n- Do NOT modify the root package.json — it has no version field\n- Do NOT change any code logic — this is a version-only change\n- Plugin packages use `^<NEW>` semver ranges, NOT exact versions\n- The publish of platform packages MUST happen before build:plugins, because plugins install from the npm registry\n- Plugin publish MUST happen after build:plugins (plugins need to be built before publishing)\n- If npm publish fails for a package, retry after 10 seconds (registry propagation delay)\n- Use a loop to publish all plugins: `for dir in plugins/*/; do (cd \"$dir\" && npm publish); done`"
     }
   ]
 }
@@ -189,17 +190,41 @@ The npm registry does not guarantee immediate availability after `npm publish`. 
 After all platform packages are published:
 
 1. Run `npm run build:plugins` (installs from registry + builds each plugin)
-2. Commit the updated lock files with message: `update plugin lock files for <new>`
 
-### Step 8: Push
+### Step 8: Publish Plugins to npm
 
-Push all commits. The pre-push hook will succeed because packages are already on the registry.
+After all plugins are built, publish every plugin to the npm registry:
+
+```bash
+for dir in plugins/*/; do
+  echo "Publishing $dir..."
+  (cd "$dir" && npm publish)
+done
+```
+
+If any plugin fails to publish, retry after 10 seconds. Common causes:
+- Network timeout — retry immediately
+- `EPUBLISHCONFLICT` (version already exists) — skip that plugin, it's already published
+
+After publishing, verify a sample:
+
+```bash
+npm view @opentabs-dev/opentabs-plugin-slack@<new> version
+npm view @opentabs-dev/opentabs-plugin-github@<new> version
+```
+
+### Step 9: Commit and Push
+
+1. Commit the updated lock files with message: `update plugin lock files for <new>`
+2. Push all commits
+
+The pre-push hook will succeed because all packages (platform + plugins) are already on the registry.
 
 #### Push Ordering (why publish must happen before push)
 
 **The pre-push hook runs `npm run build:plugins`, which calls `npm install` in each plugin.** Plugins reference `@opentabs-dev/*` packages via `^x.y.z` semver ranges that resolve from the npm registry. If you push BEFORE publishing, the pre-push hook fails with `ETARGET` because the new version does not exist on npm yet.
 
-The correct order is: **commit → publish → build:plugins → commit plugin locks → push**.
+The correct order is: **commit → publish platform → build:plugins → publish plugins → commit plugin locks → push**.
 
 ---
 
