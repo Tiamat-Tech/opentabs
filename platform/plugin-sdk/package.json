@@ -1,5 +1,16 @@
 {
   "name": "@opentabs-dev/plugin-sdk",
+  "description": "SDK for building OpenTabs plugins — give AI agents tools to interact with any web application",
+  "keywords": [
+    "opentabs",
+    "mcp",
+    "modelcontextprotocol",
+    "ai-agent",
+    "browser",
+    "chrome-extension",
+    "plugin-sdk",
+    "opentabs-plugin"
+  ],
   "version": "0.0.76",
   "license": "MIT",
   "type": "module",

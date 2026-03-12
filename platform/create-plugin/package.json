@@ -1,5 +1,17 @@
 {
   "name": "@opentabs-dev/create-plugin",
+  "description": "Scaffold a new OpenTabs plugin — create MCP tools that interact with web apps through the browser",
+  "keywords": [
+    "opentabs",
+    "mcp",
+    "modelcontextprotocol",
+    "ai-agent",
+    "browser",
+    "chrome-extension",
+    "create-plugin",
+    "scaffolding",
+    "opentabs-plugin"
+  ],
   "version": "0.0.76",
   "license": "MIT",
   "engines": {

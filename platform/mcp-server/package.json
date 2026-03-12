@@ -1,5 +1,17 @@
 {
   "name": "@opentabs-dev/mcp-server",
+  "description": "MCP server that turns browser tabs into AI agent tools via a Chrome extension plugin system",
+  "keywords": [
+    "opentabs",
+    "mcp",
+    "mcp-server",
+    "modelcontextprotocol",
+    "ai-agent",
+    "browser",
+    "chrome-extension",
+    "tool-dispatch",
+    "plugin-discovery"
+  ],
   "version": "0.0.76",
   "license": "MIT",
   "engines": {

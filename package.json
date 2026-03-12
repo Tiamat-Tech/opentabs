@@ -1,6 +1,17 @@
 {
   "name": "opentabs",
   "description": "Turns tabs into tools",
+  "keywords": [
+    "opentabs",
+    "mcp",
+    "mcp-server",
+    "modelcontextprotocol",
+    "browser",
+    "chrome-extension",
+    "ai-agent",
+    "browser-automation",
+    "plugin-system"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",

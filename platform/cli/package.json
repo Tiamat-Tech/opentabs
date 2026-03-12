@@ -1,5 +1,16 @@
 {
   "name": "@opentabs-dev/cli",
+  "description": "CLI for OpenTabs — start the MCP server, manage plugins, and configure your AI agent browser bridge",
+  "keywords": [
+    "opentabs",
+    "mcp",
+    "mcp-server",
+    "modelcontextprotocol",
+    "ai-agent",
+    "browser",
+    "chrome-extension",
+    "cli"
+  ],
   "version": "0.0.76",
   "license": "MIT",
   "engines": {

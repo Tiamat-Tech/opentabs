@@ -1,5 +1,16 @@
 {
   "name": "@opentabs-dev/browser-extension",
+  "description": "Chrome extension that bridges AI agents to web applications through the user's authenticated browser session",
+  "keywords": [
+    "opentabs",
+    "mcp",
+    "modelcontextprotocol",
+    "ai-agent",
+    "browser",
+    "chrome-extension",
+    "manifest-v3",
+    "browser-automation"
+  ],
   "version": "0.0.76",
   "license": "MIT",
   "publishConfig": {
