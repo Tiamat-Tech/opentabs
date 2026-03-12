@@ -1,5 +1,16 @@
 {
   "name": "@opentabs-dev/plugin-tools",
+  "description": "Build tools for OpenTabs plugins — bundles adapters, generates tool schemas, and registers plugins",
+  "keywords": [
+    "opentabs",
+    "mcp",
+    "modelcontextprotocol",
+    "ai-agent",
+    "browser",
+    "chrome-extension",
+    "plugin-tools",
+    "opentabs-plugin"
+  ],
   "version": "0.0.76",
   "license": "MIT",
   "engines": {

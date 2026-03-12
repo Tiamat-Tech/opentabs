@@ -1,5 +1,14 @@
 {
   "name": "@opentabs-dev/shared",
+  "description": "Shared types, constants, and utilities for the OpenTabs platform",
+  "keywords": [
+    "opentabs",
+    "mcp",
+    "modelcontextprotocol",
+    "ai-agent",
+    "browser",
+    "chrome-extension"
+  ],
   "version": "0.0.76",
   "license": "MIT",
   "type": "module",
