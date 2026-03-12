@@ -50,7 +50,7 @@ Install a plugin:
 opentabs plugin install <plugin-name>
 ```
 
-That's it. Your AI agent can now talk to the web app. Five minutes, start to finish.
+That's it. Your AI agent can now talk to the web app. Five minutes, start to finish. You can also install plugins from the side panel:
 
 <p align="center">
   <a href="https://youtu.be/MoBD7DhnEY0">
