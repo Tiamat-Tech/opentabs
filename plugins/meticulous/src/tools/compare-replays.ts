@@ -24,7 +24,10 @@ export const compareReplays = defineTool({
   }),
   output: z.object({
     diff_id: z.string().nullable().describe('Replay diff ID'),
-    divergences: z.unknown().nullable().describe('Structural divergences between replays'),
+    divergences: z
+      .array(z.string())
+      .nullable()
+      .describe('Structural divergences between replays (list of divergence descriptions)'),
     head_replay: replayInfoSchema.nullable().describe('Head replay info'),
     base_replay: replayInfoSchema.nullable().describe('Base replay info'),
     head_screenshots: z.array(screenshotSchema).describe('Head replay screenshots'),
@@ -59,7 +62,7 @@ export const compareReplays = defineTool({
 
     return {
       diff_id: diff.id,
-      divergences: diff.divergences,
+      divergences: Array.isArray(diff.divergences) ? (diff.divergences as string[]) : null,
       head_replay: mapReplayInfo(diff.headReplay as Parameters<typeof mapReplayInfo>[0]),
       base_replay: mapReplayInfo(diff.baseReplay as Parameters<typeof mapReplayInfo>[0]),
       head_screenshots: (diff.headReplay.screenshotsData ?? []).map(mapScreenshot),
