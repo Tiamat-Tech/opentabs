@@ -1,0 +1,58 @@
+{
+  "name": "@opentabs-dev/opentabs-plugin-meticulous",
+  "description": "OpenTabs plugin for Meticulous",
+  "version": "0.0.76",
+  "type": "module",
+  "main": "dist/adapter.iife.js",
+  "keywords": [
+    "opentabs-plugin",
+    "meticulous",
+    "visual-regression-testing",
+    "screenshot-testing",
+    "ci-cd"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "opentabs": {
+    "displayName": "Meticulous",
+    "description": "OpenTabs plugin for Meticulous",
+    "urlPatterns": [
+      "*://app.meticulous.ai/*"
+    ],
+    "homepage": "https://app.meticulous.ai"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && opentabs-plugin build",
+    "dev": "tsc --watch --preserveWatchOutput & opentabs-plugin build --watch",
+    "type-check": "tsc --noEmit",
+    "lint": "biome lint src/",
+    "lint:fix": "biome lint --fix src/",
+    "format:check": "biome format src/",
+    "format": "biome format --write src/",
+    "check": "npm run build && npm run type-check && npm run lint && npm run format:check"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
+  "dependencies": {
+    "@opentabs-dev/plugin-sdk": "^0.0.76"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.5",
+    "@opentabs-dev/plugin-tools": "^0.0.76",
+    "jiti": "^2.6.1",
+    "typescript": "^5.9.3",
+    "zod": "^4.0.0"
+  }
+}
