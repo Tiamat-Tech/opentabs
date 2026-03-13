@@ -14,6 +14,7 @@ import {
   sendConfirmationRequest,
   sendSyncFull,
   writeAdapterFile,
+  writeAllAdapterFiles,
 } from './extension-protocol.js';
 import { buildRegistry } from './registry.js';
 import type { ConfirmationDecision, ExtensionConnection, PendingDispatch, RegisteredPlugin } from './state.js';
@@ -1103,6 +1104,119 @@ describe('sendSyncFull', () => {
     expect(npm?.source).toBe('npm');
     expect(npm?.sdkVersion).toBe('1.2.3');
     expect(npm?.update).toEqual({ latestVersion: '2.0.0', updateCommand: 'npm install -g ...' });
+  });
+});
+
+describe('writeAllAdapterFiles', () => {
+  let tmpDir: string;
+  let originalConfigDir: string | undefined;
+
+  beforeEach(() => {
+    originalConfigDir = process.env.OPENTABS_CONFIG_DIR;
+    tmpDir = mkdtempSync(join(tmpdir(), 'opentabs-test-writeall-'));
+    process.env.OPENTABS_CONFIG_DIR = tmpDir;
+  });
+
+  afterEach(() => {
+    if (originalConfigDir !== undefined) {
+      process.env.OPENTABS_CONFIG_DIR = originalConfigDir;
+    } else {
+      delete process.env.OPENTABS_CONFIG_DIR;
+    }
+    if (tmpDir) {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  const makePlugin = (overrides: Partial<RegisteredPlugin> & Pick<RegisteredPlugin, 'name'>): RegisteredPlugin => ({
+    version: '1.0.0',
+    displayName: overrides.name,
+    urlPatterns: [],
+    excludePatterns: [],
+    source: 'local' as const,
+    iife: '// noop',
+    tools: [],
+    ...overrides,
+  });
+
+  test('writes adapter .js files for each plugin and returns a Map of name to path', async () => {
+    const state = createState();
+    // No extension connections — writeAllAdapterFiles works without them
+    state.registry = buildRegistry(
+      [makePlugin({ name: 'foo', iife: '// foo adapter' }), makePlugin({ name: 'bar', iife: '// bar adapter' })],
+      [],
+    );
+
+    const result = await writeAllAdapterFiles(state);
+
+    expect(result).toBeInstanceOf(Map);
+    expect(result.size).toBe(2);
+    expect(result.has('foo')).toBe(true);
+    expect(result.has('bar')).toBe(true);
+
+    const adaptersDir = join(tmpDir, 'extension', 'adapters');
+    const entries = await readdir(adaptersDir);
+
+    const fooFile = entries.find(f => f.startsWith('foo-') && f.endsWith('.js'));
+    expect(fooFile).toBeDefined();
+    const fooContent = await readFile(join(adaptersDir, fooFile as string), 'utf-8');
+    expect(fooContent).toBe('// foo adapter');
+
+    const barFile = entries.find(f => f.startsWith('bar-') && f.endsWith('.js'));
+    expect(barFile).toBeDefined();
+    const barContent = await readFile(join(adaptersDir, barFile as string), 'utf-8');
+    expect(barContent).toBe('// bar adapter');
+  });
+
+  test('works when extensionConnections is empty (no extension connected)', async () => {
+    const state = createState();
+    expect(state.extensionConnections.size).toBe(0);
+
+    state.registry = buildRegistry([makePlugin({ name: 'solo', iife: '// solo iife' })], []);
+
+    const result = await writeAllAdapterFiles(state);
+
+    expect(result.size).toBe(1);
+    expect(result.has('solo')).toBe(true);
+
+    const adaptersDir = join(tmpDir, 'extension', 'adapters');
+    const entries = await readdir(adaptersDir);
+    const soloFile = entries.find(f => f.startsWith('solo-') && f.endsWith('.js'));
+    expect(soloFile).toBeDefined();
+    const content = await readFile(join(adaptersDir, soloFile as string), 'utf-8');
+    expect(content).toBe('// solo iife');
+  });
+
+  test('cleans up stale adapter files for removed plugins', async () => {
+    const state = createState();
+
+    // First call: write adapter for 'old-plugin'
+    state.registry = buildRegistry([makePlugin({ name: 'old-plugin', iife: '// old iife' })], []);
+    await writeAllAdapterFiles(state);
+
+    const adaptersDir = join(tmpDir, 'extension', 'adapters');
+    let entries = await readdir(adaptersDir);
+    expect(entries.find(f => f.startsWith('old-plugin-') && f.endsWith('.js'))).toBeDefined();
+
+    // Second call: registry now has only 'new-plugin' (old-plugin removed)
+    state.registry = buildRegistry([makePlugin({ name: 'new-plugin', iife: '// new iife' })], []);
+    await writeAllAdapterFiles(state);
+
+    entries = await readdir(adaptersDir);
+    // Old plugin's adapter is cleaned up
+    expect(entries.find(f => f.startsWith('old-plugin-') && f.endsWith('.js'))).toBeUndefined();
+    // New plugin's adapter exists
+    expect(entries.find(f => f.startsWith('new-plugin-') && f.endsWith('.js'))).toBeDefined();
+  });
+
+  test('returns empty Map when no plugins are registered', async () => {
+    const state = createState();
+    // Default empty registry
+
+    const result = await writeAllAdapterFiles(state);
+
+    expect(result).toBeInstanceOf(Map);
+    expect(result.size).toBe(0);
   });
 });
 
