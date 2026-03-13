@@ -72,9 +72,19 @@ export const diffResultSchema = z.object({
   changed_class_names: z.array(z.string()).describe('CSS class names of changed sections'),
 });
 
+export const replayInfoSchema = z.object({
+  id: z.string().describe('Replay ID'),
+  status: z.string().nullable().describe('Replay status (e.g., Success, Failure)'),
+  is_accurate: z.boolean().nullable().describe('Whether replay was accurate'),
+  app_url: z.string().nullable().describe('Application URL'),
+});
+
 export const testRunStatsSchema = z.object({
   total_screenshots: z.number().describe('Total screenshots compared'),
-  total_sessions: z.number().describe('Total sessions replayed'),
+  total_sessions: z.number().describe('Total sessions'),
+  total_sessions_replayed: z.number().nullable().describe('Sessions successfully replayed'),
+  sessions_skipped: z.number().nullable().describe('Sessions skipped'),
+  screenshots_skipped: z.number().nullable().describe('Screenshots skipped'),
 });
 
 export const testRunSchema = z.object({
@@ -91,6 +101,7 @@ export const testRunSchema = z.object({
   pr_number: z.number().nullable().describe('Pull request number'),
   pr_url: z.string().nullable().describe('Pull request URL'),
   approval_state: z.string().nullable().describe('PR approval state'),
+  describe_tested: z.string().nullable().describe('Description of what was tested'),
 });
 
 export const replaySchema = z.object({
@@ -290,9 +301,25 @@ export const mapDiffResult = (d: RawDiffResult) => ({
   changed_class_names: d.changedSectionsClassNames ?? [],
 });
 
+interface RawReplayInfo {
+  id?: string;
+  status?: string | null;
+  isAccurate?: boolean | null;
+  parameters?: { appUrl?: string } | null;
+}
+export const mapReplayInfo = (r: RawReplayInfo) => ({
+  id: r.id ?? '',
+  status: r.status ?? null,
+  is_accurate: r.isAccurate ?? null,
+  app_url: r.parameters?.appUrl ?? null,
+});
+
 interface RawTestRunStats {
   totalScreenshots?: number;
   totalSessions?: number;
+  totalSessionsReplayed?: number;
+  sessionsSkipped?: number;
+  screenshotsSkipped?: number;
 }
 
 interface RawTestRun {
@@ -305,6 +332,7 @@ interface RawTestRun {
   stats?: RawTestRunStats | null;
   configData?: { environment?: { ci?: string; context?: Record<string, unknown> } };
   pullRequest?: { approvalState?: string; id?: string } | null;
+  describeTested?: string | null;
 }
 export const mapTestRun = (t: RawTestRun) => {
   const ctx = t.configData?.environment?.context as Record<string, unknown> | undefined;
@@ -320,6 +348,9 @@ export const mapTestRun = (t: RawTestRun) => {
       ? {
           total_screenshots: t.stats.totalScreenshots ?? 0,
           total_sessions: t.stats.totalSessions ?? 0,
+          total_sessions_replayed: t.stats.totalSessionsReplayed ?? null,
+          sessions_skipped: t.stats.sessionsSkipped ?? null,
+          screenshots_skipped: t.stats.screenshotsSkipped ?? null,
         }
       : null,
     ci_provider: (t.configData?.environment?.ci as string) ?? null,
@@ -327,6 +358,7 @@ export const mapTestRun = (t: RawTestRun) => {
     pr_number: (ctx?.number as number) ?? null,
     pr_url: ((ctx?.htmlUrl ?? ctx?.webUrl) as string) ?? null,
     approval_state: t.pullRequest?.approvalState ?? null,
+    describe_tested: t.describeTested ?? null,
   };
 };
 

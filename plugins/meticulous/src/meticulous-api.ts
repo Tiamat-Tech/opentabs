@@ -133,7 +133,11 @@ const TEST_RUN_FRAGMENT = `
         context { ${TEST_RUN_CONTEXT_FIELDS} }
       }
     }
-    stats { totalScreenshots totalSessions }
+    stats {
+      totalScreenshots totalSessions
+      totalSessionsReplayed sessionsSkipped screenshotsSkipped
+    }
+    describeTested
     pullRequest { id approvalState createdAt updatedAt latestTestRunId }
     labelActions { id replayDiffId screenshotFileName label data createdAt }
   }
@@ -153,9 +157,6 @@ const ROUTE_COVERAGE_FRAGMENT = `
 const PULL_REQUEST_FRAGMENT = `
   fragment PullRequestFragment on PullRequest {
     id approvalState createdAt updatedAt latestTestRunId
-    latestDiffDecisions {
-      replayDiffId screenshotFileName label
-    }
   }
 `;
 
@@ -288,6 +289,8 @@ export const queries = {
       testRun(id: $testRunId) {
         replayDiffs(excludeNoDiffs: true, limit: $replayDiffLimit, offset: $replayDiffOffset) {
           id
+          headReplay { id status isAccurate parameters { appUrl } }
+          baseReplay { id status isAccurate parameters { appUrl } }
           screenshotDiffResults {
             ...ScreenshotDiffResultFragment
             firstFailedRetry {
@@ -298,9 +301,11 @@ export const queries = {
         }
         testCaseResults(excludePasses: true, limit: $testCaseResultLimit, offset: $testCaseResultOffset) {
           headReplay {
-            id
+            id status isAccurate
+            parameters { appUrl }
             screenshotsData { ...ScreenshotsDataFragment }
           }
+          session { id }
         }
       }
     }
@@ -313,6 +318,8 @@ export const queries = {
       testRun(id: $testRunId) {
         replayDiffs(excludeNoDiffs: true, limit: $limit, offset: $offset) {
           id
+          headReplay { id status isAccurate parameters { appUrl } }
+          baseReplay { id status isAccurate parameters { appUrl } }
           screenshotDiffResults {
             ...ScreenshotDiffResultFragment
             firstFailedRetry {
@@ -331,9 +338,11 @@ export const queries = {
       testRun(id: $testRunId) {
         testCaseResults(excludePasses: true, limit: $limit, offset: $offset) {
           headReplay {
-            id
+            id status isAccurate
+            parameters { appUrl }
             screenshotsData { ...ScreenshotsDataFragment }
           }
+          session { id }
         }
       }
     }

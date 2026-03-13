@@ -1,13 +1,20 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { graphql, queries } from '../meticulous-api.js';
-import { diffResultSchema, screenshotSchema, mapDiffResult, mapScreenshot } from './schemas.js';
+import {
+  diffResultSchema,
+  replayInfoSchema,
+  screenshotSchema,
+  mapDiffResult,
+  mapReplayInfo,
+  mapScreenshot,
+} from './schemas.js';
 
 export const getTestRunScreenshots = defineTool({
   name: 'get_test_run_screenshots',
   displayName: 'Get Test Run Screenshots',
   description:
-    'Get screenshot diffs and test case screenshots for a test run. Returns visual regression results with base, head, and diff image URLs.',
+    'Get screenshot diffs and test case screenshots for a test run. Each diff includes head/base replay info and screenshot comparison URLs (base image, head image, diff image).',
   summary: 'Get test run screenshot diffs',
   icon: 'image',
   group: 'Test Runs',
@@ -21,13 +28,19 @@ export const getTestRunScreenshots = defineTool({
   output: z.object({
     diffs: z.array(
       z.object({
-        replay_diff_id: z.string(),
+        replay_diff_id: z.string().describe('Replay diff ID'),
+        head_replay: replayInfoSchema.describe('Head (actual) replay'),
+        base_replay: replayInfoSchema.describe('Base (expected) replay'),
         screenshot_diffs: z.array(diffResultSchema),
       }),
     ),
     test_case_screenshots: z.array(
       z.object({
-        replay_id: z.string(),
+        replay_id: z.string().describe('Replay ID'),
+        replay_status: z.string().nullable().describe('Replay status'),
+        replay_accurate: z.boolean().nullable().describe('Whether replay was accurate'),
+        app_url: z.string().nullable().describe('Application URL'),
+        session_id: z.string().nullable().describe('Source session ID'),
         screenshots: z.array(screenshotSchema),
       }),
     ),
@@ -35,8 +48,22 @@ export const getTestRunScreenshots = defineTool({
   handle: async ({ test_run_id, replay_diff_limit, replay_diff_offset, test_case_limit, test_case_offset }) => {
     const data = await graphql<{
       testRun: {
-        replayDiffs: Array<{ id: string; screenshotDiffResults: Array<Record<string, unknown>> }>;
-        testCaseResults: Array<{ headReplay: { id: string; screenshotsData: Array<Record<string, unknown>> } }>;
+        replayDiffs: Array<{
+          id: string;
+          headReplay: Record<string, unknown>;
+          baseReplay: Record<string, unknown>;
+          screenshotDiffResults: Array<Record<string, unknown>>;
+        }>;
+        testCaseResults: Array<{
+          headReplay: {
+            id: string;
+            status?: string;
+            isAccurate?: boolean;
+            parameters?: { appUrl?: string };
+            screenshotsData: Array<Record<string, unknown>>;
+          };
+          session?: { id?: string };
+        }>;
       };
     }>(queries.GET_TEST_RUN_SCREENSHOTS, {
       testRunId: test_run_id,
@@ -49,10 +76,16 @@ export const getTestRunScreenshots = defineTool({
     return {
       diffs: (data.testRun.replayDiffs ?? []).map(rd => ({
         replay_diff_id: rd.id,
+        head_replay: mapReplayInfo(rd.headReplay ?? {}),
+        base_replay: mapReplayInfo(rd.baseReplay ?? {}),
         screenshot_diffs: (rd.screenshotDiffResults ?? []).map(mapDiffResult),
       })),
       test_case_screenshots: (data.testRun.testCaseResults ?? []).map(tc => ({
         replay_id: tc.headReplay?.id ?? '',
+        replay_status: tc.headReplay?.status ?? null,
+        replay_accurate: tc.headReplay?.isAccurate ?? null,
+        app_url: tc.headReplay?.parameters?.appUrl ?? null,
+        session_id: tc.session?.id ?? null,
         screenshots: (tc.headReplay?.screenshotsData ?? []).map(mapScreenshot),
       })),
     };
