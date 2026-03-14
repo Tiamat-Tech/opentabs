@@ -160,6 +160,10 @@ const setSkipPermissions = (skipPermissions: boolean): Promise<unknown> =>
 const openPluginTab = (pluginName: string): Promise<{ opened: boolean; tabId?: number }> =>
   sendBgMessage<{ opened: boolean; tabId?: number }>({ type: 'bg:openPluginTab', pluginName });
 
+/** Save plugin settings (relayed to MCP server via background script) */
+const setPluginSettings = (plugin: string, settings: Record<string, unknown>): Promise<unknown> =>
+  sendBgMessage({ type: 'bg:setPluginSettings', plugin, settings });
+
 /** Open a folder in the system file manager (relayed to MCP server) */
 const openFolder = (path: string): Promise<{ ok: true }> =>
   sendBgMessage<{ ok: true }>({ type: 'bg:openFolder', path });
@@ -199,6 +203,7 @@ export {
   sendConfirmationResponse,
   setAllToolsPermission,
   setPluginPermission,
+  setPluginSettings,
   setSkipPermissions,
   setToolPermission,
   updatePlugin,

@@ -2,12 +2,13 @@
 
 import type { ToolPermission } from '@opentabs-dev/shared';
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
-import { ChevronDown, ShieldQuestionMark } from 'lucide-react';
+import { ChevronDown, Settings, ShieldQuestionMark } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { PluginState, WireToolDef } from '../bridge.js';
 import { matchesTool, openPluginTab, setPluginPermission, setToolPermission } from '../bridge.js';
 import { ERROR_DISPLAY_DURATION_MS } from '../constants.js';
+import { ConfigDialog, needsSetup } from './ConfigDialog.js';
 import { PluginIcon } from './PluginIcon.js';
 import { PluginMenu } from './PluginMenu.js';
 import { Accordion } from './retro/Accordion.js';
@@ -42,6 +43,7 @@ const PluginCard = ({
   actionError?: string | null;
   transitionClass?: string;
 }) => {
+  const [configOpen, setConfigOpen] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
   /** Pending unreviewed permission change awaiting user confirmation. */
   const [pendingChange, setPendingChange] = useState<{
@@ -141,6 +143,7 @@ const PluginCard = ({
   const toolGroups = groupTools(visibleTools);
 
   const inactive = plugin.tabState !== 'ready';
+  const isUnconfigured = needsSetup(plugin.configSchema, plugin.resolvedSettings);
 
   const tabCount = plugin.tabs?.length ?? 0;
   const hasHomepage = Boolean(plugin.homepage);
@@ -245,6 +248,19 @@ const PluginCard = ({
                 <Tooltip.Content>This plugin version has not been reviewed</Tooltip.Content>
               </Tooltip>
             )}
+            {isUnconfigured && (
+              <Tooltip>
+                <Tooltip.Trigger asChild>
+                  <span className="inline-flex items-center gap-0.5 align-middle">
+                    <Settings className="inline-block h-3.5 w-3.5 text-muted-foreground" />
+                    <Badge variant="outline" size="sm" className="text-muted-foreground">
+                      Needs Setup
+                    </Badge>
+                  </span>
+                </Tooltip.Trigger>
+                <Tooltip.Content>This plugin has required settings that are not configured</Tooltip.Content>
+              </Tooltip>
+            )}
           </div>
           <ChevronDown
             className={`h-4 w-4 shrink-0 transition-transform duration-200 ${inactive ? 'text-muted-foreground' : ''}`}
@@ -258,6 +274,7 @@ const PluginCard = ({
           removing={removingPlugin ?? false}
           muted={inactive}
           className="flex shrink-0 items-center px-1"
+          onConfigOpen={() => setConfigOpen(true)}
         />
         <div className="flex shrink-0 items-center px-3">
           <PermissionSelect
@@ -282,22 +299,47 @@ const PluginCard = ({
       )}
 
       <Accordion.Content className="border-border border-t">
-        {toolFilter && (
-          <div className="mb-1 px-3 pt-2 text-muted-foreground text-xs">
-            {visibleTools.length} of {pluginTools.length} tools
+        {isUnconfigured ? (
+          <div className="flex flex-col items-center gap-2 px-3 py-4">
+            <p className="text-center text-muted-foreground text-xs">This plugin requires configuration before use.</p>
+            <Button size="sm" onClick={() => setConfigOpen(true)}>
+              <Settings className="mr-1.5 h-3.5 w-3.5" />
+              Configure
+            </Button>
           </div>
-        )}
-        {toolGroups !== null
-          ? toolGroups.map(group => (
-              <div key={group.name} className="[&:not(:first-child)]:mt-2">
-                <div className="border-border border-b border-l-2 border-l-primary bg-muted/30 px-3 py-1">
-                  <span className="font-head text-muted-foreground text-xs uppercase tracking-wider">{group.name}</span>
-                </div>
-                {renderToolList(group.tools)}
+        ) : (
+          <>
+            {toolFilter && (
+              <div className="mb-1 px-3 pt-2 text-muted-foreground text-xs">
+                {visibleTools.length} of {pluginTools.length} tools
               </div>
-            ))
-          : renderToolList(visibleTools)}
+            )}
+            {toolGroups !== null
+              ? toolGroups.map(group => (
+                  <div key={group.name} className="[&:not(:first-child)]:mt-2">
+                    <div className="border-border border-b border-l-2 border-l-primary bg-muted/30 px-3 py-1">
+                      <span className="font-head text-muted-foreground text-xs uppercase tracking-wider">
+                        {group.name}
+                      </span>
+                    </div>
+                    {renderToolList(group.tools)}
+                  </div>
+                ))
+              : renderToolList(visibleTools)}
+          </>
+        )}
       </Accordion.Content>
+
+      {plugin.configSchema && Object.keys(plugin.configSchema).length > 0 && (
+        <ConfigDialog
+          open={configOpen}
+          onOpenChange={setConfigOpen}
+          pluginName={plugin.name}
+          displayName={plugin.displayName}
+          configSchema={plugin.configSchema}
+          resolvedSettings={plugin.resolvedSettings}
+        />
+      )}
 
       <Dialog open={pendingChange !== null} onOpenChange={open => !open && setPendingChange(null)}>
         <Dialog.Content onInteractOutside={(e: Event) => e.preventDefault()}>

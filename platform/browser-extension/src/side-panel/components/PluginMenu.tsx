@@ -1,4 +1,4 @@
-import { ArrowUpCircle, FolderOpen, MoreHorizontal, Package, Trash2 } from 'lucide-react';
+import { ArrowUpCircle, Cog, FolderOpen, MoreHorizontal, Package, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { PluginState } from '../bridge';
 import { openFolder } from '../bridge';
@@ -16,6 +16,8 @@ interface PluginMenuProps {
   /** Use muted icon color (for inactive/disconnected plugins). */
   muted?: boolean;
   className?: string;
+  /** Callback to open the plugin settings dialog */
+  onConfigOpen?: () => void;
 }
 
 const VersionItem = ({ plugin }: { plugin: PluginState }) => {
@@ -42,7 +44,16 @@ const VersionItem = ({ plugin }: { plugin: PluginState }) => {
   );
 };
 
-const PluginMenu = ({ plugin, onUpdate, onRemove, updating, removing, muted, className }: PluginMenuProps) => {
+const PluginMenu = ({
+  plugin,
+  onUpdate,
+  onRemove,
+  updating,
+  removing,
+  muted,
+  className,
+  onConfigOpen,
+}: PluginMenuProps) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const isLocal = plugin.source === 'local';
@@ -79,6 +90,12 @@ const PluginMenu = ({ plugin, onUpdate, onRemove, updating, removing, muted, cla
             <Menu.Item onClick={onUpdate}>
               {updating ? <Loader size="sm" /> : <ArrowUpCircle className="h-3.5 w-3.5" />}
               Update to v{plugin.update.latestVersion}
+            </Menu.Item>
+          )}
+          {onConfigOpen && plugin.configSchema && Object.keys(plugin.configSchema).length > 0 && (
+            <Menu.Item onSelect={onConfigOpen}>
+              <Cog className="h-3.5 w-3.5" />
+              Settings
             </Menu.Item>
           )}
           <Menu.Item onSelect={() => setConfirmOpen(true)} variant="destructive" className="border-border border-t">
