@@ -324,6 +324,7 @@ const handleHealth = async (
       sdkVersion: p.sdkVersion ?? null,
       logBufferSize: getLogCount(p.name),
       needsSetup,
+      ...(p.configSchema ? { configSchema: p.configSchema } : {}),
       ...(p.iconSvg ? { iconSvg: p.iconSvg } : {}),
     };
   });

@@ -1,4 +1,5 @@
 import type {
+  ConfigSchema,
   ConfigStateBrowserTool,
   ConfigStateFailedPlugin,
   ConfigStatePlugin,
@@ -147,6 +148,8 @@ interface ServerOnlyPluginFields {
   npmPackageName?: string;
   sdkVersion?: string;
   update?: { latestVersion: string; updateCommand: string };
+  configSchema?: ConfigSchema;
+  resolvedSettings?: Record<string, string | number | boolean>;
 }
 
 /** Extract server-only fields from a raw JSON payload with runtime type validation. */
@@ -157,6 +160,12 @@ const extractServerOnlyFields = (raw: Record<string, unknown> | undefined): Serv
   ...(typeof raw?.sdkVersion === 'string' ? { sdkVersion: raw.sdkVersion } : {}),
   ...(raw?.update && typeof raw.update === 'object'
     ? { update: raw.update as { latestVersion: string; updateCommand: string } }
+    : {}),
+  ...(raw?.configSchema && typeof raw.configSchema === 'object'
+    ? { configSchema: raw.configSchema as ConfigSchema }
+    : {}),
+  ...(raw?.resolvedSettings && typeof raw.resolvedSettings === 'object'
+    ? { resolvedSettings: raw.resolvedSettings as Record<string, string | number | boolean> }
     : {}),
 });
 

@@ -122,6 +122,7 @@ const sendSyncFull = async (state: ServerState): Promise<void> => {
       source: configPlugin?.source ?? p.source,
       ...(configPlugin?.sdkVersion ? { sdkVersion: configPlugin.sdkVersion } : {}),
       ...(configPlugin?.update ? { update: configPlugin.update } : {}),
+      ...(configPlugin?.configSchema ? { configSchema: configPlugin.configSchema } : {}),
       ...(configPlugin?.resolvedSettings ? { resolvedSettings: configPlugin.resolvedSettings } : {}),
     };
   });
@@ -424,6 +425,7 @@ const sendPluginUpdate = async (
       sourcePath: plugin.sourcePath,
       adapterHash: plugin.adapterHash,
       adapterFile,
+      ...(plugin.configSchema ? { configSchema: plugin.configSchema } : {}),
       ...(hasResolvedSettings ? { resolvedSettings: resolvedValues } : {}),
     },
   });

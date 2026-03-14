@@ -95,6 +95,10 @@ interface PluginDetail {
   logBufferSize: number;
   /** Per-tab details: tabId, url, title, ready status. */
   tabs?: Array<{ tabId: number; url: string; title: string; ready: boolean }>;
+  /** Whether the plugin has required configSchema fields that are unconfigured. */
+  needsSetup?: boolean;
+  /** Plugin's configSchema (typed field definitions) when defined. */
+  configSchema?: Record<string, { type: string; label: string; required?: boolean; [key: string]: unknown }>;
   /** Optional SVG icon from the plugin's package.json opentabs field. */
   iconSvg?: string;
 }
@@ -202,6 +206,8 @@ interface OpentabsConfig {
    * migrated to the permissions map yet.
    */
   tools?: Record<string, boolean>;
+  /** Per-plugin settings (short plugin name → key/value pairs). */
+  settings?: Record<string, Record<string, unknown>>;
 }
 
 /**
