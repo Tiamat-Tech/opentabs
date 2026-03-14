@@ -132,6 +132,7 @@ interface ValidatedPluginPayload {
   sourcePath?: string;
   adapterHash?: string;
   adapterFile?: string;
+  resolvedSettings?: Record<string, string | number | boolean>;
   iconSvg?: string;
   iconInactiveSvg?: string;
   iconDarkSvg?: string;
@@ -171,12 +172,28 @@ const toPluginMeta = (p: ValidatedPluginPayload): PluginMeta => ({
   sourcePath: p.sourcePath,
   adapterHash: p.adapterHash,
   adapterFile: p.adapterFile,
+  resolvedSettings: p.resolvedSettings,
   iconSvg: p.iconSvg,
   iconInactiveSvg: p.iconInactiveSvg,
   iconDarkSvg: p.iconDarkSvg,
   iconDarkInactiveSvg: p.iconDarkInactiveSvg,
   tools: p.tools,
 });
+
+/** Parse and validate a resolvedSettings object from a raw payload value. */
+const parseResolvedSettings = (raw: unknown): Record<string, string | number | boolean> | undefined => {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
+  const obj = raw as Record<string, unknown>;
+  const result: Record<string, string | number | boolean> = {};
+  let hasEntries = false;
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      result[key] = value;
+      hasEntries = true;
+    }
+  }
+  return hasEntries ? result : undefined;
+};
 
 /**
  * Validate a raw plugin payload from sync.full or plugin.update.
@@ -258,6 +275,7 @@ const validatePluginPayload = (raw: unknown): ValidatedPluginPayload | null => {
     sourcePath: typeof obj.sourcePath === 'string' ? obj.sourcePath : undefined,
     adapterHash: typeof obj.adapterHash === 'string' ? obj.adapterHash : undefined,
     adapterFile: typeof obj.adapterFile === 'string' ? obj.adapterFile : undefined,
+    resolvedSettings: parseResolvedSettings(obj.resolvedSettings),
     iconSvg: typeof obj.iconSvg === 'string' ? obj.iconSvg : undefined,
     iconInactiveSvg: typeof obj.iconInactiveSvg === 'string' ? obj.iconInactiveSvg : undefined,
     iconDarkSvg: typeof obj.iconDarkSvg === 'string' ? obj.iconDarkSvg : undefined,
@@ -361,6 +379,7 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
         meta.adapterFile,
         meta.adapterHash,
         meta.excludePatterns,
+        meta.resolvedSettings,
       ),
     ),
   );
@@ -475,6 +494,7 @@ const handlePluginUpdate = async (params: Record<string, unknown>): Promise<void
     meta.adapterFile,
     undefined,
     meta.excludePatterns,
+    meta.resolvedSettings,
   );
 
   // Report updated tab state to the server after re-injection so the MCP

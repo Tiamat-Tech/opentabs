@@ -43,6 +43,7 @@ import {
   serializePluginForExtension,
 } from './extension-handlers.js';
 import { log } from './logger.js';
+import { resolvePluginSettings } from './settings-resolver.js';
 import type { ConfirmationDecision, ExtensionConnection, PendingDispatch, ServerState } from './state.js';
 import {
   DISPATCH_TIMEOUT_MS,
@@ -121,6 +122,7 @@ const sendSyncFull = async (state: ServerState): Promise<void> => {
       source: configPlugin?.source ?? p.source,
       ...(configPlugin?.sdkVersion ? { sdkVersion: configPlugin.sdkVersion } : {}),
       ...(configPlugin?.update ? { update: configPlugin.update } : {}),
+      ...(configPlugin?.resolvedSettings ? { resolvedSettings: configPlugin.resolvedSettings } : {}),
     };
   });
 
@@ -404,6 +406,16 @@ const sendPluginUpdate = async (
   await ensureAdaptersDir(state);
   const adapterFile = await writeAdapterFile(pluginName, iife, sourceMap);
 
+  const userSettings = state.pluginSettings[pluginName];
+  const { resolvedValues } = resolvePluginSettings(
+    pluginName,
+    plugin.urlPatterns,
+    plugin.homepage,
+    plugin.configSchema,
+    userSettings,
+  );
+  const hasResolvedSettings = Object.keys(resolvedValues).length > 0;
+
   const sent = sendToExtension(state, {
     jsonrpc: '2.0',
     method: 'plugin.update',
@@ -412,6 +424,7 @@ const sendPluginUpdate = async (
       sourcePath: plugin.sourcePath,
       adapterHash: plugin.adapterHash,
       adapterFile,
+      ...(hasResolvedSettings ? { resolvedSettings: resolvedValues } : {}),
     },
   });
   if (!sent) log.warn('Failed to send plugin.update — extension not connected');

@@ -210,6 +210,31 @@ const injectReadinessRelay = async (tabId: number): Promise<void> => {
 };
 
 /**
+ * Inject resolved plugin settings into a tab's MAIN world.
+ * Sets globalThis.__openTabs.pluginConfig so getConfig() works in
+ * onActivate and tool handlers. Must run before the adapter IIFE.
+ */
+const injectPluginConfig = async (
+  tabId: number,
+  settings: Record<string, string | number | boolean>,
+): Promise<void> => {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: (config: Record<string, string | number | boolean>) => {
+        const ot = ((globalThis as Record<string, unknown>).__openTabs ?? {}) as Record<string, unknown>;
+        (globalThis as Record<string, unknown>).__openTabs = ot;
+        ot.pluginConfig = config;
+      },
+      args: [settings],
+    });
+  } catch (err) {
+    console.warn(`[opentabs] injectPluginConfig failed for tab ${String(tabId)}:`, err);
+  }
+};
+
+/**
  * Inject an adapter file into a single tab via chrome.scripting.executeScript.
  *
  * Uses content-hashed filenames so each adapter version gets a unique path,
@@ -222,11 +247,16 @@ const injectAdapterFile = async (
   pluginName: string,
   adapterHash?: string,
   adapterFilePath?: string,
+  resolvedSettings?: Record<string, string | number | boolean>,
 ): Promise<void> => {
   // Inject relays in ISOLATED world before the adapter IIFE (MAIN world)
   // so postMessage listeners are in place when the adapter starts.
   await injectLogRelay(tabId);
   await injectReadinessRelay(tabId);
+
+  // Inject resolved settings into MAIN world before the adapter IIFE so
+  // getConfig() returns values in onActivate and tool handlers.
+  await injectPluginConfig(tabId, resolvedSettings ?? {});
 
   const adapterFile = adapterFilePath ?? `adapters/${pluginName}.js`;
   try {
@@ -383,6 +413,7 @@ const injectPluginIntoMatchingTabs = async (
   adapterFile?: string,
   skipIfHashMatches?: string,
   excludePatterns?: string[],
+  resolvedSettings?: Record<string, string | number | boolean>,
 ): Promise<number[]> => {
   if (!isSafePluginName(pluginName)) {
     console.warn(`[opentabs] Skipping injection for unsafe plugin name: ${pluginName}`);
@@ -416,7 +447,7 @@ const injectPluginIntoMatchingTabs = async (
         await prepareForReinjection(tabId);
       }
 
-      await injectAdapterFile(tabId, pluginName, adapterHash, adapterFile);
+      await injectAdapterFile(tabId, pluginName, adapterHash, adapterFile, resolvedSettings);
       return tabId;
     }),
   );
@@ -472,7 +503,7 @@ const injectPluginsIntoTab = async (tabId: number, tabUrl: string): Promise<void
   await Promise.allSettled(
     needsInjection.map(async plugin => {
       try {
-        await injectAdapterFile(tabId, plugin.name, plugin.adapterHash, plugin.adapterFile);
+        await injectAdapterFile(tabId, plugin.name, plugin.adapterHash, plugin.adapterFile, plugin.resolvedSettings);
       } catch (err) {
         console.warn(`[opentabs] Injection failed for tab ${String(tabId)}, plugin ${plugin.name}:`, err);
       }
@@ -567,6 +598,7 @@ const reinjectStoredPlugins = async (): Promise<void> => {
         plugin.adapterFile,
         undefined,
         plugin.excludePatterns,
+        plugin.resolvedSettings,
       ),
     ),
   );
