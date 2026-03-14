@@ -159,12 +159,14 @@ ${state}
 
 1. Use \`reddit_list_user_content\` (username: "opentabs-dev", where: "comments") to see our recent comments. Each comment has a \`link_id\` field (e.g. "t3_1rrf77i") — that's the post it belongs to. Collect all these link_ids plus the post_ids from the state file below — skip ALL of them.
 
-2. Search for relevant posts. Use \`reddit_search_posts\` with these queries across these subreddits:
+2. Search for relevant posts. Use \`reddit_search_posts\` with params: query (required), subreddit (optional), sort, t, limit. Examples:
+   - \`reddit_search_posts(query="MCP server for", subreddit="ClaudeAI", sort="new", t="week", limit=5)\`
+   - \`reddit_search_posts(query="browser-use alternative", sort="new", t="week", limit=5)\` (no subreddit = broad search)
+   Run these searches:
    - r/ClaudeAI: "MCP server for", "connect Claude to", "browser automation"
    - r/MCP: "looking for MCP", "browser MCP", "MCP server web"
    - r/cursor: "MCP server", "connect cursor to"
    - Broad (no subreddit): "MCP server slack", "MCP server jira", "browser-use alternative"
-   Sort by "new", time filter "week", limit 5 per search.
 
 3. For each candidate, read the full post + comments with \`reddit_get_post\`. Evaluate:
    - Is this a question OpenTabs directly answers?
