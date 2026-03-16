@@ -130,14 +130,6 @@ OpenTabs was built entirely by AI agents. Zero hand-written application code.
 
 I wrote structured PRDs — hundreds of them — and used [Ralph](https://github.com/snarktank/ralph), an autonomous agent loop, to execute them with [Claude Code](https://github.com/anthropics/claude-code). Multiple workers ran in parallel, each claiming a PRD via optimistic locking with `git push`. Every PRD is open-sourced: **[opentabs-dev/opentabs-prds](https://github.com/opentabs-dev/opentabs-prds)**.
 
-I also asked Claude to talk to Gemini about what makes ChatGPT good. Just two AIs being professionals:
-
-<p align="center">
-  <img src="assets/demo-claude-gemini-chatgpt.gif" alt="Claude talking to Gemini about ChatGPT through OpenTabs" />
-</p>
-
-[Watch the full video on YouTube](https://youtu.be/WRrCeRfiVaI)
-
 ## Contributing
 
 I'd love your help. You need [Node.js](https://nodejs.org/) 22+ and Chrome.
