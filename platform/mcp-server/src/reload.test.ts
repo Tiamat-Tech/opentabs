@@ -595,38 +595,6 @@ describe('performConfigReload', () => {
     expect(chain).toBeInstanceOf(Promise);
   });
 
-  test('preserves in-memory browser permission when disk config lacks it', async () => {
-    // Simulate: user set browser permission to 'ask' in-memory, but the async
-    // save has not flushed to disk yet. The config on disk has no browser entry.
-    state.pluginPermissions.browser = { permission: 'ask' };
-
-    // Config on disk has empty permissions (no browser entry)
-    writeConfig(configDir);
-
-    await performConfigReload(state, [], emptyTransports());
-
-    // The in-memory browser permission must survive the reload
-    expect(state.pluginPermissions.browser?.permission).toBe('ask');
-  });
-
-  test('disk browser permission takes precedence over stale in-memory value', async () => {
-    // Simulate: in-memory has 'ask', but disk was updated externally to 'auto'
-    state.pluginPermissions.browser = { permission: 'ask' };
-
-    writeFileSync(
-      join(configDir, 'config.json'),
-      JSON.stringify({
-        localPlugins: [],
-        permissions: { browser: { permission: 'auto' } },
-      }),
-    );
-
-    await performConfigReload(state, [], emptyTransports());
-
-    // Disk value wins when present
-    expect(state.pluginPermissions.browser?.permission).toBe('auto');
-  });
-
   test('config reload blocks until the previous chain link resolves', async () => {
     let resolveBlocker!: () => void;
     const blocker = new Promise<void>(resolve => {

@@ -263,15 +263,7 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
     // Compute all new state values locally before touching state.
     // This ensures an atomic swap: if any step throws, state retains its previous values.
     const newRegistry = registry;
-    // Merge permissions from disk with the in-memory 'browser' entry.
-    // The browser pseudo-plugin's permissions are set via the UI/API and saved
-    // asynchronously (fire-and-forget). If a reload reads config.json before the
-    // save completes, the disk copy lacks the browser entry. Preserving the
-    // in-memory value prevents permission resets during this race window.
     const newPluginPermissions = { ...config.permissions };
-    if (!newPluginPermissions.browser && state.pluginPermissions.browser) {
-      newPluginPermissions.browser = state.pluginPermissions.browser;
-    }
     const newPluginSettings = { ...config.settings };
     const newPluginPaths = [...config.localPlugins];
     const newDiscoveryErrors = errors;
