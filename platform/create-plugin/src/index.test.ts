@@ -207,6 +207,7 @@ describe('create-opentabs-plugin CLI', () => {
     const localShared = `file:${join(PLATFORM_DIR, 'platform', 'shared')}`;
     const localSdk = `file:${join(PLATFORM_DIR, 'platform', 'plugin-sdk')}`;
     const localPluginTools = `file:${join(PLATFORM_DIR, 'platform', 'plugin-tools')}`;
+    const localZod = `file:${join(PLATFORM_DIR, 'node_modules', 'zod')}`;
 
     /**
      * Override the scaffolded plugin's package.json to use local file: references
@@ -226,6 +227,16 @@ describe('create-opentabs-plugin CLI', () => {
       if (devDeps?.['@opentabs-dev/plugin-tools']) {
         devDeps['@opentabs-dev/plugin-tools'] = localPluginTools;
       }
+      // Pin scaffolded project's zod to the monorepo's zod copy (same reason as
+      // the override below — npm refuses to override a direct dependency unless
+      // the direct dependency's spec also uses the same target).
+      if (devDeps?.zod) {
+        devDeps.zod = localZod;
+      }
+      const peerDeps = pkg.peerDependencies as Record<string, string> | undefined;
+      if (peerDeps?.zod) {
+        peerDeps.zod = localZod;
+      }
 
       // Ensure transitive workspace:* deps from file:-linked packages can resolve.
       // When plugin-sdk is linked via file:, its workspace:* dep on shared can't
@@ -235,11 +246,18 @@ describe('create-opentabs-plugin CLI', () => {
         deps['@opentabs-dev/shared'] = localShared;
       }
 
-      // npm overrides resolve transitive @opentabs-dev/* deps to local packages
+      // npm overrides resolve transitive @opentabs-dev/* deps to local packages.
+      // The zod override pins the scaffolded project's zod to the exact same
+      // installation the file:-linked SDK uses from the monorepo root — otherwise
+      // npm installs two independent copies of zod 4.x (the scaffolded devDep
+      // resolves one version, the hoisted file:-linked SDK brings another), and
+      // TypeScript treats them as distinct types with incompatible internals
+      // (reports like "Type '3' is not assignable to type '4'" on zod version.minor).
       pkg.overrides = {
         '@opentabs-dev/shared': localShared,
         '@opentabs-dev/plugin-sdk': localSdk,
         '@opentabs-dev/plugin-tools': localPluginTools,
+        zod: localZod,
       };
 
       await writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf-8');
